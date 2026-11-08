@@ -103,7 +103,9 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
       JsonNode root = json.readTree(response.body());
       if (response.statusCode() / 100 != 2
           || (root.path("errors").isArray() && !root.path("errors").isEmpty())) {
-        throw new IllegalStateException("Runware normalization provider request failed");
+        logProviderErrors(root, response.statusCode());
+        throw new IllegalStateException(
+            "Runware normalization provider request failed with HTTP " + response.statusCode());
       }
       String text = root.path("data").path(0).path("text").asText("").trim();
       if (text.isBlank()) {
@@ -121,6 +123,32 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
           operation, model, e.getClass().getSimpleName(), e.getMessage(), e);
       throw new IllegalStateException("AI output normalization failed", e);
     }
+  }
+
+  private void logProviderErrors(JsonNode root, int httpStatus) {
+    JsonNode errors = root.path("errors");
+    if (!errors.isArray() || errors.isEmpty()) {
+      log.warn("Runware normalization provider rejected request: httpStatus={}, responseFields={}",
+          httpStatus, fieldNames(root));
+      return;
+    }
+    for (JsonNode error : errors) {
+      log.warn("Runware normalization provider error: httpStatus={}, code={}, message={}",
+          httpStatus, safeLogValue(error.path("code").asText("unknown"), 80),
+          safeLogValue(error.path("message").asText("No message supplied"), 500));
+    }
+  }
+
+  private String fieldNames(JsonNode node) {
+    java.util.List<String> names = new java.util.ArrayList<>();
+    node.fieldNames().forEachRemaining(names::add);
+    return names.toString();
+  }
+
+  private String safeLogValue(String value, int maxLength) {
+    if (value == null) return "";
+    String singleLine = value.replaceAll("[\\r\\n\\t]", " ");
+    return singleLine.length() <= maxLength ? singleLine : singleLine.substring(0, maxLength);
   }
 
   private String extractJsonObject(String value) throws Exception {
