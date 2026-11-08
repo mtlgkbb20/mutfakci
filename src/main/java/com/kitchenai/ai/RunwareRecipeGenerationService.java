@@ -39,7 +39,8 @@ public class RunwareRecipeGenerationService
   private final AiOutputNormalizer outputNormalizer;
 
   public RunwareRecipeGenerationService(
-      ObjectMapper mapper, org.springframework.core.env.Environment environment) {
+      ObjectMapper mapper, org.springframework.core.env.Environment environment,
+      AiOutputNormalizer outputNormalizer) {
     this.mapper = mapper;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey = environment.getProperty("app.ai.runware.api-key", "");
