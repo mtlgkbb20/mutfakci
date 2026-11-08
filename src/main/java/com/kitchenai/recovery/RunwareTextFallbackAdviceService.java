@@ -2,6 +2,7 @@ package com.kitchenai.recovery;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.ai.AiOutputNormalizer;
 import java.net.URI;
 import java.net.http.*;
 import java.time.Duration;
@@ -21,12 +22,14 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
   private final HttpClient http;
   private final String apiKey;
   private final String model;
+  private final AiOutputNormalizer outputNormalizer;
 
-  public RunwareTextFallbackAdviceService(ObjectMapper json,Environment env){
+  public RunwareTextFallbackAdviceService(ObjectMapper json,Environment env,AiOutputNormalizer outputNormalizer){
     this.json=json;
     this.http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey=env.getProperty("app.ai.runware.api-key","");
     this.model=env.getProperty("app.ai.runware.text-fallback-model","deepseek:v4.1@flash");
+    this.outputNormalizer=outputNormalizer;
   }
 
   @Override public Advice suggest(String recipeName,String problemDescription){
@@ -61,21 +64,38 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
         throw new IllegalStateException("Runware text fallback request failed with HTTP "+response.statusCode());
       String content=root.path("data").path(0).path("text").asText("").trim();
       if(content.isBlank()) throw new IllegalStateException("Runware returned an empty text fallback response");
-      JsonNode output=json.readTree(content);
-      Set<String> fields=new HashSet<>();
-      output.fieldNames().forEachRemaining(fields::add);
-      if(!fields.equals(Set.of("advice","caution"))
-          ||!output.path("advice").isTextual()||!output.path("caution").isTextual())
-        throw new IllegalStateException("Text fallback response did not match its contract");
-      String advice=output.path("advice").asText().trim();
-      String caution=output.path("caution").asText().trim();
-      if(advice.isBlank()||advice.length()>700||caution.length()>300)
-        throw new IllegalStateException("Text fallback response exceeded its contract");
-      return new Advice(advice,caution);
+      String schema="""
+          {"type":"object","additionalProperties":false,"required":["advice","caution"],
+           "properties":{"advice":{"type":"string","minLength":1,"maxLength":700},
+           "caution":{"type":"string","maxLength":300}}}
+          """;
+      try{
+        return parseAdvice(content);
+      }catch(Exception originalFailure){
+        if(!outputNormalizer.available())throw originalFailure;
+        String normalized=outputNormalizer.normalize("text-recovery-fallback",content,schema,
+            "Map only information present in the original Turkish advice. Do not add new cooking facts, quantities, temperatures, timings, ingredients, or food-safety claims. If caution is absent, use an empty string.");
+        return parseAdvice(normalized);
+      }
     }catch(Exception e){
       log.error("Runware text-only recovery failed: model={}, exceptionType={}, message={}",
           model,e.getClass().getSimpleName(),e.getMessage(),e);
       throw new IllegalStateException("Text-only recovery advice could not be generated",e);
     }
+  }
+
+  private Advice parseAdvice(String content)throws Exception{
+    JsonNode output=json.readTree(content.trim());
+    if(output==null||!output.isObject())throw new IllegalArgumentException("Expected JSON object");
+    Set<String> fields=new HashSet<>();
+    output.fieldNames().forEachRemaining(fields::add);
+    if(!fields.equals(Set.of("advice","caution"))
+        ||!output.path("advice").isTextual()||!output.path("caution").isTextual())
+      throw new IllegalArgumentException("Text fallback response did not match its contract");
+    String advice=output.path("advice").asText().trim();
+    String caution=output.path("caution").asText().trim();
+    if(advice.isBlank()||advice.length()>700||caution.length()>300)
+      throw new IllegalArgumentException("Text fallback response exceeded its contract");
+    return new Advice(advice,caution);
   }
 }
