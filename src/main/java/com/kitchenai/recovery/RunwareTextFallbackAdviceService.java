@@ -57,7 +57,7 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
           .build();
       HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString());
       JsonNode root=json.readTree(response.body());
-      if(response.statusCode()/100!=2||root.has("errors"))
+      if(response.statusCode()/100!=2||(root.path("errors").isArray()&&!root.path("errors").isEmpty()))
         throw new IllegalStateException("Runware text fallback request failed with HTTP "+response.statusCode());
       String content=root.path("data").path(0).path("text").asText("").trim();
       if(content.isBlank()) throw new IllegalStateException("Runware returned an empty text fallback response");
