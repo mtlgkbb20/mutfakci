@@ -19,10 +19,9 @@ SPRING_PROFILES_ACTIVE=runware \
 mvn spring-boot:run
 ```
 
-`RUNWARE_MODEL` can override the default model (`deepseek:v4.1@flash`). The backend sends
+`RUNWARE_MODEL` can override the recipe-generation model (`deepseek:v4.1@flash`). Recipe rescue uses a separate multimodal model configured with `RUNWARE_VISION_MODEL` (default `google:gemini@3.1-pro`); do not point it at a text-only model. The backend sends
 decomposition and component-generation requests through Runware's OpenAI-compatible API,
-validates every typed response, and assembles the public recipe response itself. Provider
-credentials are never committed.
+validates every typed response, and assembles the public recipe response itself. Recipe rescue sends JPEG/PNG photo data to the configured vision model, persists each recovery attempt, and requires an explicit applied-action confirmation plus a new photo and status note for follow-up. Provider credentials are never committed.
 
 ## Native mobile app
 
