@@ -120,7 +120,7 @@ export default function Recovery() {
       }, 90000);
       setResult(response);
       setAwaitingFollowUp(false);
-    } catch (e: any) { setError(e.message || "Fotoğraf değerlendirilemedi."); }
+    } catch (e: any) { setError(e.message || "Fotoğraf değerlendirilemedi."); setFallbackMode(true); }
     finally { setLoading(false); }
   };
 
