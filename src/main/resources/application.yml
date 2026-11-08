@@ -28,3 +28,4 @@ app:
       model: ${RUNWARE_MODEL:deepseek:v4.1@flash}
       vision-model: ${RUNWARE_VISION_MODEL:google:gemini@3.1-pro}
       text-fallback-model: ${RUNWARE_TEXT_FALLBACK_MODEL:deepseek:v4.1@flash}
+      normalizer-model: ${RUNWARE_NORMALIZER_MODEL:deepseek:v4.1@flash}
