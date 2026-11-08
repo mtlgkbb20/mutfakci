@@ -1,1 +1,8 @@
-package com.kitchenai.recovery; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface FeedbackRepository extends JpaRepository<CookingFeedback,UUID>{List<CookingFeedback> findBySessionIdOrderByCreatedAtDesc(UUID id);}
+package com.kitchenai.recovery;
+
+import java.util.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface FeedbackRepository extends JpaRepository<CookingFeedback, UUID> {
+  List<CookingFeedback> findBySessionIdOrderByCreatedAtDesc(UUID id);
+}

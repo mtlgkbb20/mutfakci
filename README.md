@@ -10,7 +10,19 @@ Kitchen AI is an AI-assisted cooking companion. The project uses a Java 21/Sprin
 4. Start the web client: `cd frontend && npm install && npm run dev`.
 5. Open `http://localhost:5173`.
 
-The default AI mode is an isolated development recipe provider. It is suitable for local UI and persistence development, but is not a production AI integration. Provider credentials are never committed.
+The default AI mode is an isolated development recipe provider. To enable Runware, set a
+Runware API key and activate the provider profile:
+
+```bash
+RUNWARE_API_KEY=your-key \
+SPRING_PROFILES_ACTIVE=runware \
+mvn spring-boot:run
+```
+
+`RUNWARE_MODEL` can override the default model (`deepseek:v4.1@flash`). The backend sends
+decomposition and component-generation requests through Runware's OpenAI-compatible API,
+validates every typed response, and assembles the public recipe response itself. Provider
+credentials are never committed.
 
 ## Native mobile app
 
