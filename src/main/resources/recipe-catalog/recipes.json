@@ -1,10 +1,53 @@
 [
   {
-    "schemaVersion":1,"id":"carrot-cinnamon-cake","title":"Havuçlu Tarçınlı Kek",
-    "aliases":["havuçlu kek","tarçınlı havuç keki","carrot cinnamon cake"],"locale":"tr-TR","category":"CAKE",
-    "searchTerms":["havuç","tarçın","ceviz","kek"],"defaultServings":8,"estimatedTotalMinutes":55,
-    "description":"Havuç ve tarçın aromalı, yumuşak ev keki.",
-    "ingredients":[{"name":"Havuç","quantity":2,"unit":"adet","preparation":"Rendelenmiş"},{"name":"Un","quantity":2,"unit":"su bardağı","preparation":"Elenmiş"},{"name":"Yumurta","quantity":3,"unit":"adet","preparation":""},{"name":"Tarçın","quantity":1,"unit":"çay kaşığı","preparation":""}],
-    "steps":[{"order":1,"title":"Hamuru hazırla","instruction":"Yumurta ve şekeri çırpıp havuç, un ve tarçını ekleyin.","completionCue":"Karışım homojen ve akışkan olmalı.","temperature":null,"durationSeconds":300},{"order":2,"title":"Keki pişir","instruction":"Hamuru kalıba aktarın ve 175°C fırında pişirin.","completionCue":"Ortaya batırılan kürdan temiz çıkmalı.","temperature":175,"durationSeconds":2400}]
+    "schemaVersion": 1,
+    "id": "carrot-cinnamon-cake",
+    "title": "Havuçlu Tarçınlı Kek",
+    "aliases": ["havuçlu kek", "tarçınlı havuç keki", "carrot cinnamon cake"],
+    "locale": "tr-TR",
+    "category": "CAKE",
+    "searchTerms": ["havuç", "tarçın", "ceviz", "kek"],
+    "defaultServings": 8,
+    "estimatedTotalMinutes": 55,
+    "description": "Havuç ve tarçın aromalı, yumuşak ev keki.",
+    "ingredients": [
+      {
+        "name": "Havuç",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Rendelenmiş"
+      },
+      {
+        "name": "Un",
+        "quantity": 2,
+        "unit": "su bardağı",
+        "preparation": "Elenmiş"
+      },
+      { "name": "Yumurta", "quantity": 3, "unit": "adet", "preparation": "" },
+      {
+        "name": "Tarçın",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Hamuru hazırla",
+        "instruction": "Yumurta ve şekeri çırpıp havuç, un ve tarçını ekleyin.",
+        "completionCue": "Karışım homojen ve akışkan olmalı.",
+        "temperature": null,
+        "durationSeconds": 300
+      },
+      {
+        "order": 2,
+        "title": "Keki pişir",
+        "instruction": "Hamuru kalıba aktarın ve 175°C fırında pişirin.",
+        "completionCue": "Ortaya batırılan kürdan temiz çıkmalı.",
+        "temperature": 175,
+        "durationSeconds": 2400
+      }
+    ]
   }
 ]

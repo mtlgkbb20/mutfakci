@@ -1,4 +1,111 @@
-package com.kitchenai.recovery; import com.fasterxml.jackson.core.JsonProcessingException; import com.fasterxml.jackson.databind.ObjectMapper; import com.kitchenai.cooking.*; import com.kitchenai.common.ApiException; import org.springframework.beans.factory.annotation.Value; import org.springframework.http.*; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.web.bind.annotation.*; import org.springframework.web.multipart.MultipartFile; import java.io.*; import java.nio.file.*; import java.util.*;
-@RestController @RequestMapping("/api/v1/cooking-sessions/{sessionId}") public class RecoveryController {private final CookingSessionRepository sessions;private final ObservationRepository observations;private final FeedbackRepository feedback;private final ObjectMapper json;private final Path storage; public RecoveryController(CookingSessionRepository s,ObservationRepository o,FeedbackRepository f,ObjectMapper j,@Value("${app.storage-path}")String path){sessions=s;observations=o;feedback=f;json=j;storage=Path.of(path);}
- @PostMapping(value="/observations",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public Map<String,Object> observe(@PathVariable UUID sessionId,@AuthenticationPrincipal UUID user,@RequestPart("image") MultipartFile image,@RequestPart(value="desiredOutcome",required=false)String outcome){var session=sessions.findById(sessionId).filter(x->x.getUserId().equals(user)).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Session not found"));if(image.isEmpty()||!List.of("image/jpeg","image/png","image/webp").contains(image.getContentType()))throw new ApiException(HttpStatus.BAD_REQUEST,"Use a JPEG, PNG, or WebP image");if(image.getSize()>10_000_000)throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE,"Image is too large");try{Files.createDirectories(storage);String key=user+"/"+UUID.randomUUID()+extension(image.getContentType());Files.createDirectories(storage.resolve(user.toString()));image.transferTo(storage.resolve(key));String observed="{\"productType\":\"CAKE_BATTER\",\"consistency\":\"UNCERTAIN\",\"confidence\":0.0}";String comparison="{\"status\":\"UNCERTAIN\"}";var o=observations.save(new CookingObservation(sessionId,key,observed,comparison,0.0));var f=feedback.save(new CookingFeedback(sessionId,o.getId(),"UNCERTAIN","ASK","{}","IMAGE_UNCLEAR","UNCERTAIN","Daha net bir fotoğraf gönder."));return Map.of("status",f.getStatus(),"action",f.getAction(),"message",f.getResolvedMessage(),"requiresUserInput",true,"nextStep","WAIT_FOR_USER");}catch(IOException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Image could not be stored");}}
- @GetMapping("/observations") public List<CookingObservation> observations(@PathVariable UUID sessionId,@AuthenticationPrincipal UUID user){own(sessionId,user);return observations.findBySessionIdOrderByCreatedAtDesc(sessionId);} @GetMapping("/feedback") public List<CookingFeedback> feedback(@PathVariable UUID sessionId,@AuthenticationPrincipal UUID user){own(sessionId,user);return feedback.findBySessionIdOrderByCreatedAtDesc(sessionId);} private void own(UUID id,UUID user){if(sessions.findById(id).filter(x->x.getUserId().equals(user)).isEmpty())throw new ApiException(HttpStatus.NOT_FOUND,"Session not found");} private String extension(String type){return type.equals("image/png")?".png":type.equals("image/webp")?".webp":".jpg";}}
+package com.kitchenai.recovery;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.common.ApiException;
+import com.kitchenai.cooking.*;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+@RestController
+@RequestMapping("/api/v1/cooking-sessions/{sessionId}")
+public class RecoveryController {
+  private final CookingSessionRepository sessions;
+  private final ObservationRepository observations;
+  private final FeedbackRepository feedback;
+  private final ObjectMapper json;
+  private final Path storage;
+
+  public RecoveryController(
+      CookingSessionRepository s,
+      ObservationRepository o,
+      FeedbackRepository f,
+      ObjectMapper j,
+      @Value("${app.storage-path}") String path) {
+    sessions = s;
+    observations = o;
+    feedback = f;
+    json = j;
+    storage = Path.of(path);
+  }
+
+  @PostMapping(value = "/observations", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public Map<String, Object> observe(
+      @PathVariable UUID sessionId,
+      @AuthenticationPrincipal UUID user,
+      @RequestPart("image") MultipartFile image,
+      @RequestPart(value = "desiredOutcome", required = false) String outcome) {
+    var session =
+        sessions
+            .findById(sessionId)
+            .filter(x -> x.getUserId().equals(user))
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Session not found"));
+    if (image.isEmpty()
+        || !List.of("image/jpeg", "image/png", "image/webp").contains(image.getContentType()))
+      throw new ApiException(HttpStatus.BAD_REQUEST, "Use a JPEG, PNG, or WebP image");
+    if (image.getSize() > 10_000_000)
+      throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "Image is too large");
+    try {
+      Files.createDirectories(storage);
+      String key = user + "/" + UUID.randomUUID() + extension(image.getContentType());
+      Files.createDirectories(storage.resolve(user.toString()));
+      image.transferTo(storage.resolve(key));
+      String observed =
+          "{\"productType\":\"CAKE_BATTER\",\"consistency\":\"UNCERTAIN\",\"confidence\":0.0}";
+      String comparison = "{\"status\":\"UNCERTAIN\"}";
+      var o = observations.save(new CookingObservation(sessionId, key, observed, comparison, 0.0));
+      var f =
+          feedback.save(
+              new CookingFeedback(
+                  sessionId,
+                  o.getId(),
+                  "UNCERTAIN",
+                  "ASK",
+                  "{}",
+                  "IMAGE_UNCLEAR",
+                  "UNCERTAIN",
+                  "Daha net bir fotoğraf gönder."));
+      return Map.of(
+          "status",
+          f.getStatus(),
+          "action",
+          f.getAction(),
+          "message",
+          f.getResolvedMessage(),
+          "requiresUserInput",
+          true,
+          "nextStep",
+          "WAIT_FOR_USER");
+    } catch (IOException e) {
+      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Image could not be stored");
+    }
+  }
+
+  @GetMapping("/observations")
+  public List<CookingObservation> observations(
+      @PathVariable UUID sessionId, @AuthenticationPrincipal UUID user) {
+    own(sessionId, user);
+    return observations.findBySessionIdOrderByCreatedAtDesc(sessionId);
+  }
+
+  @GetMapping("/feedback")
+  public List<CookingFeedback> feedback(
+      @PathVariable UUID sessionId, @AuthenticationPrincipal UUID user) {
+    own(sessionId, user);
+    return feedback.findBySessionIdOrderByCreatedAtDesc(sessionId);
+  }
+
+  private void own(UUID id, UUID user) {
+    if (sessions.findById(id).filter(x -> x.getUserId().equals(user)).isEmpty())
+      throw new ApiException(HttpStatus.NOT_FOUND, "Session not found");
+  }
+
+  private String extension(String type) {
+    return type.equals("image/png") ? ".png" : type.equals("image/webp") ? ".webp" : ".jpg";
+  }
+}

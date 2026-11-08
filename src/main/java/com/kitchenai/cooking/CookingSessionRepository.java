@@ -1,1 +1,8 @@
-package com.kitchenai.cooking; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface CookingSessionRepository extends JpaRepository<CookingSession,UUID>{List<CookingSession> findTop10ByUserIdOrderByStartedAtDesc(UUID userId);}
+package com.kitchenai.cooking;
+
+import java.util.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CookingSessionRepository extends JpaRepository<CookingSession, UUID> {
+  List<CookingSession> findTop10ByUserIdOrderByStartedAtDesc(UUID userId);
+}

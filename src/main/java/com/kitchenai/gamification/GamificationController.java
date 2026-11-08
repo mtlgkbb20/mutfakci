@@ -1,1 +1,21 @@
-package com.kitchenai.gamification; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.web.bind.annotation.*; import java.util.*; @RestController @RequestMapping("/api/v1/gamification") public class GamificationController {private final UserProgressRepository repo; public GamificationController(UserProgressRepository r){repo=r;} @GetMapping("/progress") public Map<String,Object> progress(@AuthenticationPrincipal UUID user){var p=repo.findByUserId(user).orElseGet(()->repo.save(new UserProgress(user)));return Map.of("totalXp",p.getTotalXp(),"level",p.getCurrentLevel());}}
+package com.kitchenai.gamification;
+
+import java.util.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/gamification")
+public class GamificationController {
+  private final UserProgressRepository repo;
+
+  public GamificationController(UserProgressRepository r) {
+    repo = r;
+  }
+
+  @GetMapping("/progress")
+  public Map<String, Object> progress(@AuthenticationPrincipal UUID user) {
+    var p = repo.findByUserId(user).orElseGet(() -> repo.save(new UserProgress(user)));
+    return Map.of("totalXp", p.getTotalXp(), "level", p.getCurrentLevel());
+  }
+}
