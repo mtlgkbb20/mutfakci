@@ -117,9 +117,15 @@ export default function Recovery() {
         { method: "POST", body: form }, 90000,
       );
       setResult(response);
-      setAwaitingFollowUp(false);
-      setFollowUpMode(false);
-      setStatusText("");
+      if (response.status === "REQUEST_NEW_IMAGE") {
+        setAwaitingFollowUp(true);
+        setFollowUpMode(true);
+        setImage(undefined);
+      } else {
+        setAwaitingFollowUp(false);
+        setFollowUpMode(false);
+        setStatusText("");
+      }
     } catch (e: any) { setError(e.message || "Takip fotoğrafı değerlendirilemedi."); }
     finally { setLoading(false); }
   };
@@ -151,6 +157,9 @@ export default function Recovery() {
           {followUpMode
             ? "Düzeltmeyi uyguladıktan sonra yeni bir fotoğraf çek ve değişimi kısaca anlat."
             : "Net bir fotoğraf yükle. Sorunu ve istediğin sonucu belirtmek isteğe bağlı."}
+        </Text>
+        <Text style={[s.recipeMeta, { marginBottom: 10 }]}>
+          Fotoğraf tek başına gıda güvenliğini veya iç sıcaklığı kanıtlamaz. Şüpheli yiyeceğin tadına bakma.
         </Text>
 
         {image && <Image source={{ uri: image.uri }} style={{ height: 230, borderRadius: 18, marginBottom: 10 }} resizeMode="cover" />}
@@ -215,7 +224,9 @@ export default function Recovery() {
             {isReady && <Button onPress={() => router.replace("/dashboard")}>Tarife devam et</Button>}
             {isRemake && <Button secondary onPress={() => router.replace("/dashboard")}>Dashboard’a dön</Button>}
             {result.status === "REQUEST_NEW_IMAGE" && (
-              <Button secondary onPress={() => { setResult(undefined); setImage(undefined); }}>Yeni fotoğraf çek</Button>
+              <Button secondary onPress={() => { setImage(undefined); if (!followUpMode) setResult(undefined); }}>
+                Yeni fotoğraf çek
+              </Button>
             )}
             {result.status === "VISION_PROVIDER_UNAVAILABLE" && (
               <Button secondary onPress={() => router.replace("/dashboard")}>Dashboard’a dön</Button>
