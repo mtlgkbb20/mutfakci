@@ -60,6 +60,7 @@ public class RecipeRecoveryAttempt {
   public Instant getCreatedAt(){return createdAt;}
   public void markImageRejected(int trust,String observed){imageTrustScore=trust;observedStateJson=observed;status="IMAGE_REJECTED";}
   public void markUnavailable(String reason){status="VISION_PROVIDER_UNAVAILABLE";assessmentJson=reason;}
+  public void markAnalysisIncomplete(String reason){status="ANALYSIS_INCOMPLETE";assessmentJson=reason;}
   public void applyAnalysis(int trust,BigDecimal confidence,Integer proximity,String observed,
       String target,String assessment,String action,String newStatus){
     imageTrustScore=trust;analysisConfidence=confidence;targetProximityScore=proximity;
