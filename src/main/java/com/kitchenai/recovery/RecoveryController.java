@@ -170,8 +170,10 @@ public class RecoveryController {
       if(!RecoveryImageTrustPolicy.accepts(analysis.imageTrustScore())){
         attempt.markImageRejected(analysis.imageTrustScore(),"{\"reason\":\"IMAGE_NOT_CLEAR\"}");
         attempts.save(attempt);
+        String reason=analysis.problemSummary()==null||analysis.problemSummary().isBlank()
+            ?"Fotoğraf yeterince net veya ilgili değil.":"Fotoğraf net değil: "+analysis.problemSummary();
         return response(Status.REQUEST_NEW_IMAGE,attempt,null,null,null,null,
-            "Fotoğraf yeterince net veya ilgili değil. Bileşeni daha yakından, iyi ışıkta yeniden çek.");
+            reason+" Bileşeni daha yakından, iyi ışıkta yeniden çek.");
       }
       if(analysis.analysisConfidence().doubleValue()<0.65
           ||(analysis.targetProximityScore()>=50&&analysis.targetProximityScore()<90
