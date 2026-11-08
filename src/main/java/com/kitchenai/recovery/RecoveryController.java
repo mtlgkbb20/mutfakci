@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.*;
 import javax.imageio.ImageIO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/cooking-sessions/{sessionId}/recovery-attempts")
 public class RecoveryController {
+  private static final Logger log = LoggerFactory.getLogger(RecoveryController.class);
   private static final long MAX_BYTES=10_000_000L, MAX_PIXELS=20_000_000L;
   private static final long MAX_ATTEMPTS_PER_HOUR=20;
   private static final Set<String> PROBLEM_CATEGORIES=Set.of("TOO_HARD","TOO_SOFT","TOO_STICKY",
@@ -154,6 +157,8 @@ public class RecoveryController {
         attempts.save(parent);
       }
       if(!vision.available()){
+        log.error("Recipe recovery vision is unavailable: sessionId={}, attemptId={}, implementation={}",
+            session.getId(), attempt.getId(), vision.getClass().getSimpleName());
         attempt.markUnavailable("Vision model is not configured.");
         attempts.save(attempt);
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
@@ -162,6 +167,9 @@ public class RecoveryController {
       Analysis analysis;
       try{analysis=vision.analyze(bytes,mime,buildContext(recipe,session,component,category,description,statusText,outcome,parent));}
       catch(ApiException providerError){
+        log.error("Recipe recovery vision provider failed: sessionId={}, attemptId={}, implementation={}, reason={}",
+            session.getId(), attempt.getId(), vision.getClass().getSimpleName(),
+            providerError.getMessage(), providerError);
         attempt.markUnavailable("Vision provider request failed.");
         attempts.save(attempt);
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
