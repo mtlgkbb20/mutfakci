@@ -28,7 +28,7 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
     this.json=json;
     this.http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey=env.getProperty("app.ai.runware.api-key","");
-    this.model=env.getProperty("app.ai.runware.text-fallback-model","deepseek:v4.1@flash");
+    this.model=env.getProperty("app.ai.runware.text-fallback-model","google:gemini@3.1-flash-lite");
     this.outputNormalizer=outputNormalizer;
   }
 
