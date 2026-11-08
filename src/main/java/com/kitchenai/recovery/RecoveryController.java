@@ -90,7 +90,8 @@ public class RecoveryController {
     ownSession(sessionId,user);RecipeRecoveryAttempt attempt=ownAttempt(sessionId,attemptId);
     if(!"RECOVERY_OFFERED".equals(attempt.getStatus()))
       throw new ApiException(HttpStatus.CONFLICT,"This attempt has no recovery/remake choice");
-    if(request==null||"REMAKE_COMPONENT".equals(request.choice())){
+    if(request==null)throw new ApiException(HttpStatus.BAD_REQUEST,"A recovery decision is required");
+    if("REMAKE_COMPONENT".equals(request.choice())){
       attempt.applyAnalysis(attempt.getImageTrustScore(),null,attempt.getTargetProximityScore(),
           attempt.getObservedStateJson(),attempt.getTargetStateJson(),
           "Kullanıcı bileşeni yeniden yapmayı seçti.",null,"REMAKE_RECOMMENDED");
@@ -117,7 +118,7 @@ public class RecoveryController {
       String category,String description,String statusText,String outcome,String componentKey){
     if(image==null||image.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"A photo is required");
     String mime=image.getContentType();
-    if(!List.of("image/jpeg","image/png").contains(mime))
+    if(mime==null||!List.of("image/jpeg","image/png").contains(mime))
       throw new ApiException(HttpStatus.BAD_REQUEST,"Use a JPEG or PNG photo");
     if(image.getSize()>MAX_BYTES)throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE,"Image is too large");
     if(description!=null&&description.length()>1000||outcome!=null&&outcome.length()>500)
