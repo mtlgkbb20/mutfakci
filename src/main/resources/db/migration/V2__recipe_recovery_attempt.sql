@@ -20,7 +20,8 @@ CREATE TABLE recipe_recovery_attempt (
   action_json TEXT,
   status VARCHAR(40) NOT NULL,
   user_action_confirmed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL
+  created_at TIMESTAMPTZ NOT NULL,
+  CONSTRAINT uq_recovery_attempt_number UNIQUE (session_id, component_key, attempt_number)
 );
 CREATE INDEX idx_recovery_recipe_created ON recipe_recovery_attempt(recipe_id, created_at DESC);
 CREATE INDEX idx_recovery_session_component_attempt ON recipe_recovery_attempt(session_id, component_key, attempt_number);
