@@ -224,6 +224,12 @@ public class RecoveryController {
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
             "Görsel analiz şu anda kullanılamıyor. Fotoğrafın değerlendirilmedi; daha sonra tekrar deneyebilirsin.");
       }
+      if(!hasCompleteRecoveryDecision(analysis)){
+        attempt.markAnalysisIncomplete("Normalized AI response contained insufficient evidence for a safe recovery decision.");
+        attempts.save(attempt);
+        return response(Status.ANALYSIS_INCOMPLETE,attempt,analysis,null,null,null,
+            "AI yanıtı yapılandırılmış bir formata dönüştürüldü; ancak güvenli bir karar vermek için bazı bilgiler eksik. Eksik skorları veya düzeltmeleri tahmin etmedim. Fotoğrafı daha net çekebilir ya da metinle destek isteyebilirsin.");
+      }
       if(!RecoveryImageTrustPolicy.accepts(analysis.imageTrustScore())){
         attempt.markImageRejected(analysis.imageTrustScore(),"{\"reason\":\"IMAGE_NOT_CLEAR\"}");
         attempts.save(attempt);
@@ -277,6 +283,17 @@ public class RecoveryController {
       return response(status,attempt,analysis,decision,responseAction,follow,message);
     }catch(ApiException e){throw e;}
     catch(IOException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Photo could not be stored");}
+  }
+
+  private boolean hasCompleteRecoveryDecision(Analysis analysis){
+    if(analysis.imageTrustScore()==null||analysis.analysisConfidence()==null
+        ||analysis.targetProximityScore()==null||analysis.action()==null
+        ||analysis.action().type()==null)return false;
+    if(analysis.problemCategory()==null||analysis.problemSummary()==null
+        ||analysis.observedState()==null||analysis.targetState()==null
+        ||analysis.gapSummary()==null||analysis.reason()==null)return false;
+    return analysis.action().type()==ActionType.NONE
+        ||(analysis.action().instruction()!=null&&!analysis.action().instruction().isBlank());
   }
 
   private String buildContext(Recipe recipe,CookingSession session,String component,String category,
