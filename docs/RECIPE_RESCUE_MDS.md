@@ -1,6 +1,6 @@
 # Recipe Rescue — MDS
 
-**Status:** Proposed / implementation specification  
+**Status:** Implemented baseline / source specification (runtime verification pending)  
 **Target branch:** `ai-flow-help-support`  
 **Scope:** Mobile recipe recovery flow, multimodal analysis, strict response contracts, iterative recovery, persistence and progression decisions.
 
