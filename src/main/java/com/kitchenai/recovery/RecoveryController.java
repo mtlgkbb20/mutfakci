@@ -35,14 +35,15 @@ public class RecoveryController {
   private final RecipeRepository recipes;
   private final RecipeRecoveryAttemptRepository attempts;
   private final RecoveryVisionService vision;
+  private final TextFallbackAdviceService textFallback;
   private final ObjectMapper json;
   private final Path storage;
 
   public RecoveryController(CookingSessionRepository sessions,RecipeRepository recipes,
-      RecipeRecoveryAttemptRepository attempts,RecoveryVisionService vision,ObjectMapper json,
+      RecipeRecoveryAttemptRepository attempts,RecoveryVisionService vision,TextFallbackAdviceService textFallback,ObjectMapper json,
       @Value("${app.storage-path}") String path){
     this.sessions=sessions;this.recipes=recipes;this.attempts=attempts;
-    this.vision=vision;this.json=json;this.storage=Path.of(path);
+    this.vision=vision;this.textFallback=textFallback;this.json=json;this.storage=Path.of(path);
   }
 
   @PostMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -57,6 +58,46 @@ public class RecoveryController {
     if(category!=null&&!category.isBlank()&&!PROBLEM_CATEGORIES.contains(category))
       throw new ApiException(HttpStatus.BAD_REQUEST,"Unsupported problem category");
     return createAttempt(session,null,image,category,description,null,outcome,componentKey);
+  }
+
+
+  @PostMapping(value="/text-fallback",consumes=MediaType.APPLICATION_JSON_VALUE)
+  @Transactional
+  public TextFallbackResponse textFallback(@PathVariable UUID sessionId,
+      @AuthenticationPrincipal UUID user,@RequestBody TextFallbackRequest request){
+    CookingSession session=ownSession(sessionId,user);
+    if(request==null||request.recipeName()==null||request.recipeName().isBlank()
+        ||request.recipeName().length()>200||request.problemDescription()==null
+        ||request.problemDescription().isBlank()||request.problemDescription().length()>1000)
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Recipe name and problem description are required");
+    if(attempts.countBySessionIdAndCreatedAtAfter(session.getId(),Instant.now().minus(Duration.ofHours(1)))
+        >=MAX_ATTEMPTS_PER_HOUR)
+      throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"Recovery attempt limit reached for this cooking session");
+    String component="text-fallback";
+    int number=attempts.findTopBySessionIdAndComponentKeyOrderByAttemptNumberDesc(session.getId(),component)
+        .map(RecipeRecoveryAttempt::getAttemptNumber).orElse(0)+1;
+    RecipeRecoveryAttempt attempt=attempts.save(new RecipeRecoveryAttempt(session.getRecipeId(),
+        session.getId(),null,component,session.getCurrentStage()+1,number,null,
+        "OTHER",request.problemDescription().trim(),null,null));
+    try{
+      TextFallbackAdviceService.Advice advice=textFallback.suggest(
+          request.recipeName().trim(),request.problemDescription().trim());
+      attempt.markTextFallbackComplete(request.recipeName().trim(),
+          json.writeValueAsString(Map.of("advice",advice.advice(),"caution",advice.caution())));
+      attempts.save(attempt);
+      return new TextFallbackResponse("TEXT_FALLBACK_COMPLETE",attempt.getId(),
+          request.recipeName().trim(),advice.advice(),advice.caution(),
+          "Bu öneri yalnızca verdiğin açıklamaya dayanır; fotoğraf analizi yapılmadı.");
+    }catch(Exception e){
+      log.error("Recipe text fallback failed: sessionId={}, attemptId={}, exceptionType={}",
+          session.getId(),attempt.getId(),e.getClass().getSimpleName(),e);
+      attempt.markTextFallbackUnavailable();
+      attempts.save(attempt);
+      return new TextFallbackResponse("TEXT_FALLBACK_UNAVAILABLE",attempt.getId(),
+          request.recipeName().trim(),null,
+          "Bu kez metin önerisi de üretilemedi. Aynı istek otomatik tekrarlanmadı.",
+          "Fotoğraf analizi yapılmadı; tarifin güvenli olduğunu varsayma.");
+    }
   }
 
   @PostMapping(value="/{attemptId}/confirm-action",consumes=MediaType.APPLICATION_JSON_VALUE)
