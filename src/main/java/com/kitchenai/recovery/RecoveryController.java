@@ -162,7 +162,9 @@ public class RecoveryController {
         return response(Status.REQUEST_NEW_IMAGE,attempt,null,null,null,null,
             "Fotoğraf yeterince net veya ilgili değil. Bileşeni daha yakından, iyi ışıkta yeniden çek.");
       }
-      if(analysis.analysisConfidence().doubleValue()<0.65||analysis.action().type()==ActionType.NONE){
+      if(analysis.analysisConfidence().doubleValue()<0.65
+          ||(analysis.targetProximityScore()>=50&&analysis.targetProximityScore()<90
+              &&analysis.action().type()==ActionType.NONE)){
         attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),null,
             json.writeValueAsString(Map.of("observedState",analysis.observedState())),
             json.writeValueAsString(Map.of("targetState",analysis.targetState())),
