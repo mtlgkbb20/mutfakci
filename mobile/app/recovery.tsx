@@ -6,7 +6,6 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { File as ExpoFile } from "expo-file-system";
 import { api } from "../src/api";
 import { Button, Field, Screen, s, colors } from "../src/ui";
-import { File as ExpoFile } from "expo-file-system";
 
 const categories = [
   ["TOO_HARD","Çok sert"],["TOO_SOFT","Çok yumuşak"],["TOO_STICKY","Yapışkan"],
@@ -41,6 +40,10 @@ export default function Recovery() {
   const [error, setError] = useState("");
   const [followUpMode, setFollowUpMode] = useState(false);
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
+  const [fallbackMode, setFallbackMode] = useState(false);
+  const [fallbackRecipeName, setFallbackRecipeName] = useState("");
+  const [fallbackProblem, setFallbackProblem] = useState("");
+  const [fallbackAdvice, setFallbackAdvice] = useState<{advice?:string;caution?:string;message?:string;status?:string}>();
 
   const choose = async (camera = false) => {
     const permission = camera
@@ -80,6 +83,26 @@ export default function Recovery() {
 
     const file = new ExpoFile(converted.uri);
     form.append("image", file, "food.jpg");
+  };
+
+  const submitTextFallback = async () => {
+    if (!fallbackRecipeName.trim() || !fallbackProblem.trim()) {
+      setError("Tarifin adı ve yaşadığın sorun zorunlu."); return;
+    }
+    setLoading(true); setError("");
+    try {
+      const id = await ensureSession();
+      const response = await api(`/cooking-sessions/${id}/recovery-attempts/text-fallback`, {
+        method: "POST",
+        body: JSON.stringify({
+          recipeName: fallbackRecipeName.trim(),
+          problemDescription: fallbackProblem.trim(),
+        }),
+      }, 90000);
+      setFallbackAdvice(response);
+    } catch (e: any) {
+      setError(e.message || "Metin önerisi alınamadı.");
+    } finally { setLoading(false); }
   };
 
   const submitInitial = async () => {
@@ -205,6 +228,26 @@ export default function Recovery() {
           </>
         )}
 
+        {(fallbackMode || result?.status === "ANALYSIS_INCOMPLETE" || result?.status === "VISION_PROVIDER_UNAVAILABLE") && !fallbackAdvice && (
+          <View style={[s.card, { marginTop: 18 }]}>
+            <Text style={s.eyebrow}>FOTOĞRAFSIZ YARDIM</Text>
+            <Text style={s.heading}>Sorunu tarif ederek devam et</Text>
+            <Text style={s.body}>Görsel analiz kullanılamadığında yalnızca yazdığın bilgilere göre öneri alabilirsin.</Text>
+            <Field placeholder="Tarifin adı (zorunlu)" value={fallbackRecipeName} onChangeText={setFallbackRecipeName} />
+            <Field placeholder="Sorun yaşadığın yer (zorunlu): Karamel çok katı oldu" value={fallbackProblem} onChangeText={setFallbackProblem} multiline />
+            <Button onPress={submitTextFallback} loading={loading}>Metinle öneri al</Button>
+          </View>
+        )}
+        {fallbackAdvice && (
+          <View style={[s.card, { marginTop: 18 }]}>
+            <Text style={s.eyebrow}>METİN TABANLI ÖNERİ</Text>
+            <Text style={s.heading}>{fallbackAdvice.recipeName}</Text>
+            {fallbackAdvice.advice ? <Text style={s.body}>{fallbackAdvice.advice}</Text> : null}
+            {fallbackAdvice.caution ? <Text style={s.recipeMeta}>{fallbackAdvice.caution}</Text> : null}
+            {fallbackAdvice.message ? <Text style={s.body}>{fallbackAdvice.message}</Text> : null}
+            <Button secondary onPress={() => router.replace("/dashboard")}>Kapat</Button>
+          </View>
+        )}
         {result && (
           <View style={[s.card, { marginTop: 18 }]}>
             <Text style={s.eyebrow}>{result.status.replaceAll("_", " ")}</Text>
