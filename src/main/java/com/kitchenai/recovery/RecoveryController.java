@@ -77,8 +77,8 @@ public class RecoveryController {
     CookingSession session=ownSession(sessionId,user);RecipeRecoveryAttempt parent=ownAttempt(sessionId,attemptId);
     boolean pendingCorrection="AWAITING_FOLLOW_UP".equals(parent.getStatus())
         &&parent.getUserActionConfirmedAt()!=null;
-    boolean retryingRejectedFollowUp="IMAGE_REJECTED".equals(parent.getStatus())
-        &&parent.getParentAttemptId()!=null;
+    boolean retryingRejectedFollowUp=("IMAGE_REJECTED".equals(parent.getStatus())
+        ||"ANALYSIS_REJECTED".equals(parent.getStatus()))&&parent.getParentAttemptId()!=null;
     if(!pendingCorrection&&!retryingRejectedFollowUp)
       throw new ApiException(HttpStatus.CONFLICT,"Confirm the previous correction before sending a follow-up");
     if(statusText==null||statusText.isBlank()||statusText.length()>1000)
@@ -153,6 +153,10 @@ public class RecoveryController {
       RecipeRecoveryAttempt attempt=attempts.save(new RecipeRecoveryAttempt(session.getRecipeId(),
           session.getId(),parent==null?null:parent.getId(),component,session.getCurrentStage()+1,
           number,key,category,description,statusText,outcome));
+      if(parent!=null){
+        parent.markFollowUpReceived();
+        attempts.save(parent);
+      }
       if(!vision.available()){
         attempt.markUnavailable("Vision model is not configured.");
         attempts.save(attempt);
