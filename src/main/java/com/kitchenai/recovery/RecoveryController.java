@@ -228,9 +228,24 @@ public class RecoveryController {
       c.put("followUpStatus",statusText);c.put("desiredOutcome",outcome);
       if(recipe!=null){c.put("recipeTitle",recipe.getTitle());c.put("productType",recipe.getProductType());
         c.put("ingredients",json.readTree(recipe.getIngredientsJson()));c.put("stages",json.readTree(recipe.getStagesJson()));}
-      if(parent!=null){c.put("previousAttemptStatus",parent.getStatus());
-        c.put("previousObservation",parent.getObservedStateJson());c.put("previousTarget",parent.getTargetStateJson());
-        c.put("previousAssessment",parent.getAssessmentJson());c.put("confirmedAction",parent.getActionJson());}
+      if(parent!=null){
+        List<Map<String,Object>> history=new ArrayList<>();
+        RecipeRecoveryAttempt cursor=parent;
+        int depth=0;
+        while(cursor!=null&&depth++<6){
+          Map<String,Object> previous=new LinkedHashMap<>();
+          previous.put("status",cursor.getStatus());
+          previous.put("observation",cursor.getObservedStateJson());
+          previous.put("target",cursor.getTargetStateJson());
+          previous.put("assessment",cursor.getAssessmentJson());
+          previous.put("confirmedAction",cursor.getActionJson());
+          previous.put("actionConfirmed",cursor.getUserActionConfirmedAt()!=null);
+          history.add(previous);
+          cursor=cursor.getParentAttemptId()==null?null:
+              attempts.findById(cursor.getParentAttemptId()).orElse(null);
+        }
+        c.put("previousAttempts",history);
+      }
       return json.writeValueAsString(c);
     }catch(Exception e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Recipe context could not be prepared");}
   }
