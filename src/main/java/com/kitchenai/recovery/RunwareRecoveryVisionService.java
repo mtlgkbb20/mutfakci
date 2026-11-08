@@ -78,6 +78,8 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
       if (!actualActionFields.equals(actionFields)) throw new IllegalArgumentException("Unexpected action fields");
       int trust = requiredInt(result, "imageTrustScore");
       int proximity = requiredInt(result, "targetProximityScore");
+      if (!result.path("analysisConfidence").isNumber())
+        throw new IllegalArgumentException("Confidence must be numeric");
       double confidence = result.path("analysisConfidence").asDouble(-1);
       if (trust < 0 || trust > 100 || proximity < 0 || proximity > 100 || confidence < 0 || confidence > 1)
         throw new IllegalArgumentException("Out of range score");
@@ -102,9 +104,16 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
     return n.path(key).asInt();
   }
   private String text(JsonNode n, String key) {
-    String v=n.path(key).asText("");
-    if(v.isBlank() || v.length()>500) throw new IllegalArgumentException("Missing text");
+    JsonNode value=n.path(key);
+    if(!value.isTextual()) throw new IllegalArgumentException("Expected text");
+    String v=value.asText();
+    if(v.isBlank() || v.length()>500) throw new IllegalArgumentException("Invalid text");
     return v;
   }
-  private String nullableText(JsonNode n, String key) { return n.path(key).isNull()?null:n.path(key).asText(null); }
+  private String nullableText(JsonNode n, String key) {
+    JsonNode value=n.path(key);
+    if(value.isNull()) return null;
+    if(!value.isTextual()) throw new IllegalArgumentException("Expected nullable text");
+    return value.asText();
+  }
 }
