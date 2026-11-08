@@ -16,6 +16,7 @@ public class RecipeRecoveryAttempt {
   private Integer stageOrder;
   private int attemptNumber;
   @Column(length = 500) private String imageObjectKey;
+  @Column(length = 200) private String fallbackRecipeName;
   @Column(length = 40) private String userProblemCategory;
   @Column(columnDefinition = "TEXT") private String userProblemDescription;
   @Column(columnDefinition = "TEXT") private String userStatusText;
@@ -61,6 +62,8 @@ public class RecipeRecoveryAttempt {
   public void markImageRejected(int trust,String observed){imageTrustScore=trust;observedStateJson=observed;status="IMAGE_REJECTED";}
   public void markUnavailable(String reason){status="VISION_PROVIDER_UNAVAILABLE";assessmentJson=reason;}
   public void markAnalysisIncomplete(String reason){status="ANALYSIS_INCOMPLETE";assessmentJson=reason;}
+  public void markTextFallbackComplete(String recipeName,String assessment){fallbackRecipeName=recipeName;assessmentJson=assessment;status="TEXT_FALLBACK_COMPLETE";}
+  public void markTextFallbackUnavailable(){status="TEXT_FALLBACK_UNAVAILABLE";}
   public void applyAnalysis(int trust,BigDecimal confidence,Integer proximity,String observed,
       String target,String assessment,String action,String newStatus){
     imageTrustScore=trust;analysisConfidence=confidence;targetProximityScore=proximity;
