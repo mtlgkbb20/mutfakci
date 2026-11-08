@@ -70,4 +70,10 @@ public class RecipeRecoveryAttempt {
     if(!"CORRECTION_PROPOSED".equals(status)) throw new IllegalStateException("No pending correction");
     userActionConfirmedAt=Instant.now();status="AWAITING_FOLLOW_UP";
   }
+  public void markFollowUpReceived(){
+    if(!"AWAITING_FOLLOW_UP".equals(status)&&!"IMAGE_REJECTED".equals(status)
+        &&!"ANALYSIS_REJECTED".equals(status))
+      throw new IllegalStateException("Attempt cannot receive another follow-up");
+    status="FOLLOW_UP_RECEIVED";
+  }
 }
