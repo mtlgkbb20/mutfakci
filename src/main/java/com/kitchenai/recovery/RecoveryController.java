@@ -167,7 +167,7 @@ public class RecoveryController {
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
             "Görsel analiz şu anda kullanılamıyor. Fotoğrafın değerlendirilmedi; daha sonra tekrar deneyebilirsin.");
       }
-      if(analysis.imageTrustScore()<60){
+      if(!RecoveryImageTrustPolicy.accepts(analysis.imageTrustScore())){
         attempt.markImageRejected(analysis.imageTrustScore(),"{\"reason\":\"IMAGE_NOT_CLEAR\"}");
         attempts.save(attempt);
         return response(Status.REQUEST_NEW_IMAGE,attempt,null,null,null,null,
