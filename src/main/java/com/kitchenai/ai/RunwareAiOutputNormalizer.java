@@ -126,8 +126,8 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
 
   private String extractJsonObject(String value) throws Exception {
     String candidate = value.trim()
-        .replaceFirst("^\\u0060\\u0060\\u0060(?:json)?\\s*", "")
-        .replaceFirst("\\s*\\u0060\\u0060\\u0060$", "")
+        .replaceFirst("^```(?:json)?\\s*", "")
+        .replaceFirst("\\s*```$", "")
         .trim();
     try {
       JsonNode parsed = json.readTree(candidate);
@@ -158,7 +158,7 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
       char current = value.charAt(i);
       if (quoted) {
         if (escaped) escaped = false;
-        else if (current == '\\\\') escaped = true;
+        else if (current == '\\') escaped = true;
         else if (current == '"') quoted = false;
       } else if (current == '"') {
         quoted = true;
