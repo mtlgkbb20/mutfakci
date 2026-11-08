@@ -84,8 +84,17 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
     }
   }
 
+  private String stripMarkdownJsonFence(String content) {
+    String value = content == null ? "" : content.trim();
+    if (value.startsWith("```")) {
+      value = value.replaceFirst("^\\`\\`\\`(?:json)?\\s*", "");
+      value = value.replaceFirst("\\s*\\`\\`\\`$", "");
+    }
+    return value.trim();
+  }
+
   private Advice parseAdvice(String content)throws Exception{
-    JsonNode output=json.readTree(content.trim());
+    JsonNode output=json.readTree(stripMarkdownJsonFence(content));
     if(output==null||!output.isObject())throw new IllegalArgumentException("Expected JSON object");
     Set<String> fields=new HashSet<>();
     output.fieldNames().forEachRemaining(fields::add);
