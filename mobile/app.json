@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Kitchen AI",
+    "slug": "kitchen-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "kitchenai",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kitchen AI fotoğraflarına erişmek için izin istiyor.",
+          "cameraPermission": "Kitchen AI yemek fotoğrafı çekmek için kamera izni istiyor."
+        }
+      ],
+      "expo-asset"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kitchenai.mobile"
+    },
+    "android": {
+      "package": "com.kitchenai.mobile"
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.25:8080/api/v1"
+    }
+  }
+}

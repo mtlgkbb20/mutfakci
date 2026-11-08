@@ -1,0 +1,21 @@
+# Java / Spring
+target/
+.mvn/
+
+# Node / Expo
+node_modules/
+frontend/dist/
+mobile/.expo/
+mobile/.env
+mobile/.env.*
+!mobile/.env.example
+
+# Local runtime data and secrets
+.env
+data/
+*.log
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,24 @@
+server:
+  port: ${PORT:8080}
+  address: ${SERVER_ADDRESS:0.0.0.0}
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}
+    username: ${DATABASE_USERNAME:kitchenai}
+    password: ${DATABASE_PASSWORD:kitchenai}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${MAX_IMAGE_SIZE:10MB}
+      max-request-size: ${MAX_IMAGE_SIZE:10MB}
+jwt:
+  secret: ${JWT_SECRET:change-me-in-development-to-a-long-secret-key}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  storage-path: ${STORAGE_LOCAL_PATH:./data/uploads}

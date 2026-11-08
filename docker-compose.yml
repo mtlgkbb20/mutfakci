@@ -1,0 +1,10 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kitchenai
+      POSTGRES_USER: kitchenai
+      POSTGRES_PASSWORD: kitchenai
+    ports: ["5432:5432"]
+    volumes: [kitchenai-postgres:/var/lib/postgresql/data]
+volumes: { kitchenai-postgres: }
