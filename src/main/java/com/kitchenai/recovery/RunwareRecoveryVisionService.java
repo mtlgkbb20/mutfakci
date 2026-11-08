@@ -85,15 +85,22 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
       double confidence = result.path("analysisConfidence").asDouble(-1);
       if (trust < 0 || trust > 100 || proximity < 0 || proximity > 100 || confidence < 0 || confidence > 1)
         throw new IllegalArgumentException("Out of range score");
+      if(!a.path("type").isTextual()) throw new IllegalArgumentException("Action type missing");
       ActionType type = ActionType.valueOf(a.path("type").asText());
       String instruction = nullableText(a, "instruction");
+      if(!a.path("quantity").isNull()&&!a.path("quantity").isNumber())
+        throw new IllegalArgumentException("Quantity must be numeric or null");
       BigDecimal quantity = a.path("quantity").isNumber() ? a.path("quantity").decimalValue() : null;
       String unit = nullableText(a, "unit");
-      Integer duration = a.path("durationSeconds").isInt() ? a.path("durationSeconds").asInt() : null;
+      if(!a.path("durationSeconds").isNull()&&!a.path("durationSeconds").isIntegralNumber())
+        throw new IllegalArgumentException("Duration must be an integer or null");
+      Integer duration = a.path("durationSeconds").isIntegralNumber() ? a.path("durationSeconds").asInt() : null;
       if (type == ActionType.ADD_INGREDIENT) throw new IllegalArgumentException("Ingredient invention disabled");
       if (type != ActionType.NONE && (instruction == null || instruction.isBlank())) throw new IllegalArgumentException("Action missing");
+      if (type == ActionType.NONE && instruction != null && !instruction.isBlank()) throw new IllegalArgumentException("NONE action cannot contain instructions");
       if (duration != null && (duration < 1 || duration > 3600)) throw new IllegalArgumentException("Invalid duration");
       if (quantity != null && (quantity.signum() <= 0 || quantity.compareTo(new BigDecimal("100")) > 0)) throw new IllegalArgumentException("Invalid quantity");
+      if ((quantity == null) != (unit == null || unit.isBlank())) throw new IllegalArgumentException("Quantity and unit must be supplied together");
       return new Analysis(trust, BigDecimal.valueOf(confidence), text(result,"problemCategory"),
           text(result,"problemSummary"), text(result,"observedState"), text(result,"targetState"),
           text(result,"gapSummary"), text(result,"reason"), proximity,
