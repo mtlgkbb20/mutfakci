@@ -161,7 +161,7 @@ export default function Recovery() {
         setFollowUpMode(false);
         setStatusText("");
       }
-    } catch (e: any) { setError(e.message || "Takip fotoğrafı değerlendirilemedi."); }
+    } catch (e: any) { setError(e.message || "Takip fotoğrafı değerlendirilemedi."); setFallbackMode(true); }
     finally { setLoading(false); }
   };
 
@@ -228,7 +228,7 @@ export default function Recovery() {
           </>
         )}
 
-        {(fallbackMode || result?.status === "ANALYSIS_INCOMPLETE" || result?.status === "VISION_PROVIDER_UNAVAILABLE") && !fallbackAdvice && (
+        {(fallbackMode || result?.status === "ANALYSIS_INCOMPLETE" || result?.status === "VISION_PROVIDER_UNAVAILABLE" || result?.status === "REQUEST_NEW_IMAGE") && !fallbackAdvice && (
           <View style={[s.card, { marginTop: 18 }]}>
             <Text style={s.eyebrow}>FOTOĞRAFSIZ YARDIM</Text>
             <Text style={s.heading}>Sorunu tarif ederek devam et</Text>
