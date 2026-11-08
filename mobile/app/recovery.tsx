@@ -4,6 +4,7 @@ import { Image, ScrollView, Text, View, Pressable } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../src/api";
 import { Button, Field, Screen, s, colors } from "../src/ui";
+import { File as ExpoFile } from "expo-file-system";
 
 const categories = [
   ["TOO_HARD","Çok sert"],["TOO_SOFT","Çok yumuşak"],["TOO_STICKY","Yapışkan"],
@@ -62,12 +63,17 @@ export default function Recovery() {
   };
 
   const photoPart = (form: FormData) => {
-    if (!image) throw new Error("Önce yeni bir fotoğraf seç.");
-    form.append("image", {
-      uri: image.uri,
-      name: image.fileName || "food.jpg",
-      type: image.mimeType || "image/jpeg",
-    } as any);
+    if (!image) {
+      throw new Error("Önce yeni bir fotoğraf seç.");
+    }
+
+    const file = new ExpoFile(image.uri);
+
+    form.append(
+      "image",
+      file,
+      image.fileName || "food.jpg"
+    );
   };
 
   const submitInitial = async () => {
