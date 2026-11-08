@@ -267,10 +267,4 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
     if(v.isBlank() || v.length()>500) throw new IllegalArgumentException("Invalid text");
     return v;
   }
-  private String nullableText(JsonNode n, String key) {
-    JsonNode value=n.path(key);
-    if(value.isNull()) return null;
-    if(!value.isTextual()) throw new IllegalArgumentException("Expected nullable text");
-    return value.asText();
-  }
 }
