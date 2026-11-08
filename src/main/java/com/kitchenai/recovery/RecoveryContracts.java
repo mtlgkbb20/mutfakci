@@ -27,10 +27,10 @@ public final class RecoveryContracts {
       Integer targetProximityScore, Problem problem, Assessment assessment,
       Decision decision, Action action, FollowUp followUp, UUID attemptId,
       String message) {}
-  public record Analysis(int imageTrustScore, BigDecimal analysisConfidence,
+  public record Analysis(Integer imageTrustScore, BigDecimal analysisConfidence,
       String problemCategory, String problemSummary, String observedState,
       String targetState, String gapSummary, String reason,
-      int targetProximityScore, Action action) {}
+      Integer targetProximityScore, Action action) {}
   public record ConfirmRequest(boolean confirmed, String note) {}
   public record DecisionRequest(String choice) {}
   public record TextFallbackRequest(String recipeName,String problemDescription) {}
