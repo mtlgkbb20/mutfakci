@@ -72,7 +72,11 @@ public class RecoveryController {
       @AuthenticationPrincipal UUID user,@RequestPart("image") MultipartFile image,
       @RequestPart("statusText") String statusText){
     CookingSession session=ownSession(sessionId,user);RecipeRecoveryAttempt parent=ownAttempt(sessionId,attemptId);
-    if(!"AWAITING_FOLLOW_UP".equals(parent.getStatus())||parent.getUserActionConfirmedAt()==null)
+    boolean pendingCorrection="AWAITING_FOLLOW_UP".equals(parent.getStatus())
+        &&parent.getUserActionConfirmedAt()!=null;
+    boolean retryingRejectedFollowUp="IMAGE_REJECTED".equals(parent.getStatus())
+        &&parent.getParentAttemptId()!=null;
+    if(!pendingCorrection&&!retryingRejectedFollowUp)
       throw new ApiException(HttpStatus.CONFLICT,"Confirm the previous correction before sending a follow-up");
     if(statusText==null||statusText.isBlank()||statusText.length()>1000)
       throw new ApiException(HttpStatus.BAD_REQUEST,"A short status description is required");
@@ -174,6 +178,18 @@ public class RecoveryController {
             "Güvenli bir düzeltme önermek için biraz daha bilgiye ihtiyacım var: "+analysis.reason());
       }
       int score=analysis.targetProximityScore();
+      Set<ActionType> conservativeActions=Set.of(ActionType.REST,ActionType.MIX,ActionType.KNEAD,
+          ActionType.DRAIN,ActionType.CHILL,ActionType.REFORM,ActionType.STOP_COOKING);
+      if(score>=50&&score<90&&!conservativeActions.contains(analysis.action().type())){
+        attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),null,
+            json.writeValueAsString(Map.of("observedState",analysis.observedState())),
+            json.writeValueAsString(Map.of("targetState",analysis.targetState())),
+            json.writeValueAsString(Map.of("reason","Önerilen işlem desteklenen güvenli işlem listesinde değil.")),
+            null,"ANALYSIS_REJECTED");
+        attempts.save(attempt);
+        return response(Status.NEEDS_CLARIFICATION,attempt,analysis,null,null,null,
+            "Bu durum için güvenli ve desteklenen bir düzeltme belirleyemedim. Daha fazla ayrıntı gerekli.");
+      }
       RecoveryDecisionPolicy.Result policy=RecoveryDecisionPolicy.evaluate(score);
       Decision decision=policy.decision();
       Status status=policy.status();
@@ -228,8 +244,11 @@ public class RecoveryController {
     return key;
   }
   private CookingSession ownSession(UUID id,UUID user){
-    return sessions.findById(id).filter(s->s.getUserId().equals(user))
+    CookingSession session=sessions.findById(id).filter(s->s.getUserId().equals(user))
         .orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Session not found"));
+    if(!"ACTIVE".equals(session.getStatus()))
+      throw new ApiException(HttpStatus.CONFLICT,"Cooking session is not active");
+    return session;
   }
   private RecipeRecoveryAttempt ownAttempt(UUID session,UUID id){
     return attempts.findById(id).filter(a->session.equals(a.getSessionId()))
