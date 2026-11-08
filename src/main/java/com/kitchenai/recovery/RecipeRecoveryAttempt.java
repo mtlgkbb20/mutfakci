@@ -1,0 +1,89 @@
+package com.kitchenai.recovery;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "recipe_recovery_attempt")
+public class RecipeRecoveryAttempt {
+  @Id private UUID id;
+  private UUID recipeId;
+  private UUID sessionId;
+  private UUID parentAttemptId;
+  private String componentKey;
+  private Integer stageOrder;
+  private int attemptNumber;
+  private String imageObjectKey;
+  private String userProblemCategory;
+  @Column(columnDefinition = "TEXT") private String userProblemDescription;
+  @Column(columnDefinition = "TEXT") private String userStatusText;
+  @Column(columnDefinition = "TEXT") private String desiredOutcome;
+  private Integer imageTrustScore;
+  private BigDecimal analysisConfidence;
+  private Integer targetProximityScore;
+  @Column(columnDefinition = "TEXT") private String observedStateJson;
+  @Column(columnDefinition = "TEXT") private String targetStateJson;
+  @Column(columnDefinition = "TEXT") private String assessmentJson;
+  @Column(columnDefinition = "TEXT") private String actionJson;
+  private String status;
+  private Instant userActionConfirmedAt;
+  private Instant createdAt;
+
+  protected RecipeRecoveryAttempt() {}
+
+  public RecipeRecoveryAttempt(UUID recipeId, UUID sessionId, UUID parentAttemptId,
+      String componentKey, Integer stageOrder, int attemptNumber, String imageObjectKey,
+      String problemCategory, String problemDescription, String statusText, String desiredOutcome) {
+    this.id = UUID.randomUUID();
+    this.recipeId = recipeId;
+    this.sessionId = sessionId;
+    this.parentAttemptId = parentAttemptId;
+    this.componentKey = componentKey;
+    this.stageOrder = stageOrder;
+    this.attemptNumber = attemptNumber;
+    this.imageObjectKey = imageObjectKey;
+    this.userProblemCategory = problemCategory;
+    this.userProblemDescription = problemDescription;
+    this.userStatusText = statusText;
+    this.desiredOutcome = desiredOutcome;
+    this.status = "ANALYZING";
+    this.createdAt = Instant.now();
+  }
+
+  public UUID getId() { return id; }
+  public UUID getRecipeId() { return recipeId; }
+  public UUID getSessionId() { return sessionId; }
+  public UUID getParentAttemptId() { return parentAttemptId; }
+  public String getComponentKey() { return componentKey; }
+  public int getAttemptNumber() { return attemptNumber; }
+  public String getStatus() { return status; }
+  public Integer getImageTrustScore() { return imageTrustScore; }
+  public Integer getTargetProximityScore() { return targetProximityScore; }
+  public Instant getUserActionConfirmedAt() { return userActionConfirmedAt; }
+  public void markImageRejected(int trust, String observed) {
+    imageTrustScore = trust; observedStateJson = observed; status = "IMAGE_REJECTED";
+  }
+  public void markUnavailable(String reason) {
+    status = "VISION_PROVIDER_UNAVAILABLE";
+    assessmentJson = reason;
+  }
+  public void applyAnalysis(int trust, BigDecimal confidence, int proximity,
+      String observed, String target, String assessment, String action, String newStatus) {
+    imageTrustScore = trust;
+    analysisConfidence = confidence;
+    targetProximityScore = proximity;
+    observedStateJson = observed;
+    targetStateJson = target;
+    assessmentJson = assessment;
+    actionJson = action;
+    status = newStatus;
+  }
+  public void confirmAction() {
+    if (!"CORRECTION_PROPOSED".equals(status) && !"RECOVERY_OFFERED".equals(status))
+      throw new IllegalStateException("This attempt has no pending correction");
+    userActionConfirmedAt = Instant.now();
+    status = "AWAITING_FOLLOW_UP";
+  }
+}
