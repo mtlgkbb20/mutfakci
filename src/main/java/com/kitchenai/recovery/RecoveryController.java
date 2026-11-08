@@ -95,9 +95,7 @@ public class RecoveryController {
       throw new ApiException(HttpStatus.CONFLICT,"This attempt has no recovery/remake choice");
     if(request==null)throw new ApiException(HttpStatus.BAD_REQUEST,"A recovery decision is required");
     if("REMAKE_COMPONENT".equals(request.choice())){
-      attempt.applyAnalysis(attempt.getImageTrustScore(),null,attempt.getTargetProximityScore(),
-          attempt.getObservedStateJson(),attempt.getTargetStateJson(),
-          "Kullanıcı bileşeni yeniden yapmayı seçti.",null,"REMAKE_RECOMMENDED");
+      attempt.chooseRemake();
       attempts.save(attempt);
       return response(Status.REMAKE_COMPONENT,attempt,null,Decision.REMAKE_COMPONENT,null,null,
           "Bu bileşeni yeniden hazırlamak en iyi seçenek.");
@@ -106,9 +104,7 @@ public class RecoveryController {
       throw new ApiException(HttpStatus.BAD_REQUEST,"Choice must be TRY_RECOVERY or REMAKE_COMPONENT");
     try{
       Action action=json.readValue(attempt.getActionJson(),Action.class);
-      attempt.applyAnalysis(attempt.getImageTrustScore(),null,attempt.getTargetProximityScore(),
-          attempt.getObservedStateJson(),attempt.getTargetStateJson(),
-          "Kullanıcı kurtarmayı seçti.",attempt.getActionJson(),"CORRECTION_PROPOSED");
+      attempt.chooseRecovery();
       attempts.save(attempt);
       return response(Status.CORRECTION_PROPOSED,attempt,null,Decision.RECOVERABLE_BUT_MAJOR_GAP,
           action,new FollowUp(true,true,true,
