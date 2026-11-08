@@ -12,22 +12,22 @@ public class RecipeRecoveryAttempt {
   private UUID recipeId;
   private UUID sessionId;
   private UUID parentAttemptId;
-  private String componentKey;
+  @Column(length = 120) private String componentKey;
   private Integer stageOrder;
   private int attemptNumber;
-  private String imageObjectKey;
-  private String userProblemCategory;
+  @Column(length = 500) private String imageObjectKey;
+  @Column(length = 40) private String userProblemCategory;
   @Column(columnDefinition = "TEXT") private String userProblemDescription;
   @Column(columnDefinition = "TEXT") private String userStatusText;
   @Column(columnDefinition = "TEXT") private String desiredOutcome;
   private Integer imageTrustScore;
-  private BigDecimal analysisConfidence;
+  @Column(precision = 4, scale = 3) private BigDecimal analysisConfidence;
   private Integer targetProximityScore;
   @Column(columnDefinition = "TEXT") private String observedStateJson;
   @Column(columnDefinition = "TEXT") private String targetStateJson;
   @Column(columnDefinition = "TEXT") private String assessmentJson;
   @Column(columnDefinition = "TEXT") private String actionJson;
-  private String status;
+  @Column(length = 40) private String status;
   private Instant userActionConfirmedAt;
   private Instant createdAt;
 
