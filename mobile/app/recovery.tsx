@@ -240,6 +240,9 @@ export default function Recovery() {
                 Yeni fotoğraf çek
               </Button>
             )}
+            {result.status === "ANALYSIS_INCOMPLETE" && (
+              <Button secondary onPress={() => router.replace("/dashboard")}>Kapat</Button>
+            )}
             {result.status === "VISION_PROVIDER_UNAVAILABLE" && (
               <Button secondary onPress={() => router.replace("/dashboard")}>Dashboard’a dön</Button>
             )}
