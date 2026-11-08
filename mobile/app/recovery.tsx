@@ -2,6 +2,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Image, ScrollView, Text, View, Pressable } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import { File as ExpoFile } from "expo-file-system";
 import { api } from "../src/api";
 import { Button, Field, Screen, s, colors } from "../src/ui";
 import { File as ExpoFile } from "expo-file-system";
@@ -62,18 +64,22 @@ export default function Recovery() {
     return session.id as string;
   };
 
-  const photoPart = (form: FormData) => {
-    if (!image) {
-      throw new Error("Önce yeni bir fotoğraf seç.");
-    }
+  // iOS cihazlar HEIC/HEIF üretebilir. Backend'e her zaman gerçek JPEG
+  // byte'ları göndererek MIME tipi ve dosya içeriğinin eşleşmesini sağla.
+  const photoPart = async (form: FormData) => {
+    if (!image) throw new Error("Önce yeni bir fotoğraf seç.");
 
-    const file = new ExpoFile(image.uri);
-
-    form.append(
-      "image",
-      file,
-      image.fileName || "food.jpg"
+    const converted = await ImageManipulator.manipulateAsync(
+      image.uri,
+      [],
+      {
+        compress: 0.85,
+        format: ImageManipulator.SaveFormat.JPEG,
+      },
     );
+
+    const file = new ExpoFile(converted.uri);
+    form.append("image", file, "food.jpg");
   };
 
   const submitInitial = async () => {
@@ -82,7 +88,7 @@ export default function Recovery() {
     try {
       const id = await ensureSession();
       const form = new FormData();
-      photoPart(form);
+      await photoPart(form);
       if (category) form.append("problemCategory", category);
       if (description.trim()) form.append("problemDescription", description.trim());
       if (outcome.trim()) form.append("desiredOutcome", outcome.trim());
@@ -116,7 +122,7 @@ export default function Recovery() {
     setLoading(true); setError("");
     try {
       const form = new FormData();
-      photoPart(form);
+      await photoPart(form);
       form.append("statusText", statusText.trim());
       const response = await api(
         `/cooking-sessions/${sessionId}/recovery-attempts/${result.attemptId}/follow-up`,
