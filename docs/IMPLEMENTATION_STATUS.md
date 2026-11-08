@@ -11,7 +11,7 @@ Status: implemented; dependency-based verification remains environment-blocked.
 
 ## Phase 2 — Recipe generation
 
-Status: functional local development path with Runware recipe generation/review integration. Recipe generation continues to use its own configured text model (RUNWARE_MODEL).
+Status: functional local development path with Runware recipe generation/review integration. Recipe generation continues to use its own configured text model (RUNWARE_MODEL). A shared schema-directed output normalizer is now integrated into decomposition, component generation and review; it runs only after parse/contract failure and is followed by the original deterministic validators.
 
 ## Phase 3 — Visual recovery engine
 
@@ -20,9 +20,10 @@ Status: multimodal recovery implementation committed; provider execution still r
 - Added the dedicated recipe_recovery_attempt table, recipe/session/parent foreign keys, attempt numbering and score constraints.
 - Added Runware native textInference vision adapter using a separate RUNWARE_VISION_MODEL setting. Default is google:gemini@3.1-pro; Runware documents this model as image-to-text/multimodal.
 - Added strict response-field and score/action validation, separate image-trust / diagnosis-confidence / target-proximity values, and the 60-point image gate.
+- Added a shared Runware-backed AiOutputNormalizer. Recovery vision and text fallback use it only after their first response fails validation; normalized output is validated again. Missing decision-critical evidence remains null and produces ANALYSIS_INCOMPLETE instead of guessed scores or actions.
 - Added the inclusive 0–49 / 50–74 / 75–89 / 90–100 decision policy and boundary unit tests.
 - Added JPEG/PNG decoding, size/dimension checks, metadata-stripping re-encoding, generated user-scoped object keys, owner-only local file permissions and a 20-attempt/hour/session guard.
-- Provider failure or malformed output is returned as a controlled unavailable result; no text-only fallback pretends to inspect a photo.
+- Provider failure or output that remains malformed after one normalization call is returned as a controlled incomplete/unavailable result; no text-only fallback pretends to inspect a photo. No blind retry or normalization loop is used.
 
 ## Phase 4 — Closed-loop cooking
 
@@ -55,6 +56,8 @@ With Runware enabled, set:
 - SPRING_PROFILES_ACTIVE=runware
 - Optional RUNWARE_MODEL for recipe generation.
 - Optional RUNWARE_VISION_MODEL for recovery vision; defaults to google:gemini@3.1-pro.
+- Optional RUNWARE_TEXT_FALLBACK_MODEL for text-only recovery; defaults to deepseek:v4.1@flash.
+- Optional RUNWARE_NORMALIZER_MODEL for schema normalization; defaults to deepseek:v4.1@flash.
 
 The vision model is deliberately separate from recipe generation. The native Runware text-inference endpoint receives the uploaded photo as a data URI. Do not change this model to a text-only model.
 
