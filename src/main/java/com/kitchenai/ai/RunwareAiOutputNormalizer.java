@@ -85,7 +85,7 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
       task.put("taskUUID", UUID.randomUUID().toString());
       task.put("model", model);
       task.putArray("messages").addObject().put("role", "user").put("content", prompt);
-      task.putObject("settings").put("maxTokens", 1400).put("temperature", 0.0);
+      task.putObject("settings").put("maxTokens", 2600).put("temperature", 0.0);
 
       HttpRequest request = HttpRequest.newBuilder(URI.create(URL))
           .timeout(Duration.ofSeconds(45))
