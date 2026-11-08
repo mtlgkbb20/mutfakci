@@ -9,6 +9,8 @@ import java.net.URI;
 import java.net.http.*;
 import java.time.Duration;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Profile("runware")
 public class RunwareRecoveryVisionService implements RecoveryVisionService {
+  private static final Logger log = LoggerFactory.getLogger(RunwareRecoveryVisionService.class);
   private static final String URL = "https://api.runware.ai/v1";
   private final ObjectMapper json;
   private final HttpClient http;
@@ -28,6 +31,8 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey = env.getProperty("app.ai.runware.api-key", "");
     this.model = env.getProperty("app.ai.runware.vision-model", "google:gemini@3.1-pro");
+    log.info("Recipe recovery vision initialized: activeProfiles={}, model={}, apiKeyConfigured={}",
+        Arrays.toString(env.getActiveProfiles()), this.model, !this.apiKey.isBlank());
   }
   @Override public boolean available() { return !apiKey.isBlank() && !model.isBlank(); }
 
@@ -64,10 +69,25 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
           .header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
       HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() / 100 != 2) throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis provider failed");
+      log.info("Runware recovery response received: status={}, model={}, responseBytes={}",
+          response.statusCode(), model, response.body() == null ? 0 : response.body().length());
       JsonNode root = json.readTree(response.body());
+      if (response.statusCode() / 100 != 2) {
+        logProviderErrors(root, response.statusCode());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis provider failed");
+      }
+      if (root.has("errors") && root.path("errors").isArray() && !root.path("errors").isEmpty()) {
+        logProviderErrors(root, response.statusCode());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis provider returned task errors");
+      }
       String content = root.path("data").path(0).path("text").asText("");
-      if (content.isBlank()) throw new IllegalArgumentException("Empty model response");
+      if (content.isBlank()) {
+        log.warn("Runware recovery response has no text: status={}, hasData={}, dataCount={}, rootFields={}",
+            response.statusCode(), root.has("data"),
+            root.path("data").isArray() ? root.path("data").size() : -1,
+            fieldNames(root));
+        throw new IllegalArgumentException("Empty model response");
+      }
       JsonNode result = json.readTree(content.trim());
       Set<String> expected = Set.of("imageTrustScore","analysisConfidence","problemCategory","problemSummary","observedState","targetState","gapSummary","reason","targetProximityScore","action");
       Set<String> actual = new HashSet<>();
@@ -105,9 +125,41 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
           text(result,"problemSummary"), text(result,"observedState"), text(result,"targetState"),
           text(result,"gapSummary"), text(result,"reason"), proximity,
           new Action(type, instruction, quantity, unit, duration));
-    } catch (ApiException e) { throw e; }
-    catch (Exception e) { throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis returned an invalid response"); }
+    } catch (ApiException e) {
+      log.warn("Runware recovery analysis failed: model={}, reason={}", model, e.getMessage());
+      throw e;
+    } catch (Exception e) {
+      log.error("Runware recovery analysis crashed: model={}, exceptionType={}, message={}",
+          model, e.getClass().getSimpleName(), e.getMessage(), e);
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis returned an invalid response");
+    }
   }
+  private void logProviderErrors(JsonNode root, int httpStatus) {
+    JsonNode errors = root.path("errors");
+    if (!errors.isArray() || errors.isEmpty()) {
+      log.warn("Runware provider request failed: httpStatus={}, responseFields={}",
+          httpStatus, fieldNames(root));
+      return;
+    }
+    for (JsonNode error : errors) {
+      log.warn("Runware provider error: httpStatus={}, code={}, message={}",
+          httpStatus, safeLogValue(error.path("code").asText("unknown"), 80),
+          safeLogValue(error.path("message").asText("No message supplied"), 500));
+    }
+  }
+
+  private String fieldNames(JsonNode node) {
+    List<String> names = new ArrayList<>();
+    node.fieldNames().forEachRemaining(names::add);
+    return names.toString();
+  }
+
+  private String safeLogValue(String value, int maxLength) {
+    if (value == null) return "";
+    String singleLine = value.replaceAll("[\\r\\n\\t]", " ");
+    return singleLine.length() <= maxLength ? singleLine : singleLine.substring(0, maxLength);
+  }
+
   private int requiredInt(JsonNode n, String key) {
     if (!n.path(key).isIntegralNumber()) throw new IllegalArgumentException("Missing integer");
     return n.path(key).asInt();
