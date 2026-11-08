@@ -33,4 +33,7 @@ public final class RecoveryContracts {
       int targetProximityScore, Action action) {}
   public record ConfirmRequest(boolean confirmed, String note) {}
   public record DecisionRequest(String choice) {}
+  public record TextFallbackRequest(String recipeName,String problemDescription) {}
+  public record TextFallbackResponse(String status,UUID attemptId,String recipeName,
+      String advice,String caution,String message) {}
 }
