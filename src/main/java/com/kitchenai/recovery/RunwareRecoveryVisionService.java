@@ -2,6 +2,7 @@ package com.kitchenai.recovery;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.ai.AiOutputNormalizer;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.recovery.RecoveryContracts.*;
 import java.math.BigDecimal;
@@ -25,12 +26,14 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
   private final HttpClient http;
   private final String apiKey;
   private final String model;
+  private final AiOutputNormalizer outputNormalizer;
 
-  public RunwareRecoveryVisionService(ObjectMapper json, Environment env) {
+  public RunwareRecoveryVisionService(ObjectMapper json, Environment env, AiOutputNormalizer outputNormalizer) {
     this.json = json;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey = env.getProperty("app.ai.runware.api-key", "");
     this.model = env.getProperty("app.ai.runware.vision-model", "google:gemini@3.1-pro");
+    this.outputNormalizer = outputNormalizer;
     log.info("Recipe recovery vision initialized: activeProfiles={}, model={}, apiKeyConfigured={}",
         Arrays.toString(env.getActiveProfiles()), this.model, !this.apiKey.isBlank());
   }
@@ -41,7 +44,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
     try {
       String dataUri = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(image);
       String schema = """
-        {"type":"object","additionalProperties":false,"required":["imageTrustScore","analysisConfidence","problemCategory","problemSummary","observedState","targetState","gapSummary","reason","targetProximityScore","action"],"properties":{"imageTrustScore":{"type":"integer","minimum":0,"maximum":100},"analysisConfidence":{"type":"number","minimum":0,"maximum":1},"problemCategory":{"type":"string","minLength":1,"maxLength":40},"problemSummary":{"type":"string","minLength":1,"maxLength":180},"observedState":{"type":"string","minLength":1,"maxLength":500},"targetState":{"type":"string","minLength":1,"maxLength":500},"gapSummary":{"type":"string","minLength":1,"maxLength":240},"reason":{"type":"string","minLength":1,"maxLength":300},"targetProximityScore":{"type":"integer","minimum":0,"maximum":100},"action":{"type":"object","additionalProperties":false,"required":["type","instruction","quantity","unit","durationSeconds"],"properties":{"type":{"type":"string","enum":["REST","MIX","KNEAD","ADJUST_TEMPERATURE","DRAIN","CHILL","REFORM","CONTINUE_COOKING","STOP_COOKING","REMAKE_COMPONENT","NONE"]},"instruction":{"type":["string","null"],"maxLength":240},"quantity":{"type":["number","null"],"exclusiveMinimum":0},"unit":{"type":["string","null"],"maxLength":30},"durationSeconds":{"type":["integer","null"],"minimum":1,"maximum":3600}}}}}
+        {"type":"object","additionalProperties":false,"required":["imageTrustScore","analysisConfidence","problemCategory","problemSummary","observedState","targetState","gapSummary","reason","targetProximityScore","action"],"properties":{"imageTrustScore":{"type":["integer","null"],"minimum":0,"maximum":100},"analysisConfidence":{"type":["number","null"],"minimum":0,"maximum":1},"problemCategory":{"type":["string","null"],"maxLength":40},"problemSummary":{"type":["string","null"],"maxLength":180},"observedState":{"type":["string","null"],"maxLength":500},"targetState":{"type":["string","null"],"maxLength":500},"gapSummary":{"type":["string","null"],"maxLength":240},"reason":{"type":["string","null"],"maxLength":300},"targetProximityScore":{"type":["integer","null"],"minimum":0,"maximum":100},"action":{"type":["object","null"],"additionalProperties":false,"required":["type","instruction","quantity","unit","durationSeconds"],"properties":{"type":{"type":["string","null"],"enum":["REST","MIX","KNEAD","ADJUST_TEMPERATURE","DRAIN","CHILL","REFORM","CONTINUE_COOKING","STOP_COOKING","REMAKE_COMPONENT","NONE",null]},"instruction":{"type":["string","null"],"maxLength":240},"quantity":{"type":["number","null"],"exclusiveMinimum":0},"unit":{"type":["string","null"],"maxLength":30},"durationSeconds":{"type":["integer","null"],"minimum":1,"maximum":3600}}}}}
         """;
       String prompt = """
         Analyze the attached food photo for recipe recovery. Return JSON only.
@@ -88,7 +91,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
             fieldNames(root));
         throw new IllegalArgumentException("Empty model response");
       }
-      return parseAnalysis(content.trim());
+      return parseAnalysis(content.trim(), schema, context);
     } catch (RecoveryAnalysisFormatException e) {
       log.warn("Runware recovery output rejected: model={}, reason={}", model, e.getMessage());
       throw e;
@@ -101,49 +104,129 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
       throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis returned an invalid response");
     }
   }
-  private Analysis parseAnalysis(String content) {
+  private Analysis parseAnalysis(String content, String schema, String context) {
     try {
-    JsonNode result = json.readTree(content.trim());
-    Set<String> expected = Set.of("imageTrustScore","analysisConfidence","problemCategory","problemSummary","observedState","targetState","gapSummary","reason","targetProximityScore","action");
-    Set<String> actual = new HashSet<>();
-    result.fieldNames().forEachRemaining(actual::add);
-    if (!actual.equals(expected)) throw new IllegalArgumentException("Unexpected recovery fields");
-    JsonNode a = result.path("action");
-    Set<String> actionFields = Set.of("type","instruction","quantity","unit","durationSeconds");
-    Set<String> actualActionFields = new HashSet<>();
-    a.fieldNames().forEachRemaining(actualActionFields::add);
-    if (!actualActionFields.equals(actionFields)) throw new IllegalArgumentException("Unexpected action fields");
-    int trust = requiredInt(result, "imageTrustScore");
-    int proximity = requiredInt(result, "targetProximityScore");
-    if (!result.path("analysisConfidence").isNumber())
-      throw new IllegalArgumentException("Confidence must be numeric");
-    double confidence = result.path("analysisConfidence").asDouble(-1);
-    if (trust < 0 || trust > 100 || proximity < 0 || proximity > 100 || confidence < 0 || confidence > 1)
-      throw new IllegalArgumentException("Out of range score");
-    if(!a.path("type").isTextual()) throw new IllegalArgumentException("Action type missing");
-    ActionType type = ActionType.valueOf(a.path("type").asText());
-    String instruction = nullableText(a, "instruction");
-    if(!a.path("quantity").isNull()&&!a.path("quantity").isNumber())
-      throw new IllegalArgumentException("Quantity must be numeric or null");
-    BigDecimal quantity = a.path("quantity").isNumber() ? a.path("quantity").decimalValue() : null;
-    String unit = nullableText(a, "unit");
-    if(!a.path("durationSeconds").isNull()&&!a.path("durationSeconds").isIntegralNumber())
-      throw new IllegalArgumentException("Duration must be an integer or null");
-    Integer duration = a.path("durationSeconds").isIntegralNumber() ? a.path("durationSeconds").asInt() : null;
-    if (type == ActionType.ADD_INGREDIENT) throw new IllegalArgumentException("Ingredient invention disabled");
-    if (type != ActionType.NONE && (instruction == null || instruction.isBlank())) throw new IllegalArgumentException("Action missing");
-    if (type == ActionType.NONE && instruction != null && !instruction.isBlank()) throw new IllegalArgumentException("NONE action cannot contain instructions");
-    if (duration != null && (duration < 1 || duration > 3600)) throw new IllegalArgumentException("Invalid duration");
-    if (quantity != null && (quantity.signum() <= 0 || quantity.compareTo(new BigDecimal("100")) > 0)) throw new IllegalArgumentException("Invalid quantity");
-    if ((quantity == null) != (unit == null || unit.isBlank())) throw new IllegalArgumentException("Quantity and unit must be supplied together");
-    return new Analysis(trust, BigDecimal.valueOf(confidence), text(result,"problemCategory"),
-        text(result,"problemSummary"), text(result,"observedState"), text(result,"targetState"),
-        text(result,"gapSummary"), text(result,"reason"), proximity,
-        new Action(type, instruction, quantity, unit, duration));
-    } catch (Exception e) {
-      throw new RecoveryAnalysisFormatException(
-          "Runware response did not match the recovery output contract", e);
+      return parseAnalysisStrict(content);
+    } catch (RecoveryAnalysisFormatException originalFailure) {
+      log.warn("Recovery response failed strict validation; attempting normalization: model={}, detail={}",
+          model, originalFailure.getCause() == null ? originalFailure.getMessage()
+              : originalFailure.getCause().getMessage());
+      if (!outputNormalizer.available()) throw originalFailure;
+      try {
+        String rules = """
+            This is a food-photo recovery analysis. Preserve only information explicitly present
+            in the source response. Do not infer image clarity, confidence, proximity scores,
+            recipe target, or a correction. Missing or uncertain fields must be JSON null.
+            The action may be null. Never introduce ADD_INGREDIENT. Use Turkish for text fields.
+            Recipe/component context for interpretation only: %s
+            """.formatted(context);
+        String normalized = outputNormalizer.normalize("recipe-recovery", content, schema, rules);
+        Analysis result = parseAnalysisStrict(normalized);
+        log.info("Recovery response normalized successfully: model={}, normalizerAvailable=true", model);
+        return result;
+      } catch (Exception normalizationFailure) {
+        log.warn("Recovery response normalization did not produce a valid contract: model={}, exceptionType={}, detail={}",
+            model, normalizationFailure.getClass().getSimpleName(), normalizationFailure.getMessage());
+        throw new RecoveryAnalysisFormatException(
+            "Runware response could not be normalized to the recovery output contract",
+            normalizationFailure);
+      }
     }
+  }
+
+  private Analysis parseAnalysisStrict(String content) {
+    try {
+      JsonNode result = json.readTree(content.trim());
+      if (result == null || !result.isObject()) throw new IllegalArgumentException("Expected JSON object");
+      Set<String> expected = Set.of("imageTrustScore","analysisConfidence","problemCategory","problemSummary",
+          "observedState","targetState","gapSummary","reason","targetProximityScore","action");
+      Set<String> actual = new HashSet<>();
+      result.fieldNames().forEachRemaining(actual::add);
+      if (!actual.equals(expected)) throw new IllegalArgumentException("Unexpected recovery fields");
+
+      Integer trust = nullableInt(result, "imageTrustScore");
+      Integer proximity = nullableInt(result, "targetProximityScore");
+      BigDecimal confidence = null;
+      JsonNode confidenceNode = result.path("analysisConfidence");
+      if (!confidenceNode.isNull()) {
+        if (!confidenceNode.isNumber()) throw new IllegalArgumentException("Confidence must be numeric or null");
+        double value = confidenceNode.asDouble();
+        if (value < 0 || value > 1) throw new IllegalArgumentException("Confidence out of range");
+        confidence = confidenceNode.decimalValue();
+      }
+      if (trust != null && (trust < 0 || trust > 100)) throw new IllegalArgumentException("Trust score out of range");
+      if (proximity != null && (proximity < 0 || proximity > 100)) throw new IllegalArgumentException("Proximity score out of range");
+
+      Action action = null;
+      JsonNode a = result.path("action");
+      if (!a.isNull()) {
+        if (!a.isObject()) throw new IllegalArgumentException("Action must be an object or null");
+        Set<String> actionFields = Set.of("type","instruction","quantity","unit","durationSeconds");
+        Set<String> actualActionFields = new HashSet<>();
+        a.fieldNames().forEachRemaining(actualActionFields::add);
+        if (!actualActionFields.equals(actionFields)) throw new IllegalArgumentException("Unexpected action fields");
+
+        ActionType type = null;
+        if (!a.path("type").isNull()) {
+          if (!a.path("type").isTextual()) throw new IllegalArgumentException("Action type must be text or null");
+          type = ActionType.valueOf(a.path("type").asText());
+        }
+        String instruction = nullableText(a, "instruction");
+        if (instruction != null && instruction.length() > 240) throw new IllegalArgumentException("Instruction too long");
+        if (!a.path("quantity").isNull() && !a.path("quantity").isNumber())
+          throw new IllegalArgumentException("Quantity must be numeric or null");
+        BigDecimal quantity = a.path("quantity").isNumber() ? a.path("quantity").decimalValue() : null;
+        String unit = nullableText(a, "unit");
+        if (unit != null && unit.length() > 30) throw new IllegalArgumentException("Unit too long");
+        if (!a.path("durationSeconds").isNull() && !a.path("durationSeconds").isIntegralNumber())
+          throw new IllegalArgumentException("Duration must be an integer or null");
+        Integer duration = a.path("durationSeconds").isIntegralNumber() ? a.path("durationSeconds").asInt() : null;
+        if (type == ActionType.ADD_INGREDIENT) throw new IllegalArgumentException("Ingredient invention disabled");
+        if (duration != null && (duration < 1 || duration > 3600)) throw new IllegalArgumentException("Invalid duration");
+        if (quantity != null && (quantity.signum() <= 0 || quantity.compareTo(new BigDecimal("100")) > 0))
+          throw new IllegalArgumentException("Invalid quantity");
+        if ((quantity == null) != (unit == null || unit.isBlank()))
+          throw new IllegalArgumentException("Quantity and unit must be supplied together");
+        if (type == ActionType.NONE && instruction != null && !instruction.isBlank())
+          throw new IllegalArgumentException("NONE action cannot contain instructions");
+        action = new Action(type, instruction, quantity, unit, duration);
+      }
+
+      return new Analysis(trust, confidence,
+          optionalText(result, "problemCategory", 40),
+          optionalText(result, "problemSummary", 180),
+          optionalText(result, "observedState", 500),
+          optionalText(result, "targetState", 500),
+          optionalText(result, "gapSummary", 240),
+          optionalText(result, "reason", 300),
+          proximity, action);
+    } catch (Exception e) {
+      throw new RecoveryAnalysisFormatException("Recovery response failed schema validation", e);
+    }
+  }
+
+  private Integer nullableInt(JsonNode node, String key) {
+    JsonNode value = node.path(key);
+    if (value.isNull()) return null;
+    if (!value.isIntegralNumber()) throw new IllegalArgumentException(key + " must be an integer or null");
+    return value.asInt();
+  }
+
+  private String optionalText(JsonNode node, String key, int maxLength) {
+    JsonNode value = node.path(key);
+    if (value.isNull()) return null;
+    if (!value.isTextual()) throw new IllegalArgumentException(key + " must be text or null");
+    String text = value.asText().trim();
+    if (text.isBlank()) return null;
+    if (text.length() > maxLength) throw new IllegalArgumentException(key + " is too long");
+    return text;
+  }
+
+  private String nullableText(JsonNode node, String key) {
+    JsonNode value = node.path(key);
+    if (value.isNull()) return null;
+    if (!value.isTextual()) throw new IllegalArgumentException(key + " must be text or null");
+    return value.asText();
   }
 
   private void logProviderErrors(JsonNode root, int httpStatus) {
