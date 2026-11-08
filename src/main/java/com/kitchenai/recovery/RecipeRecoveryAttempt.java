@@ -57,6 +57,7 @@ public class RecipeRecoveryAttempt {
   public String getObservedStateJson(){return observedStateJson;}
   public String getTargetStateJson(){return targetStateJson;}
   public String getAssessmentJson(){return assessmentJson;}
+  public Instant getCreatedAt(){return createdAt;}
   public void markImageRejected(int trust,String observed){imageTrustScore=trust;observedStateJson=observed;status="IMAGE_REJECTED";}
   public void markUnavailable(String reason){status="VISION_PROVIDER_UNAVAILABLE";assessmentJson=reason;}
   public void applyAnalysis(int trust,BigDecimal confidence,Integer proximity,String observed,
