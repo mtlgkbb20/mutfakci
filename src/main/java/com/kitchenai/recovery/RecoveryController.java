@@ -206,13 +206,14 @@ public class RecoveryController {
       RecoveryDecisionPolicy.Result policy=RecoveryDecisionPolicy.evaluate(score);
       Decision decision=policy.decision();
       Status status=policy.status();
-      Action action=policy.correctionRequired()||policy.recoveryChoiceRequired()?analysis.action():null;
+      Action storedAction=policy.correctionRequired()||policy.recoveryChoiceRequired()?analysis.action():null;
+      Action responseAction=policy.correctionRequired()?analysis.action():null;
       String lifecycle=policy.lifecycle();
       attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),score,
           json.writeValueAsString(Map.of("observedState",analysis.observedState())),
           json.writeValueAsString(Map.of("targetState",analysis.targetState())),
           json.writeValueAsString(Map.of("gapSummary",analysis.gapSummary(),"reason",analysis.reason(),"decision",decision.name())),
-          action==null?null:json.writeValueAsString(action),lifecycle);
+          storedAction==null?null:json.writeValueAsString(storedAction),lifecycle);
       attempts.save(attempt);
       FollowUp follow=score>=75&&score<90?new FollowUp(true,true,true,
           "Düzeltmeyi uygula; ardından yeni fotoğraf ve kısa durum açıklaması gönder."):null;
@@ -220,7 +221,7 @@ public class RecoveryController {
           score>=75?"Küçük bir düzeltme gerekiyor.":score>=50?
           "Bu bileşen kurtarılabilir; ancak yeniden yapmak daha iyi sonuç verebilir.":
           "Bu bileşen makul şekilde kurtarılamıyor; yalnızca bu bileşeni yeniden hazırlamanı öneririm.";
-      return response(status,attempt,analysis,decision,action,follow,message);
+      return response(status,attempt,analysis,decision,responseAction,follow,message);
     }catch(ApiException e){throw e;}
     catch(IOException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Photo could not be stored");}
   }
