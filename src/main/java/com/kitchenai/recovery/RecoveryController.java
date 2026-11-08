@@ -11,6 +11,8 @@ import jakarta.transaction.Transactional;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.*;
+import java.time.Instant;
+import java.time.Duration;
 import java.util.*;
 import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/cooking-sessions/{sessionId}/recovery-attempts")
 public class RecoveryController {
   private static final long MAX_BYTES=10_000_000L, MAX_PIXELS=20_000_000L;
+  private static final long MAX_ATTEMPTS_PER_HOUR=20;
   private static final Set<String> PROBLEM_CATEGORIES=Set.of("TOO_HARD","TOO_SOFT","TOO_STICKY",
       "NOT_RISING","NOT_HOLDING_SHAPE","SPLITTING","CURDLED","OVERCOOKED","UNDERCOOKED","OTHER");
   private final CookingSessionRepository sessions;
@@ -116,6 +119,9 @@ public class RecoveryController {
 
   private Response createAttempt(CookingSession session,RecipeRecoveryAttempt parent,MultipartFile image,
       String category,String description,String statusText,String outcome,String componentKey){
+    if(attempts.countBySessionIdAndCreatedAtAfter(session.getId(),Instant.now().minus(Duration.ofHours(1)))
+        >=MAX_ATTEMPTS_PER_HOUR)
+      throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"Recovery attempt limit reached for this cooking session");
     if(image==null||image.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"A photo is required");
     String mime=image.getContentType();
     if(mime==null||!List.of("image/jpeg","image/png").contains(mime))
