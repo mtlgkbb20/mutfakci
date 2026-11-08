@@ -184,7 +184,7 @@ public class RunwareRecipeGenerationService
                 value(request.dietaryRestrictions(), "belirtilmedi"),
                 value(request.availableIngredients(), "belirtilmedi"));
     ObjectNode schema = decompositionSchema();
-    ModelPayload modelPayload = requestJson(prompt, schema, "decomposition");
+    ModelPayload modelPayload = requestJsonSafely(prompt, schema, "decomposition");
     JsonNode payload = modelPayload.json();
     try {
       return RecipePipelineValidator.decomposition(parseDecomposition(payload, request));
@@ -234,7 +234,7 @@ public class RunwareRecipeGenerationService
                 safeJson(plan),
                 safeJson(component));
     ObjectNode schema = componentSchema();
-    ModelPayload modelPayload = requestJson(prompt, schema, "component-" + component.key());
+    ModelPayload modelPayload = requestJsonSafely(prompt, schema, "component-" + component.key());
     JsonNode payload = modelPayload.json();
     try {
       RecipeComponentGenerationResponse result = mapper.treeToValue(payload, RecipeComponentGenerationResponse.class);
@@ -254,6 +254,22 @@ public class RunwareRecipeGenerationService
             normalizationFailure.getClass().getSimpleName());
         throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component generation returned an invalid structure");
       }
+    }
+  }
+
+  private ModelPayload requestJsonSafely(String prompt, ObjectNode schema, String operation) {
+    try {
+      return requestJson(prompt, schema, operation);
+    } catch (ApiException e) {
+      throw e;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("Runware provider operation={} was interrupted", operation);
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI request was interrupted");
+    } catch (Exception e) {
+      log.warn("Runware provider operation={} failed before a usable response: type={}, message={}",
+          operation, e.getClass().getSimpleName(), e.getMessage());
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI request failed");
     }
   }
 
