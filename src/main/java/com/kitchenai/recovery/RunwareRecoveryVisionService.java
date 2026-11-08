@@ -58,6 +58,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
         Do not invent ingredients or propose ADD_INGREDIENT. Prefer the smallest reversible action.
         For trust below 60, set targetProximityScore=0 and action type NONE.
         If confidence is below 0.65, use action NONE and explain missing context.
+        If any field cannot be established from visible evidence and recipe context, return null for that field; never guess to complete the schema.
         Use concise Turkish. Ground target state in recipe context. Schema: %s
         """.formatted(context, schema);
       var task = json.createObjectNode();
