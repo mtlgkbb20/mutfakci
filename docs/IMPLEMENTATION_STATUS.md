@@ -21,7 +21,7 @@ Status: multimodal recovery implementation committed; provider execution still r
 - Added Runware native textInference vision adapter using a separate RUNWARE_VISION_MODEL setting. Default is google:gemini@3.1-pro; Runware documents this model as image-to-text/multimodal.
 - Added strict response-field and score/action validation, separate image-trust / diagnosis-confidence / target-proximity values, and the 60-point image gate.
 - Added the inclusive 0–49 / 50–74 / 75–89 / 90–100 decision policy and boundary unit tests.
-- Added JPEG/PNG decoding, size/dimension checks, metadata-stripping re-encoding, generated user-scoped object keys and owner-only local file permissions.
+- Added JPEG/PNG decoding, size/dimension checks, metadata-stripping re-encoding, generated user-scoped object keys, owner-only local file permissions and a 20-attempt/hour/session guard.
 - Provider failure or malformed output is returned as a controlled unavailable result; no text-only fallback pretends to inspect a photo.
 
 ## Phase 4 — Closed-loop cooking
@@ -61,7 +61,7 @@ The vision model is deliberately separate from recipe generation. The native Run
 ## Remaining production hardening
 
 - Run end-to-end tests against the actual Runware account/model and confirm latency/cost under real photos.
-- Add persistent per-user rate limiting and image retention/deletion jobs.
+- Add global persistent per-user rate limiting and image retention/deletion jobs (a per-session guard is already in place).
 - Consider object storage (private S3-compatible bucket) instead of local disk for multi-instance deployment.
 - Add recovery-attempt history UI and analytics.
 - Add component-specific action allowlists and food-safety policy review before expanding supported foods/actions.
