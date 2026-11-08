@@ -137,7 +137,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
 
   private Analysis parseAnalysisStrict(String content) {
     try {
-      JsonNode result = json.readTree(content.trim());
+      JsonNode result = json.readTree(stripMarkdownJsonFence(content));
       if (result == null || !result.isObject()) throw new IllegalArgumentException("Expected JSON object");
       Set<String> expected = Set.of("imageTrustScore","analysisConfidence","problemCategory","problemSummary",
           "observedState","targetState","gapSummary","reason","targetProximityScore","action");
@@ -204,6 +204,15 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
     } catch (Exception e) {
       throw new RecoveryAnalysisFormatException("Recovery response failed schema validation", e);
     }
+  }
+
+  private String stripMarkdownJsonFence(String content) {
+    String value = content == null ? "" : content.trim();
+    if (value.startsWith("```")) {
+      value = value.replaceFirst("^\\`\\`\\`(?:json)?\\s*", "");
+      value = value.replaceFirst("\\s*\\`\\`\\`$", "");
+    }
+    return value.trim();
   }
 
   private Integer nullableInt(JsonNode node, String key) {
