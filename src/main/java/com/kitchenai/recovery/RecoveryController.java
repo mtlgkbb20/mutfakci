@@ -357,8 +357,10 @@ public class RecoveryController {
       Action action,FollowUp follow,String message){
     Problem problem=analysis==null?null:new Problem(analysis.problemCategory(),analysis.problemSummary());
     Assessment assessment=analysis==null?null:new Assessment(analysis.targetState(),analysis.gapSummary(),analysis.reason());
-    return new Response(status,attempt.getImageTrustScore(),
-        analysis==null?null:analysis.analysisConfidence(),attempt.getTargetProximityScore(),
+    return new Response(status,
+        analysis==null?attempt.getImageTrustScore():analysis.imageTrustScore(),
+        analysis==null?null:analysis.analysisConfidence(),
+        analysis==null?attempt.getTargetProximityScore():analysis.targetProximityScore(),
         problem,assessment,decision,action,follow,attempt.getId(),message);
   }
 }
