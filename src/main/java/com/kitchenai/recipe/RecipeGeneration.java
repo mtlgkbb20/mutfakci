@@ -11,6 +11,8 @@ public class RecipeGeneration {
   @Id private UUID id;
   private UUID userId;
   private String desiredFood;
+  private String normalizedDesiredFood;
+  private UUID recipeId;
   private String sourceType;
   private String provider;
   private String status;
@@ -32,19 +34,29 @@ public class RecipeGeneration {
 
   protected RecipeGeneration() {}
 
-  public RecipeGeneration(UUID userId, String desiredFood, String sourceType, String provider) {
+  public RecipeGeneration(
+      UUID userId,
+      String desiredFood,
+      String normalizedDesiredFood,
+      String sourceType,
+      String provider) {
     this.id = UUID.randomUUID();
     this.userId = userId;
     this.desiredFood = desiredFood;
+    this.normalizedDesiredFood = normalizedDesiredFood;
     this.sourceType = sourceType;
     this.provider = provider;
     this.status = "RUNNING";
     this.createdAt = Instant.now();
   }
 
-  public void complete(String decompositionJson, String componentResponsesJson,
-                       String finalRecipeJson) {
+  public void complete(
+      UUID recipeId,
+      String decompositionJson,
+      String componentResponsesJson,
+      String finalRecipeJson) {
     this.status = "COMPLETED";
+    this.recipeId = recipeId;
     this.decompositionJson = decompositionJson;
     this.componentResponsesJson = componentResponsesJson;
     this.finalRecipeJson = finalRecipeJson;
@@ -57,16 +69,59 @@ public class RecipeGeneration {
     this.completedAt = Instant.now();
   }
 
-  public UUID getId() { return id; }
-  public UUID getUserId() { return userId; }
-  public String getDesiredFood() { return desiredFood; }
-  public String getSourceType() { return sourceType; }
-  public String getProvider() { return provider; }
-  public String getStatus() { return status; }
-  public String getDecompositionJson() { return decompositionJson; }
-  public String getComponentResponsesJson() { return componentResponsesJson; }
-  public String getFinalRecipeJson() { return finalRecipeJson; }
-  public String getErrorMessage() { return errorMessage; }
-  public Instant getCreatedAt() { return createdAt; }
-  public Instant getCompletedAt() { return completedAt; }
+  public UUID getId() {
+    return id;
+  }
+
+  public UUID getUserId() {
+    return userId;
+  }
+
+  public String getDesiredFood() {
+    return desiredFood;
+  }
+
+  public String getNormalizedDesiredFood() {
+    return normalizedDesiredFood;
+  }
+
+  public UUID getRecipeId() {
+    return recipeId;
+  }
+
+  public String getSourceType() {
+    return sourceType;
+  }
+
+  public String getProvider() {
+    return provider;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public String getDecompositionJson() {
+    return decompositionJson;
+  }
+
+  public String getComponentResponsesJson() {
+    return componentResponsesJson;
+  }
+
+  public String getFinalRecipeJson() {
+    return finalRecipeJson;
+  }
+
+  public String getErrorMessage() {
+    return errorMessage;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public Instant getCompletedAt() {
+    return completedAt;
+  }
 }

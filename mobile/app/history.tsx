@@ -48,7 +48,7 @@ export default function History() {
         ) : (
           recipes.map((recipe, index) => (
             <Pressable
-              key={recipe.id}
+              key={`history-recipe-${index}`}
               style={s.card}
               onPress={() =>
                 router.push({

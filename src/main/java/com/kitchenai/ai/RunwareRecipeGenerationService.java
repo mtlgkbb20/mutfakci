@@ -28,7 +28,8 @@ import org.springframework.stereotype.Service;
 /** Runware adapter. Provider JSON never leaves this class. */
 @Service
 @Profile("runware")
-public class RunwareRecipeGenerationService implements RecipeGenerationService {
+public class RunwareRecipeGenerationService
+    implements RecipeGenerationService, RecipeReviewService {
   private static final String API_URL = "https://api.runware.ai/v1/chat/completions";
   private static final Logger log = LoggerFactory.getLogger(RunwareRecipeGenerationService.class);
   private final ObjectMapper mapper;
@@ -77,6 +78,71 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
         result.stages().size(),
         result.ingredients().size());
     return new GenerationTrace(result, plan, components);
+  }
+
+  @Override
+  public RecipeResult review(RecipeResult recipe) {
+    String prompt =
+        """
+        Review and finalize this Turkish recipe before it is shown to a user.
+        Return JSON only and follow the provided schema.
+        Correct awkward or incorrect Turkish cooking terminology and stage names.
+        For example, replace 'yufkalandırma' with 'yufkayı açma' when that is what
+        the instruction actually means. Preserve the recipe's dish identity,
+        ingredient quantities, cooking safety, and practical instructions.
+        Do not add unsupported ingredients or invent a different recipe.
+        Keep all human-readable fields in Turkish.
+        Recipe to review:
+        %s
+        """
+            .formatted(safeJson(recipe));
+    try {
+      RecipeResult reviewed =
+          mapper.treeToValue(
+              requestJson(prompt, reviewSchema(), "recipe-review"), RecipeResult.class);
+      validateReviewedRecipe(reviewed);
+      log.info(
+          "Runware chef review completed title={} stageCount={}",
+          reviewed.title(),
+          reviewed.stages().size());
+      return reviewed;
+    } catch (ApiException e) {
+      throw e;
+    } catch (Exception e) {
+      log.warn(
+          "Runware chef review failed type={} message={}",
+          e.getClass().getSimpleName(),
+          e.getMessage());
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review failed");
+    }
+  }
+
+  private void validateReviewedRecipe(RecipeResult recipe) {
+    if (recipe == null
+        || recipe.title() == null
+        || recipe.title().isBlank()
+        || recipe.ingredients() == null
+        || recipe.ingredients().isEmpty()
+        || recipe.stages() == null
+        || recipe.stages().isEmpty()) {
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review returned an incomplete recipe");
+    }
+    int order = 1;
+    for (Stage stage : recipe.stages()) {
+      if (stage.order() != order++
+          || stage.instructions() == null
+          || stage.instructions().isBlank()) {
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review returned invalid stages");
+      }
+    }
+  }
+
+  private ObjectNode reviewSchema() {
+    return (ObjectNode)
+        readSchema(
+            """
+{"type":"object","additionalProperties":false,"required":["title","description","productType","servings","preparationTime","cookingTime","ingredients","stages"],"properties":{"title":{"type":"string","minLength":1},"description":{"type":"string"},"productType":{"type":"string","minLength":1},"servings":{"type":"integer","minimum":1,"maximum":30},"preparationTime":{"type":"integer","minimum":1},"cookingTime":{"type":"integer","minimum":1},"ingredients":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["name","quantity","unit","optional"],"properties":{"name":{"type":"string","minLength":1},"quantity":{"type":"number","exclusiveMinimum":0},"unit":{"type":"string","minLength":1},"optional":{"type":"boolean"}}}},"stages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["order","title","instructions","targetState","temperature","durationSeconds"],"properties":{"order":{"type":"integer","minimum":1},"title":{"type":"string","minLength":1},"instructions":{"type":"string","minLength":1},"targetState":{"type":"string","minLength":1},"temperature":{"type":["integer","null"]},"durationSeconds":{"type":["integer","null"]}}}}}}
+""");
   }
 
   private RecipeDecompositionResponse decomposition(RecipeRequest request) {

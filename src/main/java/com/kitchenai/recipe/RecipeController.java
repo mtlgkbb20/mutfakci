@@ -3,6 +3,7 @@ package com.kitchenai.recipe;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kitchenai.ai.RecipeGenerationService;
+import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
@@ -38,6 +39,7 @@ public class RecipeController {
   private final UserProgressRepository progress;
   private final RecipeCatalogService catalog;
   private final RecipeGenerationRepository generations;
+  private final RecipeReviewService reviewer;
 
   public RecipeController(
       RecipeRepository recipes,
@@ -46,7 +48,8 @@ public class RecipeController {
       ObjectMapper json,
       UserProgressRepository progress,
       RecipeCatalogService catalog,
-      RecipeGenerationRepository generations) {
+      RecipeGenerationRepository generations,
+      RecipeReviewService reviewer) {
     this.recipes = recipes;
     this.sessions = sessions;
     this.ai = ai;
@@ -54,6 +57,7 @@ public class RecipeController {
     this.progress = progress;
     this.catalog = catalog;
     this.generations = generations;
+    this.reviewer = reviewer;
   }
 
   public record GenerateRequest(
@@ -76,9 +80,29 @@ public class RecipeController {
         return curatedRecipe(match.get(), request.servings());
       }
 
+      String normalizedRequest = RecipeText.normalize(request.desiredFood());
+      var cached =
+          generations.findTop1ByUserIdAndNormalizedDesiredFoodAndStatusOrderByCreatedAtDesc(
+              userId, normalizedRequest, "COMPLETED");
+      if (cached.isPresent() && cached.get().getRecipeId() != null) {
+        var cachedRecipe =
+            recipes
+                .findById(cached.get().getRecipeId())
+                .filter(recipe -> recipe.getUserId() != null && recipe.getUserId().equals(userId));
+        if (cachedRecipe.isPresent()) {
+          log.info(
+              "Recipe generation source=AI_CACHE generationId={} recipeId={}",
+              cached.get().getId(),
+              cached.get().getRecipeId());
+          return view(cachedRecipe.get());
+        }
+      }
+
       log.info("Recipe generation source=AI_GENERATED provider=runware");
-      generation = generations.save(
-          new RecipeGeneration(userId, request.desiredFood(), "AI_GENERATED", "runware"));
+      generation =
+          generations.save(
+              new RecipeGeneration(
+                  userId, request.desiredFood(), normalizedRequest, "AI_GENERATED", "runware"));
       var trace =
           ai.generateWithTrace(
               new RecipeGenerationService.RecipeRequest(
@@ -87,7 +111,11 @@ public class RecipeController {
                   request.dietaryRestrictions(),
                   request.availableIngredients(),
                   request.servings()));
-      var result = trace.recipe();
+      var result = reviewer.review(trace.recipe());
+      log.info(
+          "Recipe generation chef review completed title={} stageCount={}",
+          result.title(),
+          result.stages().size());
       var saved =
           recipes.save(
               new Recipe(
@@ -104,6 +132,7 @@ public class RecipeController {
                   json.writeValueAsString(result.stages())));
       RecipeView response = view(saved);
       generation.complete(
+          saved.getId(),
           json.writeValueAsString(trace.decomposition()),
           json.writeValueAsString(trace.components()),
           json.writeValueAsString(response));
@@ -126,8 +155,10 @@ public class RecipeController {
       return;
     }
     try {
-      generation.fail(exception.getMessage() == null
-          ? exception.getClass().getSimpleName() : exception.getMessage());
+      generation.fail(
+          exception.getMessage() == null
+              ? exception.getClass().getSimpleName()
+              : exception.getMessage());
       generations.save(generation);
     } catch (Exception auditException) {
       log.error("Could not persist failed recipe generation audit", auditException);

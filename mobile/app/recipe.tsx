@@ -30,14 +30,17 @@ export default function Recipe() {
           · {recipe.servings} porsiyon
         </Text>
         <Text style={[s.heading, { marginTop: 25 }]}>Malzemeler</Text>
-        {JSON.parse(recipe.ingredients || "[]").map((x: any) => (
-          <Text style={s.body} key={x.name}>
+        {JSON.parse(recipe.ingredients || "[]").map((x: any, index: number) => (
+          <Text style={s.body} key={`ingredient-${index}`}>
             • {x.quantity} {x.unit} {x.name}
           </Text>
         ))}
         <Text style={[s.heading, { marginTop: 25 }]}>Aşamalar</Text>
-        {JSON.parse(recipe.stages || "[]").map((x: any) => (
-          <Text style={[s.body, { marginTop: 10 }]} key={x.order}>
+        {JSON.parse(recipe.stages || "[]").map((x: any, index: number) => (
+          <Text
+            style={[s.body, { marginTop: 10 }]}
+            key={`stage-${index}`}
+          >
             {x.order}. {x.title}: {x.instructions}
           </Text>
         ))}
