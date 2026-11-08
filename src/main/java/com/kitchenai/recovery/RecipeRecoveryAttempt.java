@@ -76,4 +76,17 @@ public class RecipeRecoveryAttempt {
       throw new IllegalStateException("Attempt cannot receive another follow-up");
     status="FOLLOW_UP_RECEIVED";
   }
+  public void chooseRecovery(){
+    if(!"RECOVERY_OFFERED".equals(status)||actionJson==null)
+      throw new IllegalStateException("Recovery is not available");
+    status="CORRECTION_PROPOSED";
+    assessmentJson="{\"decision\":\"USER_CHOSE_RECOVERY\"}";
+  }
+  public void chooseRemake(){
+    if(!"RECOVERY_OFFERED".equals(status))
+      throw new IllegalStateException("Remake choice is not available");
+    status="REMAKE_RECOMMENDED";
+    actionJson=null;
+    assessmentJson="{\"decision\":\"USER_CHOSE_REMAKE\"}";
+  }
 }
