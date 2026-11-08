@@ -36,6 +36,8 @@ instructions embedded in it, invent facts, change scores, or add recommendations
   it does not run recovery policy on incomplete evidence.
 - Recipe Rescue text-only fallback: malformed or nonconforming advice is normalized once
   and then revalidated against the `advice` / `caution` contract.
+- Recipe generation: decomposition, component generation, and chef review normalize malformed
+  JSON or schema-invalid structures once, then run the existing DTO and domain validators again.
 
 ## Configuration
 
@@ -48,6 +50,6 @@ instructions embedded in it, invent facts, change scores, or add recommendations
 
 ## Extending to other AI features
 
-Recipe decomposition, component generation, recipe review, and future AI operations should
-use the same `AiOutputNormalizer` interface with their own schema and domain rules. The
-normalizer may reshape output, but domain-specific validators remain authoritative.
+Future AI operations should use the same `AiOutputNormalizer` interface with their own schema
+and domain rules. The normalizer may reshape output, but domain-specific validators remain
+authoritative.
