@@ -257,6 +257,59 @@ public class RunwareRecipeGenerationService
     }
   }
 
+  private RecipeDecompositionResponse parseDecomposition(JsonNode payload, RecipeRequest request)
+      throws IOException {
+    JsonNode normalized = payload;
+    if (payload.isArray()) {
+      ObjectNode wrapper = mapper.createObjectNode();
+      wrapper.put("dishTitle", request.desiredFood());
+      wrapper.put("servings", request.servings() == null ? 4 : request.servings());
+      wrapper.set("components", payload);
+      wrapper.put("assemblyRequired", true);
+      normalized = wrapper;
+      log.info("Runware decomposition normalized array response componentCount={}", payload.size());
+    }
+    return mapper.treeToValue(normalized, RecipeDecompositionResponse.class);
+  }
+
+  private RecipeResult assemble(
+      RecipeRequest request,
+      RecipeDecompositionResponse plan,
+      List<RecipeComponentGenerationResponse> components) {
+    List<Ingredient> ingredients = new ArrayList<>();
+    List<Stage> stages = new ArrayList<>();
+    int stageOrder = 1;
+    int maxDuration = 0;
+    for (RecipeComponentGenerationResponse component : components) {
+      for (ComponentIngredient ingredient : component.ingredients()) {
+        ingredients.add(
+            new Ingredient(ingredient.name(), ingredient.quantity(), ingredient.unit(), false));
+      }
+      for (ComponentInstruction instruction : component.instructions()) {
+        stages.add(
+            new Stage(
+                stageOrder++,
+                component.title(),
+                instruction.instruction(),
+                instruction.completionCue(),
+                instruction.temperature(),
+                instruction.durationSeconds()));
+        if (instruction.durationSeconds() != null) {
+          maxDuration = Math.max(maxDuration, instruction.durationSeconds());
+        }
+      }
+    }
+    return new RecipeResult(
+        plan.dishTitle(),
+        "İsteğine göre hazırlanmış tarif.",
+        "AI_GENERATED",
+        plan.servings(),
+        15,
+        Math.max(1, maxDuration / 60),
+        ingredients,
+        stages);
+  }
+
   private ModelPayload requestJsonSafely(String prompt, ObjectNode schema, String operation) {
     try {
       return requestJson(prompt, schema, operation);
