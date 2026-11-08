@@ -15,7 +15,7 @@ spring:
   servlet:
     multipart:
       max-file-size: ${MAX_IMAGE_SIZE:10MB}
-      max-request-size: ${MAX_IMAGE_SIZE:10MB}
+      max-request-size: ${MAX_IMAGE_REQUEST_SIZE:12MB}
 jwt:
   secret: ${JWT_SECRET:change-me-in-development-to-a-long-secret-key}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
