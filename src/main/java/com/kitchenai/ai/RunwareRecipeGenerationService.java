@@ -36,6 +36,7 @@ public class RunwareRecipeGenerationService
   private final HttpClient http;
   private final String apiKey;
   private final String model;
+  private final AiOutputNormalizer outputNormalizer;
 
   public RunwareRecipeGenerationService(
       ObjectMapper mapper, org.springframework.core.env.Environment environment) {
@@ -43,6 +44,7 @@ public class RunwareRecipeGenerationService
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey = environment.getProperty("app.ai.runware.api-key", "");
     this.model = environment.getProperty("app.ai.runware.model", "openai:gpt@5.4-mini");
+    this.outputNormalizer = outputNormalizer;
   }
 
   @Override
@@ -97,15 +99,22 @@ public class RunwareRecipeGenerationService
         """
             .formatted(safeJson(recipe));
     try {
-      RecipeResult reviewed =
-          mapper.treeToValue(
-              requestJson(prompt, reviewSchema(), "recipe-review"), RecipeResult.class);
-      validateReviewedRecipe(reviewed);
-      log.info(
-          "Runware chef review completed title={} stageCount={}",
-          reviewed.title(),
-          reviewed.stages().size());
-      return reviewed;
+      ObjectNode schema = reviewSchema();
+      JsonNode payload = requestJson(prompt, schema, "recipe-review");
+      try {
+        RecipeResult reviewed = mapper.treeToValue(payload, RecipeResult.class);
+        validateReviewedRecipe(reviewed);
+        log.info("Runware chef review completed title={} stageCount={}",
+            reviewed.title(), reviewed.stages().size());
+        return reviewed;
+      } catch (Exception validationFailure) {
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "recipe-review",
+            "Preserve the reviewed recipe content. Do not invent ingredients, amounts, temperatures, or timings. Use null only where the target schema permits it.");
+        RecipeResult reviewed = mapper.treeToValue(normalized, RecipeResult.class);
+        validateReviewedRecipe(reviewed);
+        log.info("Runware chef review output normalized and validated");
+        return reviewed;
+      }
     } catch (ApiException e) {
       throw e;
     } catch (Exception e) {
@@ -171,19 +180,20 @@ public class RunwareRecipeGenerationService
                 value(request.conditions(), "belirtilmedi"),
                 value(request.dietaryRestrictions(), "belirtilmedi"),
                 value(request.availableIngredients(), "belirtilmedi"));
+    ObjectNode schema = decompositionSchema();
+    JsonNode payload = requestJson(prompt, schema, "decomposition");
     try {
-      RecipeDecompositionResponse plan =
-          parseDecomposition(requestJson(prompt, decompositionSchema(), "decomposition"), request);
-      return RecipePipelineValidator.decomposition(plan);
-    } catch (Exception e) {
-      if (e instanceof ApiException apiException) {
-        throw apiException;
+      return RecipePipelineValidator.decomposition(parseDecomposition(payload, request));
+    } catch (Exception validationFailure) {
+      try {
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "decomposition",
+            "Preserve dish identity, component relationships, and source facts. Do not invent components or dependencies.");
+        return RecipePipelineValidator.decomposition(parseDecomposition(normalized, request));
+      } catch (Exception normalizationFailure) {
+        log.warn("Runware decomposition remained invalid after normalization: validationType={}, normalizationType={}",
+            validationFailure.getClass().getSimpleName(), normalizationFailure.getClass().getSimpleName());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe planning returned an invalid structure");
       }
-      log.warn(
-          "Runware decomposition failed type={} message={}",
-          e.getClass().getSimpleName(),
-          e.getMessage());
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe planning failed");
     }
   }
 
@@ -216,76 +226,24 @@ public class RunwareRecipeGenerationService
                 plan.servings(),
                 safeJson(plan),
                 safeJson(component));
+    ObjectNode schema = componentSchema();
+    JsonNode payload = requestJson(prompt, schema, "component-" + component.key());
     try {
-      RecipeComponentGenerationResponse result =
-          mapper.treeToValue(
-              requestJson(prompt, componentSchema(), "component-" + component.key()),
-              RecipeComponentGenerationResponse.class);
+      RecipeComponentGenerationResponse result = mapper.treeToValue(payload, RecipeComponentGenerationResponse.class);
       return RecipePipelineValidator.component(result, component.key());
-    } catch (Exception e) {
-      if (e instanceof ApiException apiException) {
-        throw apiException;
-      }
-      log.warn(
-          "Runware component failed key={} type={} message={}",
-          component.key(),
-          e.getClass().getSimpleName(),
-          e.getMessage());
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component generation failed");
-    }
-  }
-
-  private RecipeDecompositionResponse parseDecomposition(JsonNode payload, RecipeRequest request)
-      throws IOException {
-    JsonNode normalized = payload;
-    if (payload.isArray()) {
-      ObjectNode wrapper = mapper.createObjectNode();
-      wrapper.put("dishTitle", request.desiredFood());
-      wrapper.put("servings", request.servings() == null ? 4 : request.servings());
-      wrapper.set("components", payload);
-      wrapper.put("assemblyRequired", true);
-      normalized = wrapper;
-      log.info("Runware decomposition normalized array response componentCount={}", payload.size());
-    }
-    return mapper.treeToValue(normalized, RecipeDecompositionResponse.class);
-  }
-
-  private RecipeResult assemble(
-      RecipeRequest request,
-      RecipeDecompositionResponse plan,
-      List<RecipeComponentGenerationResponse> components) {
-    List<Ingredient> ingredients = new ArrayList<>();
-    List<Stage> stages = new ArrayList<>();
-    int stageOrder = 1;
-    int maxDuration = 0;
-    for (RecipeComponentGenerationResponse component : components) {
-      for (ComponentIngredient ingredient : component.ingredients()) {
-        ingredients.add(
-            new Ingredient(ingredient.name(), ingredient.quantity(), ingredient.unit(), false));
-      }
-      for (ComponentInstruction instruction : component.instructions()) {
-        stages.add(
-            new Stage(
-                stageOrder++,
-                component.title(),
-                instruction.instruction(),
-                instruction.completionCue(),
-                instruction.temperature(),
-                instruction.durationSeconds()));
-        if (instruction.durationSeconds() != null) {
-          maxDuration = Math.max(maxDuration, instruction.durationSeconds());
-        }
+    } catch (Exception validationFailure) {
+      try {
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "component-" + component.key(),
+            "Preserve the requested componentKey exactly. Do not invent ingredients, quantities, temperatures, or timings.");
+        RecipeComponentGenerationResponse result = mapper.treeToValue(normalized, RecipeComponentGenerationResponse.class);
+        return RecipePipelineValidator.component(result, component.key());
+      } catch (Exception normalizationFailure) {
+        log.warn("Runware component remained invalid after normalization: key={}, validationType={}, normalizationType={}",
+            component.key(), validationFailure.getClass().getSimpleName(),
+            normalizationFailure.getClass().getSimpleName());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component generation returned an invalid structure");
       }
     }
-    return new RecipeResult(
-        plan.dishTitle(),
-        "İsteğine göre hazırlanmış tarif.",
-        "AI_GENERATED",
-        plan.servings(),
-        15,
-        Math.max(1, maxDuration / 60),
-        ingredients,
-        stages);
   }
 
   private JsonNode requestJson(String prompt, ObjectNode schema, String operation)
@@ -345,15 +303,25 @@ public class RunwareRecipeGenerationService
       if (contentText != null && !contentText.isBlank()) {
         try {
           return parseJsonPayload(contentText);
-        } catch (Exception e) {
+        } catch (Exception parseFailure) {
           lastError = "response was not valid JSON";
           log.warn(
-              "Runware provider operation={} attempt={} returned invalid JSON "
-                  + "length={} preview={}",
-              operation,
-              attempt + 1,
-              contentText.length(),
-              preview(contentText));
+              "Runware provider operation={} returned invalid JSON; attempting one normalization " +
+                  "length={} preview={}",
+              operation, contentText.length(), preview(contentText));
+          if (outputNormalizer.available()) {
+            try {
+              String normalized = outputNormalizer.normalize(operation, contentText,
+                  mapper.writeValueAsString(schema),
+                  "Convert this recipe-generation response to the target schema without adding unsupported facts. Preserve source quantities and instructions. Unknown values must remain null or cause validation failure.");
+              return mapper.readTree(normalized);
+            } catch (Exception normalizationFailure) {
+              lastError = "response JSON normalization failed";
+              log.warn("Runware provider operation={} normalization failed type={} detail={}",
+                  operation, normalizationFailure.getClass().getSimpleName(),
+                  normalizationFailure.getMessage());
+            }
+          }
         }
       } else {
         String refusal = message.path("refusal").asText("");
@@ -377,6 +345,16 @@ public class RunwareRecipeGenerationService
         operation,
         lastError);
     throw new ApiException(HttpStatus.BAD_GATEWAY, "AI recipe generation failed");
+  }
+
+  private JsonNode normalizeParsedPayload(JsonNode payload, ObjectNode schema,
+      String operation, String rules) throws IOException {
+    if (!outputNormalizer.available()) {
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI output does not match the required structure");
+    }
+    String normalized = outputNormalizer.normalize(operation,
+        mapper.writeValueAsString(payload), mapper.writeValueAsString(schema), rules);
+    return mapper.readTree(normalized);
   }
 
   private String providerError(String responseBody, int statusCode) {
