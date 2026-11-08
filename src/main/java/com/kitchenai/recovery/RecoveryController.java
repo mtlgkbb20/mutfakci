@@ -166,6 +166,14 @@ public class RecoveryController {
       }
       Analysis analysis;
       try{analysis=vision.analyze(bytes,mime,buildContext(recipe,session,component,category,description,statusText,outcome,parent));}
+      catch(RecoveryAnalysisFormatException formatError){
+        log.warn("Recipe recovery output could not be used: sessionId={}, attemptId={}, reason={}",
+            session.getId(), attempt.getId(), formatError.getMessage());
+        attempt.markAnalysisIncomplete("AI yanıtı beklenen yapılandırılmış formatta değildi; ücretli çağrı tekrar edilmedi.");
+        attempts.save(attempt);
+        return response(Status.ANALYSIS_INCOMPLETE,attempt,null,null,null,null,
+            "Fotoğraf gönderildi ve AI yanıt verdi; ancak yanıt güvenilir biçimde işlenemedi. Aynı istek otomatik tekrarlanmadı. Bu nedenle fotoğrafa puan veya düzeltme atamadım.");
+      }
       catch(ApiException providerError){
         log.error("Recipe recovery vision provider failed: sessionId={}, attemptId={}, implementation={}, reason={}",
             session.getId(), attempt.getId(), vision.getClass().getSimpleName(),
