@@ -119,12 +119,17 @@ public class RecoveryController {
     if(description!=null&&description.length()>1000||outcome!=null&&outcome.length()>500)
       throw new ApiException(HttpStatus.BAD_REQUEST,"Description is too long");
     try{
-      byte[] bytes=image.getBytes();
-      BufferedImage decoded=ImageIO.read(new ByteArrayInputStream(bytes));
+      byte[] uploaded=image.getBytes();
+      BufferedImage decoded=ImageIO.read(new ByteArrayInputStream(uploaded));
       if(decoded==null)throw new ApiException(HttpStatus.BAD_REQUEST,"The image could not be decoded");
       long pixels=(long)decoded.getWidth()*decoded.getHeight();
       if(decoded.getWidth()<160||decoded.getHeight()<160||pixels>MAX_PIXELS)
         throw new ApiException(HttpStatus.BAD_REQUEST,"Image dimensions are not supported");
+      ByteArrayOutputStream sanitized=new ByteArrayOutputStream();
+      String format=mime.equals("image/png")?"png":"jpg";
+      if(!ImageIO.write(decoded,format,sanitized))
+        throw new ApiException(HttpStatus.BAD_REQUEST,"The image format is not supported");
+      byte[] bytes=sanitized.toByteArray();
       String key=store(session.getUserId(),bytes,mime);
       Recipe recipe=session.getRecipeId()==null?null:recipes.findById(session.getRecipeId())
           .filter(r->r.getUserId()==null||r.getUserId().equals(session.getUserId()))
@@ -167,13 +172,11 @@ public class RecoveryController {
             "Güvenli bir düzeltme önermek için biraz daha bilgiye ihtiyacım var: "+analysis.reason());
       }
       int score=analysis.targetProximityScore();
-      Decision decision=score>=90?Decision.READY_TO_CONTINUE:score>=75?Decision.MINOR_CORRECTION:
-          score>=50?Decision.RECOVERABLE_BUT_MAJOR_GAP:Decision.REMAKE_COMPONENT;
-      Status status=score>=90?Status.READY_TO_CONTINUE:score>=75?Status.CORRECTION_PROPOSED:
-          score>=50?Status.OFFER_RECOVERY_OR_REMAKE:Status.REMAKE_COMPONENT;
-      Action action=score>=90||score<50?null:analysis.action();
-      String lifecycle=score>=90?"READY_TO_CONTINUE":score>=75?"CORRECTION_PROPOSED":
-          score>=50?"RECOVERY_OFFERED":"REMAKE_RECOMMENDED";
+      RecoveryDecisionPolicy.Result policy=RecoveryDecisionPolicy.evaluate(score);
+      Decision decision=policy.decision();
+      Status status=policy.status();
+      Action action=policy.correctionRequired()||policy.recoveryChoiceRequired()?analysis.action():null;
+      String lifecycle=policy.lifecycle();
       attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),score,
           json.writeValueAsString(Map.of("observedState",analysis.observedState())),
           json.writeValueAsString(Map.of("targetState",analysis.targetState())),
@@ -212,10 +215,14 @@ public class RecoveryController {
     Path dir=root.resolve(user.toString()).normalize();
     if(!dir.startsWith(root))throw new IOException("Invalid storage path");
     Files.createDirectories(dir);
+    try{Files.setPosixFilePermissions(dir,java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));}
+    catch(UnsupportedOperationException ignored){}
     String key=user+"/"+UUID.randomUUID()+(mime.equals("image/png")?".png":".jpg");
     Path target=root.resolve(key).normalize();
     if(!target.startsWith(root))throw new IOException("Invalid storage path");
     Files.write(target,bytes,StandardOpenOption.CREATE_NEW);
+    try{Files.setPosixFilePermissions(target,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}
+    catch(UnsupportedOperationException ignored){}
     return key;
   }
   private CookingSession ownSession(UUID id,UUID user){
