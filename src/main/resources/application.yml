@@ -26,3 +26,4 @@ app:
     runware:
       api-key: ${RUNWARE_API_KEY:}
       model: ${RUNWARE_MODEL:deepseek:v4.1@flash}
+      vision-model: ${RUNWARE_VISION_MODEL:google:gemini@3.1-pro}
