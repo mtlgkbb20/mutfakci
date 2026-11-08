@@ -209,8 +209,8 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
   private String stripMarkdownJsonFence(String content) {
     String value = content == null ? "" : content.trim();
     if (value.startsWith("```")) {
-      value = value.replaceFirst("^\\`\\`\\`(?:json)?\\s*", "");
-      value = value.replaceFirst("\\s*\\`\\`\\`$", "");
+      value = value.replaceFirst("^```(?:json)?\\s*", "");
+      value = value.replaceFirst("\\s*```$", "");
     }
     return value.trim();
   }
