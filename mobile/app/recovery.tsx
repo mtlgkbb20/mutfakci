@@ -117,7 +117,7 @@ export default function Recovery() {
         { method: "POST", body: form }, 90000,
       );
       setResult(response);
-      if (response.status === "REQUEST_NEW_IMAGE") {
+      if (response.status === "REQUEST_NEW_IMAGE" || response.status === "NEEDS_CLARIFICATION") {
         setAwaitingFollowUp(true);
         setFollowUpMode(true);
         setImage(undefined);
@@ -232,7 +232,9 @@ export default function Recovery() {
               <Button secondary onPress={() => router.replace("/dashboard")}>Dashboard’a dön</Button>
             )}
             {result.status === "NEEDS_CLARIFICATION" && (
-              <Button secondary onPress={() => { setResult(undefined); setImage(undefined); }}>Tekrar dene</Button>
+              <Button secondary onPress={() => { setImage(undefined); if (!followUpMode) setResult(undefined); }}>
+                {followUpMode ? "Yeni fotoğraf ve açıklama ekle" : "Tekrar dene"}
+              </Button>
             )}
           </View>
         )}
