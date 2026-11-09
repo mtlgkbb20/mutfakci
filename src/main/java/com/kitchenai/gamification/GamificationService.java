@@ -80,7 +80,7 @@ public class GamificationService {
           WHERE created_at >= ? AND created_at < ?
           GROUP BY user_id
         ),
-        current_user AS (
+        me AS (
           SELECT id, created_at
           FROM app_user
           WHERE id = ?
@@ -88,15 +88,15 @@ public class GamificationService {
         SELECT COUNT(*)::int + 1
         FROM weekly
         JOIN app_user ON app_user.id = weekly.user_id
-        CROSS JOIN current_user
+        CROSS JOIN me
         WHERE weekly.xp > ?
            OR (
              weekly.xp = ?
              AND (
-               app_user.created_at < current_user.created_at
+               app_user.created_at < me.created_at
                OR (
                  app_user.created_at = current_user.created_at
-                 AND app_user.id < current_user.id
+                 AND app_user.id < me.id
                )
              )
            )
