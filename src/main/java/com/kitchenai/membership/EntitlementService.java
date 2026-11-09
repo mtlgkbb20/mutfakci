@@ -26,10 +26,9 @@ public class EntitlementService {
     String tier = (String) row.get("tier");
     String interval = (String) row.get("billing_interval");
     String status = (String) row.get("status");
-    Instant paidUntil = row.get("paid_until") == null
-        ? null
-        : jdbc.queryForObject("SELECT paid_until FROM user_membership WHERE user_id = ?",
-            (rs, n) -> rs.getTimestamp(1) == null ? null : rs.getTimestamp(1).toInstant(), userId);
+    Instant paidUntil = jdbc.queryForObject(
+        "SELECT paid_until FROM user_membership WHERE user_id = ?",
+        (rs, n) -> rs.getTimestamp(1) == null ? null : rs.getTimestamp(1).toInstant(), userId);
     boolean paid = "COOKER".equals(tier) && "ACTIVE".equals(status)
         && paidUntil != null && paidUntil.isAfter(clock.instant());
     if ("COOKER".equals(tier) && !paid) {
@@ -39,7 +38,7 @@ public class EntitlementService {
     String period = "COOKER".equals(tier) && paid
         ? "COOKER_DAILY:" + LocalDate.now(clock.withZone(BUSINESS_ZONE))
         : "FREE_LIFETIME";
-    int limit = "COOKER".equals(tier) && paid ? 10 : 3;
+    int limit = "CHEF".equals(tier) ? 0 : ("COOKER".equals(tier) && paid ? 10 : 3);
     int used = usage(userId, period);
     Instant resetAt = "COOKER".equals(tier) && paid
         ? LocalDate.now(clock.withZone(BUSINESS_ZONE)).plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()
@@ -74,6 +73,7 @@ public class EntitlementService {
     String period = "COOKER".equals(tier)
         ? "COOKER_DAILY:" + LocalDate.now(clock.withZone(BUSINESS_ZONE))
         : "FREE_LIFETIME";
+    if ("CHEF".equals(tier)) return null;
     int limit = "COOKER".equals(tier) ? 10 : 3;
     List<Integer> current = jdbc.query(
         "SELECT used_count FROM recipe_quota_usage WHERE user_id=? AND period_key=?",
