@@ -227,7 +227,6 @@ function App() {
   const [food, setFood] = useState("");
   const [recoveryRecipeName, setRecoveryRecipeName] = useState("");
   const [recoveryProblem, setRecoveryProblem] = useState("");
-  const [textAdvice, setTextAdvice] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
@@ -255,29 +254,8 @@ function App() {
   };
 
 
-  const recoverByText = async () => {
-    if (!recoveryRecipeName.trim() || !recoveryProblem.trim()) return;
-    setBusy(true);
-    setTextAdvice(null);
-    try {
-      const session = (await api.post("/cooking-sessions", {
-        desiredOutcome: "Tarif sorununu metinle çöz"
-      })).data;
-      const { data } = await api.post(
-        `/cooking-sessions/${session.id}/recovery-attempts/text-fallback`,
-        { recipeName: recoveryRecipeName.trim(), problemDescription: recoveryProblem.trim() },
-      );
-      setTextAdvice(data);
-    } catch (error) {
-      console.error("[KitchenAI Web] text recovery failed", error);
-      window.alert(GENERIC_ERROR);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const recover = async () => {
-    if (!image) return;
+    if (!image || !recoveryRecipeName.trim() || !recoveryProblem.trim()) return;
     setBusy(true);
     try {
       const session = (
@@ -285,7 +263,9 @@ function App() {
       ).data;
       const form = new FormData();
       form.append("image", image);
-      form.append("desiredOutcome", "İdeal kıvam");
+      form.append("recipeName", recoveryRecipeName.trim());
+      form.append("problemDescription", recoveryProblem.trim());
+      form.append("desiredOutcome", "Tarifteki sorunu gider");
       const { data } = await api.post(
         `/cooking-sessions/${session.id}/recovery-attempts`,
         form,
@@ -347,34 +327,41 @@ function App() {
             </button>
           </section>
           <section className="card action">
-            <h2>Yazarak yardım al</h2>
-            <p>Tarifin adını ve yaşadığın sorunu anlat. Fotoğraf gerekmez.</p>
-            <input value={recoveryRecipeName} onChange={(e) => setRecoveryRecipeName(e.target.value)} placeholder="Tarifin adı" />
-            <textarea value={recoveryProblem} onChange={(e) => setRecoveryProblem(e.target.value)} placeholder="Örn. Kekimin içi pişmedi ama dışı kızardı." rows={4} />
-            <button onClick={recoverByText} disabled={busy || !recoveryRecipeName.trim() || !recoveryProblem.trim()}>
-              {busy ? "Öneri hazırlanıyor..." : "Metinle yardım al"}
-            </button>
-            {textAdvice && (
-              <div className="feedback">
-                <h3>{textAdvice.advice || textAdvice.message}</h3>
-                {textAdvice.caution && <p>{textAdvice.caution}</p>}
-              </div>
-            )}
-          </section>
-          <section className="card action">
-            <h2>Tarifimi kurtar</h2>
-            <p>Fotoğraf yükle, mevcut durum için hızlı öneri al.</p>
+            <h2>Tarifime yardım et</h2>
+            <p>Ürünün fotoğrafını yükle, adını ve yaşadığın sorunu anlat. Önce fotoğraf ve açıklamayı birlikte değerlendireceğiz. Görsel analiz başarısız olursa açıklamanı tek başına kullanarak öneri üretmeye çalışacağız.</p>
             <input
+              required
+              maxLength={200}
+              value={recoveryRecipeName}
+              onChange={(e) => setRecoveryRecipeName(e.target.value)}
+              placeholder="Ürünün / tarifin adı"
+            />
+            <textarea
+              required
+              maxLength={1000}
+              value={recoveryProblem}
+              onChange={(e) => setRecoveryProblem(e.target.value)}
+              placeholder="Sorun ne? Örn. Kekimin içi pişmedi ama dışı fazla kızardı."
+              rows={4}
+            />
+            <input
+              required
               type="file"
               accept="image/jpeg,image/png"
               onChange={(e) => setImage(e.target.files?.[0] || null)}
             />
-            <button onClick={recover} disabled={!image || busy}>
-              {busy ? "Fotoğraf inceleniyor..." : "Fotoğrafı değerlendir"}
+            <button
+              onClick={recover}
+              disabled={!image || !recoveryRecipeName.trim() || !recoveryProblem.trim() || busy}
+            >
+              {busy ? "Tarif değerlendiriliyor..." : "Yardım al"}
             </button>
             {feedback && (
               <div className="feedback">
                 <h3>{feedback.message}</h3>
+                {feedback.textAdvice?.advice && <p>{feedback.textAdvice.advice}</p>}
+                {feedback.textAdvice?.caution && <p>{feedback.textAdvice.caution}</p>}
+                {feedback.action?.instruction && <p>{feedback.action.instruction}</p>}
               </div>
             )}
           </section>
