@@ -24,8 +24,10 @@ public class PaymentCheckoutService {
   private final boolean livePaymentsEnabled;
   private final String callbackUrl;
   private final String returnUrl;
-  private final BigDecimal monthlyPrice;
-  private final BigDecimal yearlyPrice;
+  private final BigDecimal testMonthlyPrice;
+  private final BigDecimal testYearlyPrice;
+  private final BigDecimal liveMonthlyPrice;
+  private final BigDecimal liveYearlyPrice;
 
   public PaymentCheckoutService(
       JdbcTemplate jdbc,
@@ -35,8 +37,10 @@ public class PaymentCheckoutService {
       @Value("${app.payments.live-enabled:false}") boolean livePaymentsEnabled,
       @Value("${app.payments.callback-url:}") String callbackUrl,
       @Value("${app.payments.return-url:http://localhost:5173/}") String returnUrl,
-      @Value("${app.membership.pricing.cooker-monthly:0}") BigDecimal monthlyPrice,
-      @Value("${app.membership.pricing.cooker-yearly:0}") BigDecimal yearlyPrice) {
+      @Value("${app.membership.pricing.cooker-monthly-test:0}") BigDecimal testMonthlyPrice,
+      @Value("${app.membership.pricing.cooker-yearly-test:0}") BigDecimal testYearlyPrice,
+      @Value("${app.membership.pricing.cooker-monthly-live:0}") BigDecimal liveMonthlyPrice,
+      @Value("${app.membership.pricing.cooker-yearly-live:0}") BigDecimal liveYearlyPrice) {
     this.jdbc = jdbc;
     this.provider = provider;
     this.checkoutEnabled = checkoutEnabled;
@@ -44,15 +48,17 @@ public class PaymentCheckoutService {
     this.livePaymentsEnabled = livePaymentsEnabled;
     this.callbackUrl = callbackUrl;
     this.returnUrl = returnUrl;
-    this.monthlyPrice = monthlyPrice;
-    this.yearlyPrice = yearlyPrice;
+    this.testMonthlyPrice = testMonthlyPrice;
+    this.testYearlyPrice = testYearlyPrice;
+    this.liveMonthlyPrice = liveMonthlyPrice;
+    this.liveYearlyPrice = liveYearlyPrice;
   }
 
   public List<Map<String, Object>> planCatalog() {
     return List.of(
         plan("FREE", "FREE", "NONE", BigDecimal.ZERO, true, false),
-        plan("COOKER_MONTHLY", "COOKER", "MONTHLY", monthlyPrice, false, false),
-        plan("COOKER_YEARLY", "COOKER", "YEARLY", yearlyPrice, false, false),
+        plan("COOKER_MONTHLY", "COOKER", "MONTHLY", priceFor("COOKER_MONTHLY"), false, false),
+        plan("COOKER_YEARLY", "COOKER", "YEARLY", priceFor("COOKER_YEARLY"), false, false),
         plan("CHEF", "CHEF", "NONE", BigDecimal.ZERO, false, true));
   }
 
@@ -78,7 +84,9 @@ public class PaymentCheckoutService {
 
     BigDecimal amount = priceFor(planCode);
     if (amount.signum() <= 0) {
-      throw unavailable("A positive server-side price must be configured for this plan.");
+      throw unavailable(testMode
+          ? "A positive test price must be configured for this plan."
+          : "A positive live price must be configured for this plan.");
     }
 
     String email = jdbc.queryForObject(
@@ -283,8 +291,8 @@ public class PaymentCheckoutService {
 
   private BigDecimal priceFor(String planCode) {
     return switch (planCode) {
-      case "COOKER_MONTHLY" -> monthlyPrice;
-      case "COOKER_YEARLY" -> yearlyPrice;
+      case "COOKER_MONTHLY" -> testMode ? testMonthlyPrice : liveMonthlyPrice;
+      case "COOKER_YEARLY" -> testMode ? testYearlyPrice : liveYearlyPrice;
       default -> throw new ApiException(
           HttpStatus.BAD_REQUEST, "This membership plan is not purchasable.");
     };

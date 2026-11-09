@@ -35,11 +35,13 @@ Copy .env.example to .env and fill these values:
     PAYTR_TEST_USER_IP=YOUR_PUBLIC_IPV4
 
     # Test-only prices, not production pricing:
-    COOKER_MONTHLY_PRICE=1.00
-    COOKER_YEARLY_PRICE=2.00
+    COOKER_MONTHLY_TEST_PRICE=1.00
+    COOKER_YEARLY_TEST_PRICE=2.00
 
 The sample prices are test values only. They are not production prices. The API reads
 the plan price from server configuration; the mobile/web client cannot submit an amount.
+Live prices use separate COOKER_MONTHLY_LIVE_PRICE and COOKER_YEARLY_LIVE_PRICE
+settings and default to zero. Test prices are never used when PAYMENT_TEST_MODE=false.
 
 For local callback testing, expose the backend using a trusted HTTPS tunnel or deploy
 a temporary test backend. Configure the exact public callback URL in both .env and
@@ -69,8 +71,10 @@ enabled and a positive server-side price is configured.
 ## 5. Safety controls
 
 - PAYMENT_TEST_MODE=true is the default.
-- Live checkout is blocked unless both PAYMENT_TEST_MODE=false and
-  PAYMENT_LIVE_ENABLED=true are explicitly configured.
+- Live payments are blocked unless PAYMENT_TEST_MODE=false and
+  PAYMENT_LIVE_ENABLED=true are both explicitly configured.
+- Live plan prices are separate and default to zero; the sample test prices cannot be
+  accidentally used for a live checkout.
 - The checkout endpoint accepts only a plan code and customer details. Price is
   resolved on the server.
 - Card number, expiry, CVV, and card tokens are never stored by this application.

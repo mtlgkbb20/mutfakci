@@ -43,5 +43,7 @@ app:
   membership:
     clock-zone: Europe/Istanbul
     pricing:
-      cooker-monthly: ${COOKER_MONTHLY_PRICE:0}
-      cooker-yearly: ${COOKER_YEARLY_PRICE:0}
+      cooker-monthly-test: ${COOKER_MONTHLY_TEST_PRICE:0}
+      cooker-yearly-test: ${COOKER_YEARLY_TEST_PRICE:0}
+      cooker-monthly-live: ${COOKER_MONTHLY_LIVE_PRICE:0}
+      cooker-yearly-live: ${COOKER_YEARLY_LIVE_PRICE:0}
