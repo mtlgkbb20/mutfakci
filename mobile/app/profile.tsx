@@ -7,16 +7,18 @@ export default function Profile() {
   const router = useRouter();
   const [user, setUser] = useState<any>();
   const [membership, setMembership] = useState<any>();
+  const [badges, setBadges] = useState<any[]>([]);
   const [progress, setProgress] = useState<any>({
     totalXp: 0,
     level: "BEGINNER_CHEF",
   });
   useEffect(() => {
-    Promise.all([api("/auth/me"), api("/gamification/progress"), api("/membership")])
-      .then(([u, p, m]) => {
+    Promise.all([api("/auth/me"), api("/gamification/progress"), api("/membership"), api("/gamification/badges/me")])
+      .then(([u, p, m, b]) => {
         setUser(u);
         setProgress(p);
         setMembership(m);
+        setBadges(b);
       })
       .catch(() => router.replace("/auth"));
   }, []);
@@ -106,6 +108,16 @@ export default function Profile() {
           <Text style={[s.recipeMeta, { marginTop: 8 }]}>
             {level} · {progress.totalXp || 0} XP
           </Text>
+        </View>
+        <View style={[s.card, { marginTop: 16 }]}>
+          <Text style={s.eyebrow}>ROZET KOLEKSİYONUM</Text>
+          <Text style={s.heading}>Kazandığın rozetler</Text>
+          {badges.length === 0 ? <Text style={[s.body, { marginTop: 8 }]}>Henüz rozet kazanmadın. İlk yemeğini tamamlayarak başlayabilirsin.</Text> : badges.map((badge:any) => (
+            <View key={`${badge.code}-${badge.sourceKey}`} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#eee5da" }}>
+              <Text style={{ fontSize: 26, marginRight: 12 }}>{badge.icon}</Text>
+              <View style={{ flex: 1 }}><Text style={s.heading}>{badge.name}</Text><Text style={s.recipeMeta}>{badge.description}</Text><Text style={s.recipeMeta}>{new Date(badge.awardedAt).toLocaleDateString("tr-TR")}</Text></View>
+            </View>
+          ))}
         </View>
         <Button secondary onPress={logout}>
           Oturumu kapat

@@ -25,6 +25,14 @@ export default function TabsLayout() {
         options={{ title: "Ana sayfa", tabBarIcon: () => null }}
       />
       <Tabs.Screen
+        name="leaderboard"
+        options={{ title: "Sıralama", tabBarIcon: () => null }}
+      />
+      <Tabs.Screen
+        name="events"
+        options={{ title: "Etkinlikler", tabBarIcon: () => null }}
+      />
+      <Tabs.Screen
         name="history"
         options={{ title: "Geçmiş", tabBarIcon: () => null }}
       />

@@ -80,6 +80,6 @@ public class AuthController {
   }
 
   private Map<String, Object> userResponse(User u) {
-    return Map.of("id", u.getId(), "email", u.getEmail(), "displayName", u.getDisplayName());
+    return Map.of("id", u.getId(), "email", u.getEmail(), "displayName", u.getDisplayName(), "isAdmin", u.isAdmin());
   }
 }

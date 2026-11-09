@@ -7,8 +7,7 @@ import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
-import com.kitchenai.gamification.UserProgress;
-import com.kitchenai.gamification.UserProgressRepository;
+import com.kitchenai.gamification.GamificationService;
 import com.kitchenai.membership.EntitlementService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -28,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -37,7 +37,7 @@ public class RecipeController {
   private final CookingSessionRepository sessions;
   private final RecipeGenerationService ai;
   private final ObjectMapper json;
-  private final UserProgressRepository progress;
+  private final GamificationService gamification;
   private final RecipeCatalogService catalog;
   private final RecipeGenerationRepository generations;
   private final RecipeReviewService reviewer;
@@ -48,7 +48,7 @@ public class RecipeController {
       CookingSessionRepository sessions,
       RecipeGenerationService ai,
       ObjectMapper json,
-      UserProgressRepository progress,
+      GamificationService gamification,
       RecipeCatalogService catalog,
       RecipeGenerationRepository generations,
       RecipeReviewService reviewer,
@@ -57,7 +57,7 @@ public class RecipeController {
     this.sessions = sessions;
     this.ai = ai;
     this.json = json;
-    this.progress = progress;
+    this.gamification = gamification;
     this.catalog = catalog;
     this.generations = generations;
     this.reviewer = reviewer;
@@ -147,6 +147,7 @@ public class RecipeController {
           json.writeValueAsString(trace.components()),
           json.writeValueAsString(response));
       generations.save(generation);
+      entitlements.commit(quotaReservation);
       return response;
     } catch (JsonProcessingException e) {
       markGenerationFailed(generation, e);
@@ -256,16 +257,17 @@ public class RecipeController {
     return session(id, userId);
   }
 
+  @Transactional
   @PostMapping("/cooking-sessions/{id}/complete")
   public Map<String, Object> complete(@PathVariable UUID id, @AuthenticationPrincipal UUID userId) {
     var cookingSession = session(id, userId);
     cookingSession.complete();
     sessions.save(cookingSession);
-    var userProgress =
-        progress.findByUserId(userId).orElseGet(() -> progress.save(new UserProgress(userId)));
-    userProgress.add(10);
-    progress.save(userProgress);
-    return Map.of("status", "COMPLETED", "xpAwarded", 10);
+    boolean xpAwarded = gamification.grantXp(userId, 10, "COOKING_SESSION", id.toString(),
+        "cooking-session-complete:" + id, "Pişirme oturumu tamamlandı");
+    gamification.awardBadge(userId, "FIRST_DISH", "first-completed-session");
+    gamification.evaluateCookingBadges(userId);
+    return Map.of("status", "COMPLETED", "xpAwarded", xpAwarded ? 10 : 0);
   }
 
   @PostMapping("/cooking-sessions/{id}/abandon")

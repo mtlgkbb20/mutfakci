@@ -3,6 +3,7 @@ package com.kitchenai.membership;
 import java.time.*;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,9 @@ public class EntitlementService {
         : "FREE_LIFETIME";
     int limit = "CHEF".equals(tier) ? 0 : ("COOKER".equals(tier) && paid ? 10 : 3);
     int used = usage(userId, period);
+    Integer promoRewards = jdbc.queryForObject(
+        "SELECT COUNT(*)::int FROM gamification_reward_grant WHERE user_id=? AND status='AVAILABLE' AND expires_at > ?",
+        Integer.class, userId, clock.instant());
     Instant resetAt = "COOKER".equals(tier) && paid
         ? LocalDate.now(clock.withZone(BUSINESS_ZONE)).plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()
         : null;
@@ -51,7 +55,8 @@ public class EntitlementService {
     result.put("paidAccess", paid);
     result.put("usage", used);
     result.put("limit", limit);
-    result.put("remaining", Math.max(0, limit - used));
+    result.put("remaining", Math.max(0, limit - used) + (promoRewards == null ? 0 : promoRewards));
+    result.put("promotionalCredits", promoRewards == null ? 0 : promoRewards);
     result.put("period", "COOKER".equals(tier) && paid ? "DAILY" : "LIFETIME");
     result.put("resetAt", resetAt);
     result.put("provider", row.get("provider"));
@@ -85,6 +90,14 @@ public class EntitlementService {
       jdbc.update("UPDATE user_membership SET tier='FREE', billing_interval='NONE', status='EXPIRED', paid_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE user_id=?", userId);
       tier = "FREE";
     }
+    List<UUID> rewardIds = jdbc.query(
+        "SELECT id FROM gamification_reward_grant WHERE user_id=? AND status='AVAILABLE' AND expires_at > ? ORDER BY issued_at LIMIT 1 FOR UPDATE",
+        (rs, n) -> rs.getObject(1, UUID.class), userId, clock.instant());
+    if (!rewardIds.isEmpty()) {
+      UUID rewardId = rewardIds.get(0);
+      jdbc.update("UPDATE gamification_reward_grant SET status='RESERVED', reserved_at=? WHERE id=? AND status='AVAILABLE'", clock.instant(), rewardId);
+      return new QuotaReservation(userId, "PROMO_REWARD:" + rewardId);
+    }
     String period = cookerActive
         ? "COOKER_DAILY:" + LocalDate.now(clock.withZone(BUSINESS_ZONE))
         : "FREE_LIFETIME";
@@ -108,11 +121,32 @@ public class EntitlementService {
   }
 
   @Transactional
+  public void commit(QuotaReservation reservation) {
+    if (reservation == null || !reservation.periodKey().startsWith("PROMO_REWARD:")) return;
+    UUID rewardId = UUID.fromString(reservation.periodKey().substring("PROMO_REWARD:".length()));
+    jdbc.update("UPDATE gamification_reward_grant SET status='REDEEMED', redeemed_at=?, reserved_at=NULL WHERE id=? AND user_id=? AND status='RESERVED'",
+        clock.instant(), rewardId, reservation.userId());
+  }
+
+  @Transactional
   public void release(QuotaReservation reservation) {
     if (reservation == null) return;
+    if (reservation.periodKey().startsWith("PROMO_REWARD:")) {
+      UUID rewardId = UUID.fromString(reservation.periodKey().substring("PROMO_REWARD:".length()));
+      jdbc.update("UPDATE gamification_reward_grant SET status='AVAILABLE', reserved_at=NULL WHERE id=? AND user_id=? AND status='RESERVED' AND expires_at > ?",
+          rewardId, reservation.userId(), clock.instant());
+      return;
+    }
     jdbc.update(
         "UPDATE recipe_quota_usage SET used_count=CASE WHEN used_count > 0 THEN used_count-1 ELSE 0 END, updated_at=CURRENT_TIMESTAMP WHERE user_id=? AND period_key=?",
         reservation.userId(), reservation.periodKey());
+  }
+
+  @Scheduled(fixedDelay = 300000)
+  @Transactional
+  public void releaseStalePromoReservations() {
+    jdbc.update("UPDATE gamification_reward_grant SET status='AVAILABLE', reserved_at=NULL WHERE status='RESERVED' AND reserved_at < ? AND expires_at > ?",
+        clock.instant().minus(Duration.ofHours(1)), clock.instant());
   }
 
   @Transactional

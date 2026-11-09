@@ -579,3 +579,49 @@ The following defaults are proposed so implementation can proceed without blocki
 - Whether event scores and voter identities are public. Initial default: aggregate scores and results are public after voting closes; individual voter scores remain private.
 - Exact badge catalog, icons, and thresholds.
 - Whether event winner XP stacks with weekly leaderboard placement XP. Initial default: yes, because they are separate achievements with separate idempotency keys.
+
+
+---
+
+## 18. Initial implementation status
+
+The first implementation slice is present on `feature/gamification`. It establishes the backend source of truth and the primary web/mobile user surfaces. This section records what is actually implemented; it does not imply every optional item in this specification is complete.
+
+### Implemented
+
+- Flyway migrations V7–V10 create the XP ledger, badge catalog/awards, weekly leaderboard snapshots, reward grants, event participation/submissions/images/voters/votes/results, and the admin flag.
+- Existing XP transaction records and legacy `user_progress.total_xp` aggregates are backfilled into the ledger without double-counting.
+- Completing a cooking session grants 10 XP using a session-scoped idempotency key. The first-dish badge is awarded once.
+- XP ledger grants update the legacy progress aggregate for compatibility.
+- Current-week leaderboard and lifetime XP/level summary APIs are available.
+- Weekly settlement runs Monday at 00:05 in `Europe/Istanbul`; settlement is retry-safe and snapshots placements.
+- Weekly top-three XP bonuses and podium badges are awarded. First place receives one promotional AI recipe-generation credit, expiring after 30 days.
+- Promotional credits are reserved, committed only after successful AI generation, and released when generation fails. Stale reservations are recovered after one hour.
+- Badge catalog and full badge-history APIs are available. The web dashboard shows recent badges and leaderboard badge indicators; the mobile profile shows the full badge history.
+- Admins can create scheduled events, inspect submissions, moderate submissions, open voting, finalize results, and cancel events.
+- Event submissions accept JPEG, PNG, and WebP images (maximum 8 MB each, and bounded by the event photo limit). Images are currently stored as PostgreSQL `BYTEA` data.
+- Voting eligibility is frozen from the top five weekly XP users at voting-open time. Scores are integers from 1 to 10; self-voting is rejected.
+- Event results are automatically finalized after voting closes. Event submission and placement XP use idempotent ledger keys.
+- The web dashboard includes a basic event administration form. Mobile includes leaderboard and event participation/photo upload/voting screens.
+
+### Admin bootstrap
+
+After creating the first account, grant administrator access directly in the database:
+
+```sql
+UPDATE app_user
+SET is_admin = TRUE
+WHERE email = 'admin@example.com';
+```
+
+The account must sign in again to receive the updated `isAdmin` value in its authentication response.
+
+### Remaining work before production release
+
+- Run Maven tests, Flyway migration verification against PostgreSQL, frontend TypeScript/build checks, and Expo type/build checks. These checks have not been executed as part of this GitHub-only change.
+- Add automated integration tests for concurrency, settlement retries, quota reservation/commit/release, event voting, and image validation.
+- Add event editing/rescheduling, configurable XP and badge criteria, badge catalog administration, manual XP adjustments, full audit-log screens, and notification delivery.
+- Add event submission revision/deletion policy, explicit content moderation tooling, upload retention/deletion handling, and object storage migration. PostgreSQL image storage is a functional first implementation, not the preferred long-term storage design.
+- Add a richer event results view and image gallery. The current mobile flow exposes entry metadata and voting controls; the public image gallery and detailed result presentation still need polish.
+- Add user-facing event deadline reminders and leaderboard settlement notifications.
+- Configure the first administrator through the SQL bootstrap above; new accounts are not administrators by default.
