@@ -224,10 +224,14 @@ function RecoveryHistory({ onClose }: { onClose: () => void }) {
 function App() {
   const [user, setUser] = useState<any>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [food, setFood] = useState("");\n  const [recoveryRecipeName, setRecoveryRecipeName] = useState("");\n  const [recoveryProblem, setRecoveryProblem] = useState("");\n  const [textAdvice, setTextAdvice] = useState<any>(null);
+  const [food, setFood] = useState("");
+  const [recoveryRecipeName, setRecoveryRecipeName] = useState("");
+  const [recoveryProblem, setRecoveryProblem] = useState("");
+  const [textAdvice, setTextAdvice] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState<File | null>(null);
-  const [feedback, setFeedback] = useState<any>(null);\n  const [historyOpen, setHistoryOpen] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (!localStorage.getItem("token") || !user) {
     return <Auth onLogin={setUser} />;
@@ -300,7 +304,8 @@ function App() {
       <header>
         <ChefHat />
         <strong>Kitchen AI</strong>
-        <span>Merhaba, {user.displayName}</span>\n        <button className="link" onClick={() => setHistoryOpen(!historyOpen)}>Yardım geçmişim</button>
+        <span>Merhaba, {user.displayName}</span>
+        <button className="link" onClick={() => setHistoryOpen(!historyOpen)}>Yardım geçmişim</button>
         <button
           className="link"
           onClick={() => {
@@ -311,7 +316,8 @@ function App() {
           Çıkış
         </button>
       </header>
-      <main className="container">\n        {historyOpen && <RecoveryHistory onClose={() => setHistoryOpen(false)} />}
+      <main className="container">
+        {historyOpen && <RecoveryHistory onClose={() => setHistoryOpen(false)} />}
         <div className="hero">
           <div>
             <p className="eyebrow">MUTFAKTAKİ YARDIMCIN</p>
