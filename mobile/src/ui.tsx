@@ -7,7 +7,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 export const colors = {
   ink: "#302a25",
   muted: "#786e64",
@@ -25,20 +24,24 @@ export function Button({
   onPress,
   loading = false,
   secondary = false,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onPress: () => void;
   loading?: boolean;
   secondary?: boolean;
+  disabled?: boolean;
 }) {
+  const isDisabled = loading || disabled;
   return (
     <Pressable
-      disabled={loading}
+      disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
         secondary && s.secondary,
-        pressed && s.pressed,
+        isDisabled && { opacity: 0.5 },
+        pressed && !isDisabled && s.pressed,
       ]}
     >
       <Text style={[s.buttonText, secondary && s.secondaryText]}>
