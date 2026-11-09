@@ -91,3 +91,27 @@ Until those prerequisites are complete, use the fake provider in tests and keep 
 8. Run backend tests and frontend build; report any environment-blocked checks.
 
 **Important:** Selecting PayTR authorizes the provider choice, not live charging. Production payment activation still requires merchant onboarding, credentials, tested callback configuration, and explicit lifecycle policies.
+
+
+## Repository implementation status (2026-11-09)
+
+Implemented on `feature/membership-plans`:
+
+- Shared `PaymentProvider` contract with provider code, recurring capability, checkout creation, and callback verification operations.
+- PayTR adapter selected by `PAYMENT_PROVIDER=paytr`; PayTR callback HMAC verification uses the official iFrame/direct callback formula.
+- Iyzico adapter selection point via `PAYMENT_PROVIDER=iyzico`; this adapter is currently a disabled integration stub, not a live iyzico implementation.
+- Free membership backfill and per-account quota usage storage.
+- Server-side quota reservation before AI generation and release on generation failure.
+- Existing completed AI recipe generations are counted in the initial Free lifetime usage backfill.
+- Membership summary endpoint: `GET /api/v1/membership`.
+- Checkout endpoint exists but intentionally returns unavailable until prices, merchant configuration, card-token enrollment, recurring charge flow, and subscription lifecycle are implemented and tested.
+- Web and mobile profile surfaces display current tier, remaining quota, Cooker plan descriptions, and Chef Coming soon.
+- PayTR callback route is public to the provider and validates the callback signature. It does not activate memberships yet.
+
+### PayTR-specific production prerequisites
+
+PayTR's official Card Storage API documents card tokenization and recurring payments using stored `utoken` / `ctoken`; recurring charges are Non-3D and require the merchant's Non-3D permission. The initial card enrollment flow and token persistence must be implemented before enabling automated renewals. See:
+- https://dev.paytr.com/direkt-api/kart-saklama-api/yeni-kart-ekleme
+- https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
+
+The current adapter deliberately reports recurring checkout as unsupported. This is safer than treating a one-time iFrame payment as a recurring subscription. The next implementation slice is PayTR card enrollment + stored-token persistence + recurring collection + signed callback-to-subscription reconciliation. An iyzico switch remains isolated behind the same `PaymentProvider` contract, but its adapter must be implemented and verified before selecting it.
