@@ -45,9 +45,25 @@ CREATE INDEX idx_user_badges_history ON user_badge_award(user_id, awarded_at DES
 
 INSERT INTO badge_definition(id, code, name, description, icon, category, repeatable) VALUES
 (gen_random_uuid(), 'FIRST_DISH', 'İlk Yemeğim', 'İlk tamamlanan pişirme deneyimin.', '🍳', 'MILESTONE', false),
-(gen_random_uuid(), 'WEEKLY_REGULAR', 'Haftanın Müdavimi', 'Bir haftada en az üç pişirme oturumu tamamladın.', '🔥', 'WEEKLY', true),
+(
+    gen_random_uuid(),
+    'WEEKLY_REGULAR',
+    'Haftanın Müdavimi',
+    'Bir haftada en az üç pişirme oturumu tamamladın.',
+    '🔥',
+    'WEEKLY',
+    true
+),
 (gen_random_uuid(), 'PODIUM_FINISH', 'Podyum', 'Haftalık sıralamada ilk üçe girdin.', '🏆', 'WEEKLY', true),
-(gen_random_uuid(), 'COMMUNITY_CHEF', 'Topluluk Şefi', 'Üç farklı topluluk etkinliğine katıldın.', '👩‍🍳', 'COMMUNITY', false);
+(
+    gen_random_uuid(),
+    'COMMUNITY_CHEF',
+    'Topluluk Şefi',
+    'Üç farklı topluluk etkinliğine katıldın.',
+    '👩‍🍳',
+    'COMMUNITY',
+    false
+);
 
 CREATE TABLE weekly_leaderboard_snapshot (
     id UUID PRIMARY KEY,

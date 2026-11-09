@@ -167,7 +167,12 @@ public class RecipeController {
   private void releaseQuota(EntitlementService.QuotaReservation reservation) {
     if (reservation != null) {
       try { entitlements.release(reservation); }
-      catch (Exception releaseError) { log.error("Could not release failed recipe quota reservation userId={}", reservation.userId(), releaseError); }
+      catch (Exception releaseError) {
+        log.error(
+            "Could not release failed recipe quota reservation userId={}",
+            reservation.userId(),
+            releaseError);
+      }
     }
   }
 
