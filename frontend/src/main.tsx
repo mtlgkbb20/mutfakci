@@ -17,7 +17,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-type Membership = { tier: string; billingInterval: string; remaining: number; limit: number; usage: number; period: string; paidAccess: boolean; plans: Array<{code:string;available:boolean;comingSoon?:boolean}>; };
+type Membership = {
+  tier: string;
+  billingInterval: string;
+  remaining: number;
+  limit: number;
+  usage: number;
+  period: string;
+  paidAccess: boolean;
+  plans: Array<{
+    code: string;
+    available: boolean;
+    comingSoon?: boolean;
+  }>;
+};
 
 type Recipe = {
   id: string;
@@ -46,34 +59,57 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
   const [loading, setLoading] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
-    event.preventDefault(); setError(""); setNotice(""); setLoading(true);
+    event.preventDefault();
+    setError("");
+    setNotice("");
+    setLoading(true);
+
     try {
       if (verifying) {
         const { data } = await api.post("/auth/verify-email", { email, code });
         localStorage.setItem("token", data.token);
         onLogin(data.user);
       } else if (register) {
-        const { data } = await api.post("/auth/register", { email, password, displayName: name });
+        const { data } = await api.post("/auth/register", {
+          email,
+          password,
+          displayName: name,
+        });
         setVerifying(true);
-        setNotice(data.message || "Doğrulama e-postası gönderildiyse gelen kutunu kontrol et.");
+        setNotice(
+          data.message ||
+            "Doğrulama e-postası gönderildiyse gelen kutunu kontrol et.",
+        );
       } else {
         const { data } = await api.post("/auth/login", { email, password });
         localStorage.setItem("token", data.token);
         onLogin(data.user);
       }
     } catch (requestError: any) {
-      setError(requestError?.response?.data?.error || "İşlem tamamlanamadı. Bilgilerini kontrol edip tekrar dene.");
-    } finally { setLoading(false); }
+      setError(
+        requestError?.response?.data?.error ||
+          "İşlem tamamlanamadı. Bilgilerini kontrol edip tekrar dene.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resend = async () => {
-    setError(""); setNotice(""); setLoading(true);
+    setError("");
+    setNotice("");
+    setLoading(true);
+
     try {
       const { data } = await api.post("/auth/resend-verification", { email });
       setNotice(data.message || "İstek alındı. E-posta adresini kontrol et.");
     } catch (requestError: any) {
-      setError(requestError?.response?.data?.error || "İstek şu anda tamamlanamadı.");
-    } finally { setLoading(false); }
+      setError(
+        requestError?.response?.data?.error || "İstek şu anda tamamlanamadı.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -81,23 +117,109 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
       <section className="card auth">
         <ChefHat size={42} />
         <h1>Kitchen AI</h1>
-        <p>{verifying ? "E-posta adresine gönderilen 6 haneli kodu gir." : "İyi sonuç için mutfağında akıllı bir yardımcı."}</p>
+        <p>
+          {verifying
+            ? "E-posta adresine gönderilen 6 haneli kodu gir."
+            : "İyi sonuç için mutfağında akıllı bir yardımcı."}
+        </p>
+
         <form onSubmit={submit}>
-          {!verifying && register && <input required maxLength={120} placeholder="Adın" value={name} onChange={(e) => setName(e.target.value)} />}
-          <input required type="email" placeholder="E-posta" value={email} onChange={(e) => setEmail(e.target.value)} disabled={verifying} />
-          {!verifying && <input required minLength={12} maxLength={128} type="password" placeholder="Şifre (en az 12 karakter)" value={password} onChange={(e) => setPassword(e.target.value)} />}
-          {verifying && <input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 haneli doğrulama kodu" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />}
-          {error && <p role="alert" className="error">{error}</p>}
+          {!verifying && register && (
+            <input
+              required
+              maxLength={120}
+              placeholder="Adın"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          )}
+
+          <input
+            required
+            type="email"
+            placeholder="E-posta"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            disabled={verifying}
+          />
+
+          {!verifying && (
+            <input
+              required
+              minLength={12}
+              maxLength={128}
+              type="password"
+              placeholder="Şifre (en az 12 karakter)"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          )}
+
+          {verifying && (
+            <input
+              required
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              placeholder="6 haneli doğrulama kodu"
+              value={code}
+              onChange={(event) =>
+                setCode(event.target.value.replace(/\\D/g, "").slice(0, 6))
+              }
+            />
+          )}
+
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
           {notice && <p role="status">{notice}</p>}
-          <button disabled={loading}>{loading ? "Lütfen bekle..." : verifying ? "E-postayı doğrula" : register ? "Kayıt ol" : "Giriş yap"}</button>
+
+          <button disabled={loading}>
+            {loading
+              ? "Lütfen bekle..."
+              : verifying
+                ? "E-postayı doğrula"
+                : register
+                  ? "Kayıt ol"
+                  : "Giriş yap"}
+          </button>
         </form>
+
         {verifying ? (
           <>
-            <button className="link" type="button" disabled={loading} onClick={resend}>Yeni kod gönder</button>
-            <button className="link" type="button" onClick={() => { setVerifying(false); setRegister(false); setCode(""); setError(""); }}>Giriş ekranına dön</button>
+            <button
+              className="link"
+              type="button"
+              disabled={loading}
+              onClick={resend}
+            >
+              Yeni kod gönder
+            </button>
+            <button
+              className="link"
+              type="button"
+              onClick={() => {
+                setVerifying(false);
+                setRegister(false);
+                setCode("");
+                setError("");
+              }}
+            >
+              Giriş ekranına dön
+            </button>
           </>
         ) : (
-          <button className="link" type="button" onClick={() => { setRegister(!register); setError(""); setNotice(""); }}>
+          <button
+            className="link"
+            type="button"
+            onClick={() => {
+              setRegister(!register);
+              setError("");
+              setNotice("");
+            }}
+          >
             {register ? "Zaten hesabım var" : "Hesap oluştur"}
           </button>
         )}

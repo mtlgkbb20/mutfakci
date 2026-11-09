@@ -1,23 +1,53 @@
 package com.kitchenai.auth;
+
 import com.kitchenai.user.UserRepository;
-import jakarta.servlet.*; import jakarta.servlet.http.*; import java.io.IOException;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-@Component public class JwtFilter extends OncePerRequestFilter {
- private final JwtService jwt; private final UserRepository users;
- public JwtFilter(JwtService jwt,UserRepository users){this.jwt=jwt;this.users=users;}
- @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)
-  throws ServletException,IOException {
-  String h=request.getHeader("Authorization");
-  if(h!=null&&h.startsWith("Bearer ")) try {
-   var id=jwt.parse(h.substring(7));
-   if(users.findById(id).filter(User->User.isEmailVerified()).isPresent())
-    SecurityContextHolder.getContext().setAuthentication(
-     new UsernamePasswordAuthenticationToken(id,null,AuthorityUtils.NO_AUTHORITIES));
-  } catch(RuntimeException ignored){SecurityContextHolder.clearContext();}
-  chain.doFilter(request,response);
- }
+
+@Component
+public class JwtFilter extends OncePerRequestFilter {
+
+  private final JwtService jwtService;
+  private final UserRepository users;
+
+  public JwtFilter(JwtService jwtService, UserRepository users) {
+    this.jwtService = jwtService;
+    this.users = users;
+  }
+
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
+    String authorization = request.getHeader("Authorization");
+
+    if (authorization != null && authorization.startsWith("Bearer ")) {
+      try {
+        var userId = jwtService.parse(authorization.substring(7));
+        boolean verified =
+            users.findById(userId).map(user -> user.isEmailVerified()).orElse(false);
+
+        if (verified) {
+          var authentication =
+              new UsernamePasswordAuthenticationToken(
+                  userId, null, AuthorityUtils.NO_AUTHORITIES);
+          SecurityContextHolder.getContext().setAuthentication(authentication);
+        } else {
+          SecurityContextHolder.clearContext();
+        }
+      } catch (RuntimeException exception) {
+        SecurityContextHolder.clearContext();
+      }
+    }
+
+    chain.doFilter(request, response);
+  }
 }
