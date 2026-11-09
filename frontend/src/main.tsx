@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import axios from "axios";
-import { ChefHat, LogIn, Plus } from "lucide-react";
+import { ChefHat, LogIn, Plus, Crown, Sparkles } from "lucide-react";
 import "./styles.css";
 
 const api = axios.create({
@@ -16,6 +16,8 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+type Membership = { tier: string; billingInterval: string; remaining: number; limit: number; usage: number; period: string; paidAccess: boolean; plans: Array<{code:string;available:boolean;comingSoon?:boolean}>; };
 
 type Recipe = {
   id: string;
@@ -103,6 +105,17 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
+  const [membership, setMembership] = useState<Membership | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get("/membership").then(({ data }) => setMembership(data)).catch((error) => console.error("Membership load failed", error));
+  }, [user]);
+
+  const refreshMembership = async () => {
+    const { data } = await api.get("/membership");
+    setMembership(data);
+  };
 
   if (!localStorage.getItem("token") || !user) {
     return <Auth onLogin={setUser} />;
@@ -117,6 +130,7 @@ function App() {
         servings: 4,
       });
       setRecipe(data);
+      await refreshMembership();
     } catch (error) {
       console.error("[KitchenAI Web] recipe generation failed", error);
       window.alert(GENERIC_ERROR);
@@ -179,6 +193,47 @@ function App() {
           </div>
           <ChefHat size={100} />
         </div>
+        {membership && (
+          <section className="card membership">
+            <div className="membership-top">
+              <div>
+                <p className="eyebrow">ÜYELİĞİN</p>
+                <h2>{membership.tier === "FREE" ? "Free üyelik" : membership.tier === "COOKER" ? "Cooker üyeliği" : "Chef"}</h2>
+                <p>{membership.remaining} / {membership.limit} AI tarif hakkın kaldı · {membership.period === "LIFETIME" ? "ömür boyu" : "bugün"}</p>
+              </div>
+              <Crown size={34} />
+            </div>
+            <div className="quota-track"><span style={{width: `${Math.min(100, membership.usage / Math.max(1, membership.limit) * 100)}%`}} /></div>
+            <div className="plan-grid">
+              <article className="plan-card current">
+                <span className="plan-label">MEVCUT</span>
+                <h3>Free</h3>
+                <strong>3 tarif</strong>
+                <p>Hesabın boyunca toplam 3 AI tarif üretimi.</p>
+              </article>
+              <article className="plan-card">
+                <span className="plan-label">YAKINDA</span>
+                <h3>Cooker Monthly</h3>
+                <strong>10 tarif / gün</strong>
+                <p>Her gün İstanbul saatiyle 00.00'da yenilenir.</p>
+                <button disabled>Ödeme kurulumu bekleniyor</button>
+              </article>
+              <article className="plan-card">
+                <span className="plan-label">YAKINDA</span>
+                <h3>Cooker Yearly</h3>
+                <strong>10 tarif / gün</strong>
+                <p>Yıllık ödeme; günlük tarif hakkı değişmez.</p>
+                <button disabled>Ödeme kurulumu bekleniyor</button>
+              </article>
+              <article className="plan-card chef-plan">
+                <span className="plan-label">COMING SOON</span>
+                <h3><Sparkles size={18} /> Chef</h3>
+                <strong>Kişisel mutfak asistanı</strong>
+                <p>Detaylar yakında açıklanacak.</p>
+              </article>
+            </div>
+          </section>
+        )}
         <div className="grid">
           <section className="card action">
             <Plus />
