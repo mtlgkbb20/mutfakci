@@ -116,3 +116,26 @@ PayTR's official Card Storage API documents card tokenization and recurring paym
 - https://dev.paytr.com/direkt-api/kart-saklama-api/kayitli-kart-tekrarlayan-odeme
 
 The current adapter deliberately reports recurring checkout as unsupported. This is safer than treating a one-time iFrame payment as a recurring subscription. The next implementation slice is PayTR card enrollment + stored-token persistence + recurring collection + signed callback-to-subscription reconciliation. An iyzico switch remains isolated behind the same `PaymentProvider` contract, but its adapter must be implemented and verified before selecting it.
+
+
+## Test checkout implementation update (2026-11-09)
+
+The first testable payment slice is now implemented:
+
+- PayTR iFrame token initialization uses the server-side HMAC request signature.
+- Cooker monthly/yearly checkout amounts are resolved from server configuration.
+- Checkout records are persisted before the provider handoff.
+- The callback verifies PayTR's HMAC, checks the stored amount/currency and checkout expiry,
+  records the provider event idempotently, and activates the matching entitlement only
+  after a verified successful payment.
+- Web and mobile profile screens can hand off to the hosted PayTR payment page.
+- Test mode is the default; checkout is disabled by default and live payments require
+  both explicit live-mode switches.
+- The current iFrame flow is a one-time purchase, not a recurring subscription.
+  Monthly grants 30 days and yearly grants 365 days. Card tokenization, automatic renewal,
+  cancellation, refunds and renewal retries remain future work.
+- Setup and local test instructions are in docs/PAYTR_TESTING.md.
+
+The implementation still requires merchant credentials, a public HTTPS callback endpoint,
+the matching callback URL configured in the PayTR merchant panel, and a public IPv4 for
+local/LAN testing. Automated build/test validation has not yet been run.
