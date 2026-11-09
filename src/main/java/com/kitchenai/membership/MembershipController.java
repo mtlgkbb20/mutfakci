@@ -51,6 +51,7 @@ public class MembershipController {
     if (userId == null) {
       throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
     }
+    entitlements.ensureMembership(userId);
     return checkouts.createCheckout(
         userId,
         request.planCode(),

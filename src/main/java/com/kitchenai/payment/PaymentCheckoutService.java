@@ -69,8 +69,8 @@ public class PaymentCheckoutService {
     if (!testMode && !livePaymentsEnabled) {
       throw unavailable("Live payments are locked. Explicitly enable PAYMENT_LIVE_ENABLED to proceed.");
     }
-    if (callbackUrl.isBlank()) {
-      throw unavailable("PAYMENT_CALLBACK_URL must point to a public HTTPS callback endpoint.");
+    if (!callbackUrl.startsWith("https://")) {
+      throw unavailable("PAYMENT_CALLBACK_URL must be a public HTTPS callback endpoint.");
     }
     if (returnUrl.isBlank()) {
       throw unavailable("PAYMENT_RETURN_URL must be configured.");
@@ -92,7 +92,13 @@ public class PaymentCheckoutService {
             status, provider, expires_at, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, 'TRY', 'PENDING', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """,
-        UUID.randomUUID(), orderId, userId, planCode, amount, provider.providerCode(), expiresAt);
+        UUID.randomUUID(),
+        orderId,
+        userId,
+        planCode,
+        amount,
+        provider.providerCode(),
+        Timestamp.from(expiresAt));
 
     try {
       PaymentProvider.CheckoutResult result = provider.createCheckout(
@@ -163,7 +169,8 @@ public class PaymentCheckoutService {
   public void handleCallback(Map<String, String> payload) {
     PaymentProvider.VerifiedPayment payment = provider.verifyCallback(payload);
     var rows = jdbc.queryForList("""
-        SELECT user_id, plan_code, amount, currency, status, expires_at
+        SELECT user_id, plan_code, amount, currency, status,
+               (expires_at > CURRENT_TIMESTAMP) AS not_expired
         FROM payment_checkout
         WHERE merchant_order_id = ?
         FOR UPDATE
@@ -218,11 +225,7 @@ public class PaymentCheckoutService {
       return;
     }
 
-    Object expiryValue = checkout.get("expires_at");
-    Instant expiresAt = expiryValue instanceof Timestamp timestamp
-        ? timestamp.toInstant()
-        : expiryValue instanceof Instant instant ? instant : null;
-    if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
+    if (!Boolean.TRUE.equals(checkout.get("not_expired"))) {
       jdbc.update("""
           UPDATE payment_checkout
           SET status = 'EXPIRED', paid_amount = ?, updated_at = CURRENT_TIMESTAMP
@@ -270,7 +273,9 @@ public class PaymentCheckoutService {
     plan.put("tier", tier);
     plan.put("billingInterval", billingInterval);
     plan.put("price", price);
-    plan.put("available", freePlan || (!comingSoon && checkoutEnabled && price.signum() > 0));
+    plan.put("available",
+        freePlan || (!comingSoon && checkoutEnabled && price.signum() > 0
+            && (testMode || livePaymentsEnabled)));
     plan.put("comingSoon", comingSoon);
     plan.put("autoRenew", false);
     return plan;
