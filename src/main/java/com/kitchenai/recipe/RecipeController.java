@@ -9,6 +9,7 @@ import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
 import com.kitchenai.gamification.UserProgress;
 import com.kitchenai.gamification.UserProgressRepository;
+import com.kitchenai.membership.EntitlementService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -40,6 +41,7 @@ public class RecipeController {
   private final RecipeCatalogService catalog;
   private final RecipeGenerationRepository generations;
   private final RecipeReviewService reviewer;
+  private final EntitlementService entitlements;
 
   public RecipeController(
       RecipeRepository recipes,
@@ -49,7 +51,8 @@ public class RecipeController {
       UserProgressRepository progress,
       RecipeCatalogService catalog,
       RecipeGenerationRepository generations,
-      RecipeReviewService reviewer) {
+      RecipeReviewService reviewer,
+      EntitlementService entitlements) {
     this.recipes = recipes;
     this.sessions = sessions;
     this.ai = ai;
@@ -58,6 +61,7 @@ public class RecipeController {
     this.catalog = catalog;
     this.generations = generations;
     this.reviewer = reviewer;
+    this.entitlements = entitlements;
   }
 
   public record GenerateRequest(
@@ -73,6 +77,7 @@ public class RecipeController {
   public RecipeView generate(
       @Valid @RequestBody GenerateRequest request, @AuthenticationPrincipal UUID userId) {
     RecipeGeneration generation = null;
+    EntitlementService.QuotaReservation quotaReservation = null;
     try {
       var match = catalog.find(request.desiredFood());
       if (match.isPresent()) {
@@ -96,6 +101,11 @@ public class RecipeController {
               cached.get().getRecipeId());
           return view(cachedRecipe.get());
         }
+      }
+
+      quotaReservation = entitlements.reserve(userId);
+      if (quotaReservation == null) {
+        throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Recipe generation quota exhausted");
       }
 
       log.info("Recipe generation source=AI_GENERATED provider=runware");
@@ -140,13 +150,23 @@ public class RecipeController {
       return response;
     } catch (JsonProcessingException e) {
       markGenerationFailed(generation, e);
+      releaseQuota(quotaReservation);
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Recipe serialization failed");
     } catch (ApiException e) {
       markGenerationFailed(generation, e);
+      releaseQuota(quotaReservation);
       throw e;
     } catch (Exception e) {
       markGenerationFailed(generation, e);
+      releaseQuota(quotaReservation);
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Recipe generation failed");
+    }
+  }
+
+  private void releaseQuota(EntitlementService.QuotaReservation reservation) {
+    if (reservation != null) {
+      try { entitlements.release(reservation); }
+      catch (Exception releaseError) { log.error("Could not release failed recipe quota reservation userId={}", reservation.userId(), releaseError); }
     }
   }
 

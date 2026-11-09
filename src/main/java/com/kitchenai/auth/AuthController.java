@@ -1,6 +1,7 @@
 package com.kitchenai.auth;
 
 import com.kitchenai.common.ApiException;
+import com.kitchenai.membership.EntitlementService;
 import com.kitchenai.user.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -18,11 +20,13 @@ public class AuthController {
   private final UserRepository users;
   private final PasswordEncoder encoder;
   private final JwtService jwt;
+  private final EntitlementService entitlements;
 
-  public AuthController(UserRepository u, PasswordEncoder e, JwtService j) {
+  public AuthController(UserRepository u, PasswordEncoder e, JwtService j, EntitlementService entitlements) {
     users = u;
     encoder = e;
     jwt = j;
+    this.entitlements = entitlements;
   }
 
   public record Register(
@@ -30,6 +34,7 @@ public class AuthController {
 
   public record Login(@Email String email, @NotBlank String password) {}
 
+  @Transactional
   @PostMapping("/register")
   public Map<String, Object> register(@Valid @RequestBody Register r) {
     log.info("Register request email={}", r.email());
@@ -40,6 +45,7 @@ public class AuthController {
     User u =
         users.save(
             new User(r.email().toLowerCase(), encoder.encode(r.password()), r.displayName()));
+    entitlements.ensureMembership(u.getId());
     log.info("Register success userId={} email={}", u.getId(), u.getEmail());
     return response(u);
   }
