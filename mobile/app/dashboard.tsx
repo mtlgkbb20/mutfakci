@@ -63,7 +63,10 @@ export default function Dashboard() {
         method: "POST",
         body: JSON.stringify({ desiredFood: food, servings: 4 }),
       });
-      setRecipes((current) => [recipe, ...current]);
+            setRecipes((current) => [
+              recipe,
+              ...current.filter((item) => item.id !== recipe.id),
+            ]);
       setFood("");
       router.push({
         pathname: "/recipe",
@@ -203,7 +206,7 @@ export default function Dashboard() {
           >
             {recipes.slice(0, 6).map((recipe, index) => (
               <Pressable
-                key={recipe.id}
+                key={`dashboard-recipe-${index}`}
                 style={s.recipeMini}
                 onPress={() =>
                   router.push({

@@ -6,21 +6,18 @@ const baseURL =
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8080/api/v1";
 
-export async function api(path: string, options: RequestInit = {}) {
+export async function api(path: string, options: RequestInit = {}, timeoutMs = 15000) {
   const token = await AsyncStorage.getItem("token");
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const url = `${baseURL}${path}`;
   console.log("[KitchenAI API] request", options.method || "GET", url);
-
   try {
     const response = await fetch(url, {
       ...options,
@@ -29,7 +26,6 @@ export async function api(path: string, options: RequestInit = {}) {
     });
     console.log("[KitchenAI API] response", response.status, url);
     const data = await response.json().catch(() => ({}));
-
     if (!response.ok) {
       console.error("[KitchenAI API] failure", {
         status: response.status,
@@ -46,9 +42,7 @@ export async function api(path: string, options: RequestInit = {}) {
       message: error?.message,
       url,
     });
-    if (error?.name === "AbortError") {
-      throw new Error("Sunucuya ulaşılamadı.");
-    }
+    if (error?.name === "AbortError") throw new Error("Sunucuya ulaşılamadı.");
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -56,10 +50,6 @@ export async function api(path: string, options: RequestInit = {}) {
 }
 
 export const setSession = async (token: string, user: any) => {
-  await AsyncStorage.multiSet([
-    ["token", token],
-    ["user", JSON.stringify(user)],
-  ]);
+  await AsyncStorage.multiSet([["token", token], ["user", JSON.stringify(user)]]);
 };
-
 export const clearSession = () => AsyncStorage.multiRemove(["token", "user"]);

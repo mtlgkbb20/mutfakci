@@ -2,6 +2,12 @@ server:
   port: ${PORT:8080}
   address: ${SERVER_ADDRESS:0.0.0.0}
 spring:
+  # Load the project-root .env automatically when running locally.
+  config:
+    import: optional:file:.env[.properties]
+  # Runware is the default provider; explicit SPRING_PROFILES_ACTIVE can override it.
+  profiles:
+    default: runware
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}
     username: ${DATABASE_USERNAME:kitchenai}
@@ -15,7 +21,7 @@ spring:
   servlet:
     multipart:
       max-file-size: ${MAX_IMAGE_SIZE:10MB}
-      max-request-size: ${MAX_IMAGE_SIZE:10MB}
+      max-request-size: ${MAX_IMAGE_REQUEST_SIZE:12MB}
 jwt:
   secret: ${JWT_SECRET:change-me-in-development-to-a-long-secret-key}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
@@ -26,3 +32,6 @@ app:
     runware:
       api-key: ${RUNWARE_API_KEY:}
       model: ${RUNWARE_MODEL:deepseek:v4.1@flash}
+      vision-model: ${RUNWARE_VISION_MODEL:google:gemini@3.1-pro}
+      text-fallback-model: ${RUNWARE_TEXT_FALLBACK_MODEL:google:gemini@3.1-flash-lite}
+      normalizer-model: ${RUNWARE_NORMALIZER_MODEL:google:gemini@3.1-flash-lite}

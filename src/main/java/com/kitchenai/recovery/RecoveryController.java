@@ -2,10 +2,21 @@ package com.kitchenai.recovery;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kitchenai.common.ApiException;
-import com.kitchenai.cooking.*;
+import com.kitchenai.cooking.CookingSession;
+import com.kitchenai.cooking.CookingSessionRepository;
+import com.kitchenai.recipe.Recipe;
+import com.kitchenai.recipe.RecipeRepository;
+import com.kitchenai.recovery.RecoveryContracts.*;
+import jakarta.transaction.Transactional;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.*;
+import java.time.Instant;
+import java.time.Duration;
 import java.util.*;
+import javax.imageio.ImageIO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,99 +24,343 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/v1/cooking-sessions/{sessionId}")
+@RequestMapping("/api/v1/cooking-sessions/{sessionId}/recovery-attempts")
 public class RecoveryController {
+  private static final Logger log = LoggerFactory.getLogger(RecoveryController.class);
+  private static final long MAX_BYTES=10_000_000L, MAX_PIXELS=20_000_000L;
+  private static final long MAX_ATTEMPTS_PER_HOUR=20;
+  private static final Set<String> PROBLEM_CATEGORIES=Set.of("TOO_HARD","TOO_SOFT","TOO_STICKY",
+      "NOT_RISING","NOT_HOLDING_SHAPE","SPLITTING","CURDLED","OVERCOOKED","UNDERCOOKED","OTHER");
   private final CookingSessionRepository sessions;
-  private final ObservationRepository observations;
-  private final FeedbackRepository feedback;
+  private final RecipeRepository recipes;
+  private final RecipeRecoveryAttemptRepository attempts;
+  private final RecoveryVisionService vision;
+  private final TextFallbackAdviceService textFallback;
   private final ObjectMapper json;
   private final Path storage;
 
-  public RecoveryController(
-      CookingSessionRepository s,
-      ObservationRepository o,
-      FeedbackRepository f,
-      ObjectMapper j,
-      @Value("${app.storage-path}") String path) {
-    sessions = s;
-    observations = o;
-    feedback = f;
-    json = j;
-    storage = Path.of(path);
+  public RecoveryController(CookingSessionRepository sessions,RecipeRepository recipes,
+      RecipeRecoveryAttemptRepository attempts,RecoveryVisionService vision,TextFallbackAdviceService textFallback,ObjectMapper json,
+      @Value("${app.storage-path}") String path){
+    this.sessions=sessions;this.recipes=recipes;this.attempts=attempts;
+    this.vision=vision;this.textFallback=textFallback;this.json=json;this.storage=Path.of(path);
   }
 
-  @PostMapping(value = "/observations", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public Map<String, Object> observe(
-      @PathVariable UUID sessionId,
-      @AuthenticationPrincipal UUID user,
+  @PostMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+  @Transactional
+  public Response initial(@PathVariable UUID sessionId,@AuthenticationPrincipal UUID user,
       @RequestPart("image") MultipartFile image,
-      @RequestPart(value = "desiredOutcome", required = false) String outcome) {
-    var session =
-        sessions
-            .findById(sessionId)
-            .filter(x -> x.getUserId().equals(user))
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Session not found"));
-    if (image.isEmpty()
-        || !List.of("image/jpeg", "image/png", "image/webp").contains(image.getContentType()))
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Use a JPEG, PNG, or WebP image");
-    if (image.getSize() > 10_000_000)
-      throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "Image is too large");
-    try {
-      Files.createDirectories(storage);
-      String key = user + "/" + UUID.randomUUID() + extension(image.getContentType());
-      Files.createDirectories(storage.resolve(user.toString()));
-      image.transferTo(storage.resolve(key));
-      String observed =
-          "{\"productType\":\"CAKE_BATTER\",\"consistency\":\"UNCERTAIN\",\"confidence\":0.0}";
-      String comparison = "{\"status\":\"UNCERTAIN\"}";
-      var o = observations.save(new CookingObservation(sessionId, key, observed, comparison, 0.0));
-      var f =
-          feedback.save(
-              new CookingFeedback(
-                  sessionId,
-                  o.getId(),
-                  "UNCERTAIN",
-                  "ASK",
-                  "{}",
-                  "IMAGE_UNCLEAR",
-                  "UNCERTAIN",
-                  "Daha net bir fotoğraf gönder."));
-      return Map.of(
-          "status",
-          f.getStatus(),
-          "action",
-          f.getAction(),
-          "message",
-          f.getResolvedMessage(),
-          "requiresUserInput",
-          true,
-          "nextStep",
-          "WAIT_FOR_USER");
-    } catch (IOException e) {
-      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Image could not be stored");
+      @RequestPart(value="problemCategory",required=false) String category,
+      @RequestPart(value="problemDescription",required=false) String description,
+      @RequestPart(value="desiredOutcome",required=false) String outcome,
+      @RequestPart(value="componentKey",required=false) String componentKey){
+    CookingSession session=ownSession(sessionId,user);
+    if(category!=null&&!category.isBlank()&&!PROBLEM_CATEGORIES.contains(category))
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Unsupported problem category");
+    return createAttempt(session,null,image,category,description,null,outcome,componentKey);
+  }
+
+
+  @PostMapping(value="/text-fallback",consumes=MediaType.APPLICATION_JSON_VALUE)
+  @Transactional
+  public TextFallbackResponse textFallback(@PathVariable UUID sessionId,
+      @AuthenticationPrincipal UUID user,@RequestBody TextFallbackRequest request){
+    CookingSession session=ownSession(sessionId,user);
+    if(request==null||request.recipeName()==null||request.recipeName().isBlank()
+        ||request.recipeName().length()>200||request.problemDescription()==null
+        ||request.problemDescription().isBlank()||request.problemDescription().length()>1000)
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Recipe name and problem description are required");
+    if(attempts.countBySessionIdAndCreatedAtAfter(session.getId(),Instant.now().minus(Duration.ofHours(1)))
+        >=MAX_ATTEMPTS_PER_HOUR)
+      throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"Recovery attempt limit reached for this cooking session");
+    String component="text-fallback";
+    int number=attempts.findTopBySessionIdAndComponentKeyOrderByAttemptNumberDesc(session.getId(),component)
+        .map(RecipeRecoveryAttempt::getAttemptNumber).orElse(0)+1;
+    RecipeRecoveryAttempt attempt=attempts.save(new RecipeRecoveryAttempt(session.getRecipeId(),
+        session.getId(),null,component,session.getCurrentStage()+1,number,null,
+        "OTHER",request.problemDescription().trim(),null,null));
+    try{
+      TextFallbackAdviceService.Advice advice=textFallback.suggest(
+          request.recipeName().trim(),request.problemDescription().trim());
+      attempt.markTextFallbackComplete(request.recipeName().trim(),
+          json.writeValueAsString(Map.of("advice",advice.advice(),"caution",advice.caution())));
+      attempts.save(attempt);
+      return new TextFallbackResponse("TEXT_FALLBACK_COMPLETE",attempt.getId(),
+          request.recipeName().trim(),advice.advice(),advice.caution(),
+          "Bu öneri yalnızca verdiğin açıklamaya dayanır; fotoğraf analizi yapılmadı.");
+    }catch(Exception e){
+      log.error("Recipe text fallback failed: sessionId={}, attemptId={}, exceptionType={}",
+          session.getId(),attempt.getId(),e.getClass().getSimpleName(),e);
+      attempt.markTextFallbackUnavailable();
+      attempts.save(attempt);
+      return new TextFallbackResponse("TEXT_FALLBACK_UNAVAILABLE",attempt.getId(),
+          request.recipeName().trim(),null,
+          "Bu kez metin önerisi de üretilemedi. Aynı istek otomatik tekrarlanmadı.",
+          "Fotoğraf analizi yapılmadı; tarifin güvenli olduğunu varsayma.");
     }
   }
 
-  @GetMapping("/observations")
-  public List<CookingObservation> observations(
-      @PathVariable UUID sessionId, @AuthenticationPrincipal UUID user) {
-    own(sessionId, user);
-    return observations.findBySessionIdOrderByCreatedAtDesc(sessionId);
+  @PostMapping(value="/{attemptId}/confirm-action",consumes=MediaType.APPLICATION_JSON_VALUE)
+  @Transactional
+  public Map<String,Object> confirm(@PathVariable UUID sessionId,@PathVariable UUID attemptId,
+      @AuthenticationPrincipal UUID user,@RequestBody ConfirmRequest request){
+    ownSession(sessionId,user);RecipeRecoveryAttempt attempt=ownAttempt(sessionId,attemptId);
+    if(request==null||!request.confirmed())
+      throw new ApiException(HttpStatus.CONFLICT,"Confirm that you applied the correction first");
+    try{attempt.confirmAction();}
+    catch(IllegalStateException e){throw new ApiException(HttpStatus.CONFLICT,"No pending correction for this attempt");}
+    attempts.save(attempt);
+    return Map.of("status","AWAITING_FOLLOW_UP","message","Yeni bir fotoğraf ve kısa durum açıklaması gönder.");
   }
 
-  @GetMapping("/feedback")
-  public List<CookingFeedback> feedback(
-      @PathVariable UUID sessionId, @AuthenticationPrincipal UUID user) {
-    own(sessionId, user);
-    return feedback.findBySessionIdOrderByCreatedAtDesc(sessionId);
+  @PostMapping(value="/{attemptId}/follow-up",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
+  @Transactional
+  public Response followUp(@PathVariable UUID sessionId,@PathVariable UUID attemptId,
+      @AuthenticationPrincipal UUID user,@RequestPart("image") MultipartFile image,
+      @RequestPart("statusText") String statusText){
+    CookingSession session=ownSession(sessionId,user);RecipeRecoveryAttempt parent=ownAttempt(sessionId,attemptId);
+    boolean pendingCorrection="AWAITING_FOLLOW_UP".equals(parent.getStatus())
+        &&parent.getUserActionConfirmedAt()!=null;
+    boolean retryingRejectedFollowUp=("IMAGE_REJECTED".equals(parent.getStatus())
+        ||"ANALYSIS_REJECTED".equals(parent.getStatus()))&&parent.getParentAttemptId()!=null;
+    if(!pendingCorrection&&!retryingRejectedFollowUp)
+      throw new ApiException(HttpStatus.CONFLICT,"Confirm the previous correction before sending a follow-up");
+    if(statusText==null||statusText.isBlank()||statusText.length()>1000)
+      throw new ApiException(HttpStatus.BAD_REQUEST,"A short status description is required");
+    return createAttempt(session,parent,image,null,null,statusText,parent.getDesiredOutcome(),parent.getComponentKey());
   }
 
-  private void own(UUID id, UUID user) {
-    if (sessions.findById(id).filter(x -> x.getUserId().equals(user)).isEmpty())
-      throw new ApiException(HttpStatus.NOT_FOUND, "Session not found");
+  @PostMapping(value="/{attemptId}/decision",consumes=MediaType.APPLICATION_JSON_VALUE)
+  @Transactional
+  public Response decision(@PathVariable UUID sessionId,@PathVariable UUID attemptId,
+      @AuthenticationPrincipal UUID user,@RequestBody DecisionRequest request){
+    ownSession(sessionId,user);RecipeRecoveryAttempt attempt=ownAttempt(sessionId,attemptId);
+    if(!"RECOVERY_OFFERED".equals(attempt.getStatus()))
+      throw new ApiException(HttpStatus.CONFLICT,"This attempt has no recovery/remake choice");
+    if(request==null)throw new ApiException(HttpStatus.BAD_REQUEST,"A recovery decision is required");
+    if("REMAKE_COMPONENT".equals(request.choice())){
+      attempt.chooseRemake();
+      attempts.save(attempt);
+      return response(Status.REMAKE_COMPONENT,attempt,null,Decision.REMAKE_COMPONENT,null,null,
+          "Bu bileşeni yeniden hazırlamak en iyi seçenek.");
+    }
+    if(!"TRY_RECOVERY".equals(request.choice()))
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Choice must be TRY_RECOVERY or REMAKE_COMPONENT");
+    try{
+      Action action=json.readValue(attempt.getActionJson(),Action.class);
+      attempt.chooseRecovery();
+      attempts.save(attempt);
+      return response(Status.CORRECTION_PROPOSED,attempt,null,Decision.RECOVERABLE_BUT_MAJOR_GAP,
+          action,new FollowUp(true,true,true,
+          "Düzeltmeyi uygula; ardından yeni fotoğraf ve kısa durum açıklaması gönder."),
+          "Küçük ve kontrollü bir düzeltme deneyebilirsin.");
+    }catch(Exception e){throw new ApiException(HttpStatus.CONFLICT,"No validated recovery action is available");}
   }
 
-  private String extension(String type) {
-    return type.equals("image/png") ? ".png" : type.equals("image/webp") ? ".webp" : ".jpg";
+  private Response createAttempt(CookingSession session,RecipeRecoveryAttempt parent,MultipartFile image,
+      String category,String description,String statusText,String outcome,String componentKey){
+    if(attempts.countBySessionIdAndCreatedAtAfter(session.getId(),Instant.now().minus(Duration.ofHours(1)))
+        >=MAX_ATTEMPTS_PER_HOUR)
+      throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,"Recovery attempt limit reached for this cooking session");
+    if(image==null||image.isEmpty())throw new ApiException(HttpStatus.BAD_REQUEST,"A photo is required");
+    String mime=image.getContentType();
+    if(mime==null||!List.of("image/jpeg","image/png").contains(mime))
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Use a JPEG or PNG photo");
+    if(image.getSize()>MAX_BYTES)throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE,"Image is too large");
+    if(description!=null&&description.length()>1000||outcome!=null&&outcome.length()>500)
+      throw new ApiException(HttpStatus.BAD_REQUEST,"Description is too long");
+    try{
+      byte[] uploaded=image.getBytes();
+      BufferedImage decoded=ImageIO.read(new ByteArrayInputStream(uploaded));
+      if(decoded==null)throw new ApiException(HttpStatus.BAD_REQUEST,"The image could not be decoded");
+      long pixels=(long)decoded.getWidth()*decoded.getHeight();
+      if(decoded.getWidth()<160||decoded.getHeight()<160||pixels>MAX_PIXELS)
+        throw new ApiException(HttpStatus.BAD_REQUEST,"Image dimensions are not supported");
+      ByteArrayOutputStream sanitized=new ByteArrayOutputStream();
+      String format=mime.equals("image/png")?"png":"jpg";
+      if(!ImageIO.write(decoded,format,sanitized))
+        throw new ApiException(HttpStatus.BAD_REQUEST,"The image format is not supported");
+      byte[] bytes=sanitized.toByteArray();
+      String key=store(session.getUserId(),bytes,mime);
+      Recipe recipe=session.getRecipeId()==null?null:recipes.findById(session.getRecipeId())
+          .filter(r->r.getUserId()==null||r.getUserId().equals(session.getUserId()))
+          .orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Recipe not found"));
+      String component=componentKey==null||componentKey.isBlank()
+          ?(parent==null?"stage-"+(session.getCurrentStage()+1):parent.getComponentKey()):componentKey.trim();
+      if(component.length()>120)throw new ApiException(HttpStatus.BAD_REQUEST,"Invalid component key");
+      int number=attempts.findTopBySessionIdAndComponentKeyOrderByAttemptNumberDesc(session.getId(),component)
+          .map(RecipeRecoveryAttempt::getAttemptNumber).orElse(0)+1;
+      RecipeRecoveryAttempt attempt=attempts.save(new RecipeRecoveryAttempt(session.getRecipeId(),
+          session.getId(),parent==null?null:parent.getId(),component,session.getCurrentStage()+1,
+          number,key,category,description,statusText,outcome));
+      if(parent!=null){
+        parent.markFollowUpReceived();
+        attempts.save(parent);
+      }
+      if(!vision.available()){
+        log.error("Recipe recovery vision is unavailable: sessionId={}, attemptId={}, implementation={}",
+            session.getId(), attempt.getId(), vision.getClass().getSimpleName());
+        attempt.markUnavailable("Vision model is not configured.");
+        attempts.save(attempt);
+        return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
+            "Görsel analiz servisi yapılandırılmamış. Fotoğrafın analiz edilmedi.");
+      }
+      Analysis analysis;
+      try{analysis=vision.analyze(bytes,mime,buildContext(recipe,session,component,category,description,statusText,outcome,parent));}
+      catch(RecoveryAnalysisFormatException formatError){
+        log.warn("Recipe recovery output could not be used: sessionId={}, attemptId={}, reason={}",
+            session.getId(), attempt.getId(), formatError.getMessage());
+        attempt.markAnalysisIncomplete("AI yanıtı beklenen yapılandırılmış formatta değildi; ücretli çağrı tekrar edilmedi.");
+        attempts.save(attempt);
+        return response(Status.ANALYSIS_INCOMPLETE,attempt,null,null,null,null,
+            "Fotoğraf gönderildi ve AI yanıt verdi; ancak yanıt güvenilir biçimde işlenemedi. Aynı istek otomatik tekrarlanmadı. Bu nedenle fotoğrafa puan veya düzeltme atamadım.");
+      }
+      catch(ApiException providerError){
+        log.error("Recipe recovery vision provider failed: sessionId={}, attemptId={}, implementation={}, reason={}",
+            session.getId(), attempt.getId(), vision.getClass().getSimpleName(),
+            providerError.getMessage(), providerError);
+        attempt.markUnavailable("Vision provider request failed.");
+        attempts.save(attempt);
+        return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
+            "Görsel analiz şu anda kullanılamıyor. Fotoğrafın değerlendirilmedi; daha sonra tekrar deneyebilirsin.");
+      }
+      if(!hasCompleteRecoveryDecision(analysis)){
+        attempt.markAnalysisIncomplete("Normalized AI response contained insufficient evidence for a safe recovery decision.");
+        attempts.save(attempt);
+        return response(Status.ANALYSIS_INCOMPLETE,attempt,analysis,null,null,null,
+            "AI yanıtı yapılandırılmış bir formata dönüştürüldü; ancak güvenli bir karar vermek için bazı bilgiler eksik. Eksik skorları veya düzeltmeleri tahmin etmedim. Fotoğrafı daha net çekebilir ya da metinle destek isteyebilirsin.");
+      }
+      if(!RecoveryImageTrustPolicy.accepts(analysis.imageTrustScore())){
+        attempt.markImageRejected(analysis.imageTrustScore(),"{\"reason\":\"IMAGE_NOT_CLEAR\"}");
+        attempts.save(attempt);
+        String reason=analysis.problemSummary()==null||analysis.problemSummary().isBlank()
+            ?"Fotoğraf yeterince net veya ilgili değil.":"Fotoğraf net değil: "+analysis.problemSummary();
+        return response(Status.REQUEST_NEW_IMAGE,attempt,null,null,null,null,
+            reason+" Bileşeni daha yakından, iyi ışıkta yeniden çek.");
+      }
+      if(analysis.analysisConfidence().doubleValue()<0.65
+          ||(analysis.targetProximityScore()>=50&&analysis.targetProximityScore()<90
+              &&analysis.action().type()==ActionType.NONE)){
+        attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),null,
+            json.writeValueAsString(Map.of("observedState",analysis.observedState())),
+            json.writeValueAsString(Map.of("targetState",analysis.targetState())),
+            json.writeValueAsString(Map.of("reason",analysis.reason())),null,"ANALYSIS_REJECTED");
+        attempts.save(attempt);
+        return response(Status.NEEDS_CLARIFICATION,attempt,analysis,null,null,null,
+            "Güvenli bir düzeltme önermek için biraz daha bilgiye ihtiyacım var: "+analysis.reason());
+      }
+      int score=analysis.targetProximityScore();
+      Set<ActionType> conservativeActions=Set.of(ActionType.REST,ActionType.MIX,ActionType.KNEAD,
+          ActionType.DRAIN,ActionType.CHILL,ActionType.REFORM,ActionType.STOP_COOKING);
+      if(score>=50&&score<90&&!conservativeActions.contains(analysis.action().type())){
+        attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),null,
+            json.writeValueAsString(Map.of("observedState",analysis.observedState())),
+            json.writeValueAsString(Map.of("targetState",analysis.targetState())),
+            json.writeValueAsString(Map.of("reason","Önerilen işlem desteklenen güvenli işlem listesinde değil.")),
+            null,"ANALYSIS_REJECTED");
+        attempts.save(attempt);
+        return response(Status.NEEDS_CLARIFICATION,attempt,analysis,null,null,null,
+            "Bu durum için güvenli ve desteklenen bir düzeltme belirleyemedim. Daha fazla ayrıntı gerekli.");
+      }
+      RecoveryDecisionPolicy.Result policy=RecoveryDecisionPolicy.evaluate(score);
+      Decision decision=policy.decision();
+      Status status=policy.status();
+      Action storedAction=policy.correctionRequired()||policy.recoveryChoiceRequired()?analysis.action():null;
+      Action responseAction=policy.correctionRequired()?analysis.action():null;
+      String lifecycle=policy.lifecycle();
+      attempt.applyAnalysis(analysis.imageTrustScore(),analysis.analysisConfidence(),score,
+          json.writeValueAsString(Map.of("observedState",analysis.observedState())),
+          json.writeValueAsString(Map.of("targetState",analysis.targetState())),
+          json.writeValueAsString(Map.of("gapSummary",analysis.gapSummary(),"reason",analysis.reason(),"decision",decision.name())),
+          storedAction==null?null:json.writeValueAsString(storedAction),lifecycle);
+      attempts.save(attempt);
+      FollowUp follow=score>=75&&score<90?new FollowUp(true,true,true,
+          "Düzeltmeyi uygula; ardından yeni fotoğraf ve kısa durum açıklaması gönder."):null;
+      String message=score>=90?"Hedef kıvama yeterince yakın. Tarifin sonraki adımına geçebilirsin.":
+          score>=75?"Küçük bir düzeltme gerekiyor.":score>=50?
+          "Bu bileşen kurtarılabilir; ancak yeniden yapmak daha iyi sonuç verebilir.":
+          "Bu bileşen makul şekilde kurtarılamıyor; yalnızca bu bileşeni yeniden hazırlamanı öneririm.";
+      return response(status,attempt,analysis,decision,responseAction,follow,message);
+    }catch(ApiException e){throw e;}
+    catch(IOException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Photo could not be stored");}
+  }
+
+  private boolean hasCompleteRecoveryDecision(Analysis analysis){
+    if(analysis.imageTrustScore()==null||analysis.analysisConfidence()==null
+        ||analysis.targetProximityScore()==null||analysis.action()==null
+        ||analysis.action().type()==null)return false;
+    if(analysis.problemCategory()==null||analysis.problemSummary()==null
+        ||analysis.observedState()==null||analysis.targetState()==null
+        ||analysis.gapSummary()==null||analysis.reason()==null)return false;
+    return analysis.action().type()==ActionType.NONE
+        ||(analysis.action().instruction()!=null&&!analysis.action().instruction().isBlank());
+  }
+
+  private String buildContext(Recipe recipe,CookingSession session,String component,String category,
+      String description,String statusText,String outcome,RecipeRecoveryAttempt parent){
+    try{
+      Map<String,Object> c=new LinkedHashMap<>();
+      c.put("componentKey",component);c.put("stageOrder",session.getCurrentStage()+1);
+      c.put("problemCategory",category);c.put("problemDescription",description);
+      c.put("followUpStatus",statusText);c.put("desiredOutcome",outcome);
+      if(recipe!=null){c.put("recipeTitle",recipe.getTitle());c.put("productType",recipe.getProductType());
+        c.put("ingredients",json.readTree(recipe.getIngredientsJson()));c.put("stages",json.readTree(recipe.getStagesJson()));}
+      if(parent!=null){
+        List<Map<String,Object>> history=new ArrayList<>();
+        RecipeRecoveryAttempt cursor=parent;
+        int depth=0;
+        while(cursor!=null&&depth++<6){
+          Map<String,Object> previous=new LinkedHashMap<>();
+          previous.put("status",cursor.getStatus());
+          previous.put("observation",cursor.getObservedStateJson());
+          previous.put("target",cursor.getTargetStateJson());
+          previous.put("assessment",cursor.getAssessmentJson());
+          previous.put("confirmedAction",cursor.getActionJson());
+          previous.put("actionConfirmed",cursor.getUserActionConfirmedAt()!=null);
+          history.add(previous);
+          cursor=cursor.getParentAttemptId()==null?null:
+              attempts.findById(cursor.getParentAttemptId()).orElse(null);
+        }
+        c.put("previousAttempts",history);
+      }
+      return json.writeValueAsString(c);
+    }catch(Exception e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Recipe context could not be prepared");}
+  }
+
+  private String store(UUID user,byte[] bytes,String mime)throws IOException{
+    Path root=storage.toAbsolutePath().normalize();
+    Path dir=root.resolve(user.toString()).normalize();
+    if(!dir.startsWith(root))throw new IOException("Invalid storage path");
+    Files.createDirectories(dir);
+    try{Files.setPosixFilePermissions(dir,java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));}
+    catch(UnsupportedOperationException ignored){}
+    String key=user+"/"+UUID.randomUUID()+(mime.equals("image/png")?".png":".jpg");
+    Path target=root.resolve(key).normalize();
+    if(!target.startsWith(root))throw new IOException("Invalid storage path");
+    Files.write(target,bytes,StandardOpenOption.CREATE_NEW);
+    try{Files.setPosixFilePermissions(target,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}
+    catch(UnsupportedOperationException ignored){}
+    return key;
+  }
+  private CookingSession ownSession(UUID id,UUID user){
+    CookingSession session=sessions.findById(id).filter(s->s.getUserId().equals(user))
+        .orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Session not found"));
+    if(!"ACTIVE".equals(session.getStatus()))
+      throw new ApiException(HttpStatus.CONFLICT,"Cooking session is not active");
+    return session;
+  }
+  private RecipeRecoveryAttempt ownAttempt(UUID session,UUID id){
+    return attempts.findById(id).filter(a->session.equals(a.getSessionId()))
+        .orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Recovery attempt not found"));
+  }
+  private Response response(Status status,RecipeRecoveryAttempt attempt,Analysis analysis,Decision decision,
+      Action action,FollowUp follow,String message){
+    Problem problem=analysis==null?null:new Problem(analysis.problemCategory(),analysis.problemSummary());
+    Assessment assessment=analysis==null?null:new Assessment(analysis.targetState(),analysis.gapSummary(),analysis.reason());
+    return new Response(status,
+        analysis==null?attempt.getImageTrustScore():analysis.imageTrustScore(),
+        analysis==null?null:analysis.analysisConfidence(),
+        analysis==null?attempt.getTargetProximityScore():analysis.targetProximityScore(),
+        problem,assessment,decision,action,follow,attempt.getId(),message);
   }
 }

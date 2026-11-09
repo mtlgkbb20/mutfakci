@@ -28,20 +28,24 @@ import org.springframework.stereotype.Service;
 /** Runware adapter. Provider JSON never leaves this class. */
 @Service
 @Profile("runware")
-public class RunwareRecipeGenerationService implements RecipeGenerationService {
+public class RunwareRecipeGenerationService
+    implements RecipeGenerationService, RecipeReviewService {
   private static final String API_URL = "https://api.runware.ai/v1/chat/completions";
   private static final Logger log = LoggerFactory.getLogger(RunwareRecipeGenerationService.class);
   private final ObjectMapper mapper;
   private final HttpClient http;
   private final String apiKey;
   private final String model;
+  private final AiOutputNormalizer outputNormalizer;
 
   public RunwareRecipeGenerationService(
-      ObjectMapper mapper, org.springframework.core.env.Environment environment) {
+      ObjectMapper mapper, org.springframework.core.env.Environment environment,
+      AiOutputNormalizer outputNormalizer) {
     this.mapper = mapper;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     this.apiKey = environment.getProperty("app.ai.runware.api-key", "");
     this.model = environment.getProperty("app.ai.runware.model", "openai:gpt@5.4-mini");
+    this.outputNormalizer = outputNormalizer;
   }
 
   @Override
@@ -79,6 +83,80 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
     return new GenerationTrace(result, plan, components);
   }
 
+  @Override
+  public RecipeResult review(RecipeResult recipe) {
+    String prompt =
+        """
+        Review and finalize this Turkish recipe before it is shown to a user.
+        Return JSON only and follow the provided schema.
+        Correct awkward or incorrect Turkish cooking terminology and stage names.
+        For example, replace 'yufkalandırma' with 'yufkayı açma' when that is what
+        the instruction actually means. Preserve the recipe's dish identity,
+        ingredient quantities, cooking safety, and practical instructions.
+        Do not add unsupported ingredients or invent a different recipe.
+        Keep all human-readable fields in Turkish.
+        Recipe to review:
+        %s
+        """
+            .formatted(safeJson(recipe));
+    try {
+      ObjectNode schema = reviewSchema();
+      ModelPayload modelPayload = requestJson(prompt, schema, "recipe-review");
+      JsonNode payload = modelPayload.json();
+      try {
+        RecipeResult reviewed = mapper.treeToValue(payload, RecipeResult.class);
+        validateReviewedRecipe(reviewed);
+        log.info("Runware chef review completed title={} stageCount={}",
+            reviewed.title(), reviewed.stages().size());
+        return reviewed;
+      } catch (Exception validationFailure) {
+        if (modelPayload.normalized()) throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review returned an invalid structure");
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "recipe-review",
+            "Preserve the reviewed recipe content. Do not invent ingredients, amounts, temperatures, or timings. Use null only where the target schema permits it.");
+        RecipeResult reviewed = mapper.treeToValue(normalized, RecipeResult.class);
+        validateReviewedRecipe(reviewed);
+        log.info("Runware chef review output normalized and validated");
+        return reviewed;
+      }
+    } catch (ApiException e) {
+      throw e;
+    } catch (Exception e) {
+      log.warn(
+          "Runware chef review failed type={} message={}",
+          e.getClass().getSimpleName(),
+          e.getMessage());
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review failed");
+    }
+  }
+
+  private void validateReviewedRecipe(RecipeResult recipe) {
+    if (recipe == null
+        || recipe.title() == null
+        || recipe.title().isBlank()
+        || recipe.ingredients() == null
+        || recipe.ingredients().isEmpty()
+        || recipe.stages() == null
+        || recipe.stages().isEmpty()) {
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review returned an incomplete recipe");
+    }
+    int order = 1;
+    for (Stage stage : recipe.stages()) {
+      if (stage.order() != order++
+          || stage.instructions() == null
+          || stage.instructions().isBlank()) {
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe review returned invalid stages");
+      }
+    }
+  }
+
+  private ObjectNode reviewSchema() {
+    return (ObjectNode)
+        readSchema(
+            """
+{"type":"object","additionalProperties":false,"required":["title","description","productType","servings","preparationTime","cookingTime","ingredients","stages"],"properties":{"title":{"type":"string","minLength":1},"description":{"type":"string"},"productType":{"type":"string","minLength":1},"servings":{"type":"integer","minimum":1,"maximum":30},"preparationTime":{"type":"integer","minimum":1},"cookingTime":{"type":"integer","minimum":1},"ingredients":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["name","quantity","unit","optional"],"properties":{"name":{"type":"string","minLength":1},"quantity":{"type":"number","exclusiveMinimum":0},"unit":{"type":"string","minLength":1},"optional":{"type":"boolean"}}}},"stages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["order","title","instructions","targetState","temperature","durationSeconds"],"properties":{"order":{"type":"integer","minimum":1},"title":{"type":"string","minLength":1},"instructions":{"type":"string","minLength":1},"targetState":{"type":"string","minLength":1},"temperature":{"type":["integer","null"]},"durationSeconds":{"type":["integer","null"]}}}}}}
+""");
+  }
+
   private RecipeDecompositionResponse decomposition(RecipeRequest request) {
     String prompt =
         """
@@ -105,19 +183,24 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
                 value(request.conditions(), "belirtilmedi"),
                 value(request.dietaryRestrictions(), "belirtilmedi"),
                 value(request.availableIngredients(), "belirtilmedi"));
+    ObjectNode schema = decompositionSchema();
+    ModelPayload modelPayload = requestJsonSafely(prompt, schema, "decomposition");
+    JsonNode payload = modelPayload.json();
     try {
-      RecipeDecompositionResponse plan =
-          parseDecomposition(requestJson(prompt, decompositionSchema(), "decomposition"), request);
-      return RecipePipelineValidator.decomposition(plan);
-    } catch (Exception e) {
-      if (e instanceof ApiException apiException) {
-        throw apiException;
+      return RecipePipelineValidator.decomposition(parseDecomposition(payload, request));
+    } catch (Exception validationFailure) {
+      if (modelPayload.normalized()) {
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe planning returned an invalid structure");
       }
-      log.warn(
-          "Runware decomposition failed type={} message={}",
-          e.getClass().getSimpleName(),
-          e.getMessage());
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe planning failed");
+      try {
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "decomposition",
+            "Preserve dish identity, component relationships, and source facts. Do not invent components or dependencies.");
+        return RecipePipelineValidator.decomposition(parseDecomposition(normalized, request));
+      } catch (Exception normalizationFailure) {
+        log.warn("Runware decomposition remained invalid after normalization: validationType={}, normalizationType={}",
+            validationFailure.getClass().getSimpleName(), normalizationFailure.getClass().getSimpleName());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe planning returned an invalid structure");
+      }
     }
   }
 
@@ -150,22 +233,27 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
                 plan.servings(),
                 safeJson(plan),
                 safeJson(component));
+    ObjectNode schema = componentSchema();
+    ModelPayload modelPayload = requestJsonSafely(prompt, schema, "component-" + component.key());
+    JsonNode payload = modelPayload.json();
     try {
-      RecipeComponentGenerationResponse result =
-          mapper.treeToValue(
-              requestJson(prompt, componentSchema(), "component-" + component.key()),
-              RecipeComponentGenerationResponse.class);
+      RecipeComponentGenerationResponse result = mapper.treeToValue(payload, RecipeComponentGenerationResponse.class);
       return RecipePipelineValidator.component(result, component.key());
-    } catch (Exception e) {
-      if (e instanceof ApiException apiException) {
-        throw apiException;
+    } catch (Exception validationFailure) {
+      if (modelPayload.normalized()) {
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component returned an invalid structure");
       }
-      log.warn(
-          "Runware component failed key={} type={} message={}",
-          component.key(),
-          e.getClass().getSimpleName(),
-          e.getMessage());
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component generation failed");
+      try {
+        JsonNode normalized = normalizeParsedPayload(payload, schema, "component-" + component.key(),
+            "Preserve the requested componentKey exactly. Do not invent ingredients, quantities, temperatures, or timings.");
+        RecipeComponentGenerationResponse result = mapper.treeToValue(normalized, RecipeComponentGenerationResponse.class);
+        return RecipePipelineValidator.component(result, component.key());
+      } catch (Exception normalizationFailure) {
+        log.warn("Runware component remained invalid after normalization: key={}, validationType={}, normalizationType={}",
+            component.key(), validationFailure.getClass().getSimpleName(),
+            normalizationFailure.getClass().getSimpleName());
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Recipe component generation returned an invalid structure");
+      }
     }
   }
 
@@ -222,7 +310,23 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
         stages);
   }
 
-  private JsonNode requestJson(String prompt, ObjectNode schema, String operation)
+  private ModelPayload requestJsonSafely(String prompt, ObjectNode schema, String operation) {
+    try {
+      return requestJson(prompt, schema, operation);
+    } catch (ApiException e) {
+      throw e;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("Runware provider operation={} was interrupted", operation);
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI request was interrupted");
+    } catch (Exception e) {
+      log.warn("Runware provider operation={} failed before a usable response: type={}, message={}",
+          operation, e.getClass().getSimpleName(), e.getMessage());
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI request failed");
+    }
+  }
+
+  private ModelPayload requestJson(String prompt, ObjectNode schema, String operation)
       throws IOException, InterruptedException {
     String lastError = "";
     // Provider calls are billable. Never automatically retry after a response.
@@ -278,16 +382,26 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
       String contentText = responseText(root, choice, message);
       if (contentText != null && !contentText.isBlank()) {
         try {
-          return parseJsonPayload(contentText);
-        } catch (Exception e) {
+          return new ModelPayload(parseJsonPayload(contentText), false);
+        } catch (Exception parseFailure) {
           lastError = "response was not valid JSON";
           log.warn(
-              "Runware provider operation={} attempt={} returned invalid JSON "
-                  + "length={} preview={}",
-              operation,
-              attempt + 1,
-              contentText.length(),
-              preview(contentText));
+              "Runware provider operation={} returned invalid JSON; attempting one normalization " +
+                  "length={} preview={}",
+              operation, contentText.length(), preview(contentText));
+          if (outputNormalizer.available()) {
+            try {
+              String normalized = outputNormalizer.normalize(operation, contentText,
+                  mapper.writeValueAsString(schema),
+                  "Convert this recipe-generation response to the target schema without adding unsupported facts. Preserve source quantities and instructions. Unknown values must remain null or cause validation failure.");
+              return new ModelPayload(mapper.readTree(normalized), true);
+            } catch (Exception normalizationFailure) {
+              lastError = "response JSON normalization failed";
+              log.warn("Runware provider operation={} normalization failed type={} detail={}",
+                  operation, normalizationFailure.getClass().getSimpleName(),
+                  normalizationFailure.getMessage());
+            }
+          }
         }
       } else {
         String refusal = message.path("refusal").asText("");
@@ -311,6 +425,18 @@ public class RunwareRecipeGenerationService implements RecipeGenerationService {
         operation,
         lastError);
     throw new ApiException(HttpStatus.BAD_GATEWAY, "AI recipe generation failed");
+  }
+
+  private record ModelPayload(JsonNode json, boolean normalized) {}
+
+  private JsonNode normalizeParsedPayload(JsonNode payload, ObjectNode schema,
+      String operation, String rules) throws IOException {
+    if (!outputNormalizer.available()) {
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "AI output does not match the required structure");
+    }
+    String normalized = outputNormalizer.normalize(operation,
+        mapper.writeValueAsString(payload), mapper.writeValueAsString(schema), rules);
+    return mapper.readTree(normalized);
   }
 
   private String providerError(String responseBody, int statusCode) {

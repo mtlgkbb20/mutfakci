@@ -224,15 +224,15 @@ function App() {
             </p>
             <h3>Malzemeler</h3>
             <ul>
-              {JSON.parse(recipe.ingredients).map((item: any) => (
-                <li key={item.name}>
+              {JSON.parse(recipe.ingredients).map((item: any, index: number) => (
+                <li key={`ingredient-${index}`}>
                   {item.quantity} {item.unit} {item.name}
                 </li>
               ))}
             </ul>
             <h3>Aşamalar</h3>
-            {JSON.parse(recipe.stages).map((stage: any) => (
-              <p key={stage.order}>
+            {JSON.parse(recipe.stages).map((stage: any, index: number) => (
+              <p key={`stage-${index}`}>
                 <b>
                   {stage.order}. {stage.title}:
                 </b>{" "}
