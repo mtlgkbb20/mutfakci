@@ -224,7 +224,7 @@ function RecoveryHistory({ onClose }: { onClose: () => void }) {
 function App() {
   const [user, setUser] = useState<any>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [food, setFood] = useState("");
+  const [food, setFood] = useState("");\n  const [recoveryRecipeName, setRecoveryRecipeName] = useState("");\n  const [recoveryProblem, setRecoveryProblem] = useState("");\n  const [textAdvice, setTextAdvice] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<any>(null);\n  const [historyOpen, setHistoryOpen] = useState(false);
@@ -244,6 +244,28 @@ function App() {
       setRecipe(data);
     } catch (error) {
       console.error("[KitchenAI Web] recipe generation failed", error);
+      window.alert(GENERIC_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+
+  const recoverByText = async () => {
+    if (!recoveryRecipeName.trim() || !recoveryProblem.trim()) return;
+    setBusy(true);
+    setTextAdvice(null);
+    try {
+      const session = (await api.post("/cooking-sessions", {
+        desiredOutcome: "Tarif sorununu metinle çöz"
+      })).data;
+      const { data } = await api.post(
+        `/cooking-sessions/${session.id}/recovery-attempts/text-fallback`,
+        { recipeName: recoveryRecipeName.trim(), problemDescription: recoveryProblem.trim() },
+      );
+      setTextAdvice(data);
+    } catch (error) {
+      console.error("[KitchenAI Web] text recovery failed", error);
       window.alert(GENERIC_ERROR);
     } finally {
       setBusy(false);
