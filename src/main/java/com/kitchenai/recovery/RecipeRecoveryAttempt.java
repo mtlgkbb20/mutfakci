@@ -44,6 +44,12 @@ public class RecipeRecoveryAttempt {
     status="ANALYZING"; createdAt=Instant.now();
   }
   public UUID getId(){return id;}
+  public String getImageObjectKey(){return imageObjectKey;}
+  public String getFallbackRecipeName(){return fallbackRecipeName;}
+  public String getUserProblemCategory(){return userProblemCategory;}
+  public String getUserProblemDescription(){return userProblemDescription;}
+  public String getUserStatusText(){return userStatusText;}
+  public BigDecimal getAnalysisConfidence(){return analysisConfidence;}
   public UUID getRecipeId(){return recipeId;}
   public UUID getSessionId(){return sessionId;}
   public UUID getParentAttemptId(){return parentAttemptId;}
