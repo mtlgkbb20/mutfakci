@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { api, clearSession } from "../src/api";
 import { AppShell, Button, Header, s } from "../src/ui";
+
 export default function Profile() {
   const router = useRouter();
   const [user, setUser] = useState<any>();
@@ -13,7 +14,8 @@ export default function Profile() {
     level: "BEGINNER_CHEF",
   });
   useEffect(() => {
-    Promise.all([api("/auth/me"), api("/gamification/progress"), api("/membership"), api("/gamification/badges/me")])
+    Promise.all([api("/auth/me"), api("/gamification/progress"), api("/membership"), api("/gamification/badges/me"),
+    ])
       .then(([u, p, m, b]) => {
         setUser(u);
         setProgress(p);
