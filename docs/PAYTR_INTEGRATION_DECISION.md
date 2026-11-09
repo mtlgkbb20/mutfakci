@@ -107,6 +107,7 @@ Implemented on `feature/membership-plans`:
 - Checkout endpoint exists but intentionally returns unavailable until prices, merchant configuration, card-token enrollment, recurring charge flow, and subscription lifecycle are implemented and tested.
 - Web and mobile profile surfaces display current tier, remaining quota, Cooker plan descriptions, and Chef Coming soon.
 - PayTR callback route is public to the provider and validates the callback signature. It does not activate memberships yet.
+- Unit tests were added for Free quota reservation/release, Chef fail-closed behavior, and PayTR callback HMAC verification; they have not been executed in this environment.
 
 ### PayTR-specific production prerequisites
 
