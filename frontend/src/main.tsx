@@ -11,14 +11,26 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-type Membership = { tier: string; billingInterval: string; remaining: number; limit: number; usage: number; period: string; paidAccess: boolean; plans: Array<{code:string;available:boolean;comingSoon?:boolean}>; };
-
+type MembershipPlan = {
+  code: string;
+  available: boolean;
+  price: number;
+  autoRenew: boolean;
+};
+type Membership = {
+  tier: string;
+  billingInterval: string;
+  remaining: number;
+  limit: number;
+  usage: number;
+  period: string;
+  paidAccess: boolean;
+  plans: MembershipPlan[];
+};
 type Recipe = {
   id: string;
   title: string;
@@ -67,7 +79,7 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
               required
               placeholder="Adın"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
             />
           )}
           <input
@@ -75,7 +87,7 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
             type="email"
             placeholder="E-posta"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
           />
           <input
             required
@@ -83,7 +95,7 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
             type="password"
             placeholder="Şifre"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
           />
           <button>
             <LogIn size={18} />
@@ -106,15 +118,71 @@ function App() {
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
   const [membership, setMembership] = useState<Membership | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    api.get("/membership").then(({ data }) => setMembership(data)).catch((error) => console.error("Membership load failed", error));
-  }, [user]);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutAddress, setCheckoutAddress] = useState("");
+  const [checkoutPhone, setCheckoutPhone] = useState("");
 
   const refreshMembership = async () => {
     const { data } = await api.get("/membership");
     setMembership(data);
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    refreshMembership().catch((error) =>
+      console.error("Membership load failed", error),
+    );
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentResult = params.get("payment");
+    const orderId = params.get("order");
+    if (paymentResult && orderId) {
+      api.get(`/membership/checkouts/${encodeURIComponent(orderId)}`)
+        .then(async ({ data }) => {
+          await refreshMembership();
+          window.alert(
+            data.status === "PAID"
+              ? "Ödeme doğrulandı. Cooker üyeliğin aktif."
+              : paymentResult === "failed"
+                ? "Ödeme tamamlanmadı."
+                : "Ödeme sonucu henüz doğrulanmadı. Biraz sonra profilini yenile.",
+          );
+        })
+        .catch((error) => console.error("Payment status check failed", error))
+        .finally(() => {
+          window.history.replaceState({}, "", window.location.pathname);
+        });
+    }
+  }, [user]);
+
+  const plan = (code: string) =>
+    membership?.plans?.find((item) => item.code === code);
+
+  const startCheckout = async (planCode: string) => {
+    if (!checkoutAddress.trim() || !checkoutPhone.trim()) {
+      window.alert("Ödeme için adres ve telefon bilgisi gir.");
+      return;
+    }
+    const checkoutWindow = window.open("about:blank", "_blank");
+    if (!checkoutWindow) {
+      window.alert("Ödeme penceresi tarayıcı tarafından engellendi.");
+      return;
+    }
+    setCheckoutBusy(true);
+    try {
+      const { data } = await api.post("/membership/checkout", {
+        planCode,
+        displayName: user.displayName,
+        address: checkoutAddress,
+        phone: checkoutPhone,
+      });
+      checkoutWindow.location.href = data.checkoutUrl;
+    } catch (error: any) {
+      checkoutWindow.close();
+      window.alert(error?.response?.data?.error || GENERIC_ERROR);
+    } finally {
+      setCheckoutBusy(false);
+    }
   };
 
   if (!localStorage.getItem("token") || !user) {
@@ -131,9 +199,9 @@ function App() {
       });
       setRecipe(data);
       await refreshMembership();
-    } catch (error) {
+    } catch (error: any) {
       console.error("[KitchenAI Web] recipe generation failed", error);
-      window.alert((error as any)?.response?.data?.error || GENERIC_ERROR);
+      window.alert(error?.response?.data?.error || GENERIC_ERROR);
     } finally {
       setBusy(false);
     }
@@ -198,12 +266,27 @@ function App() {
             <div className="membership-top">
               <div>
                 <p className="eyebrow">ÜYELİĞİN</p>
-                <h2>{membership.tier === "FREE" ? "Free üyelik" : membership.tier === "COOKER" ? "Cooker üyeliği" : "Chef"}</h2>
-                <p>{membership.remaining} / {membership.limit} AI tarif hakkın kaldı · {membership.period === "LIFETIME" ? "ömür boyu" : "bugün"}</p>
+                <h2>
+                  {membership.tier === "FREE"
+                    ? "Free üyelik"
+                    : membership.tier === "COOKER"
+                      ? "Cooker üyeliği"
+                      : "Chef"}
+                </h2>
+                <p>
+                  {membership.remaining} / {membership.limit} AI tarif hakkın
+                  kaldı · {membership.period === "LIFETIME" ? "ömür boyu" : "bugün"}
+                </p>
               </div>
               <Crown size={34} />
             </div>
-            <div className="quota-track"><span style={{width: `${Math.min(100, membership.usage / Math.max(1, membership.limit) * 100)}%`}} /></div>
+            <div className="quota-track">
+              <span
+                style={{
+                  width: `${Math.min(100, (membership.usage / Math.max(1, membership.limit)) * 100)}%`,
+                }}
+              />
+            </div>
             <div className="plan-grid">
               <article className="plan-card current">
                 <span className="plan-label">MEVCUT</span>
@@ -212,18 +295,30 @@ function App() {
                 <p>Hesabın boyunca toplam 3 AI tarif üretimi.</p>
               </article>
               <article className="plan-card">
-                <span className="plan-label">YAKINDA</span>
+                <span className="plan-label">TEK ÖDEME · OTOMATİK YENİLEME YOK</span>
                 <h3>Cooker Monthly</h3>
                 <strong>10 tarif / gün</strong>
-                <p>Her gün İstanbul saatiyle 00.00'da yenilenir.</p>
-                <button disabled>Ödeme kurulumu bekleniyor</button>
+                <p>Ödeme sonrası 30 gün boyunca günlük 10 AI tarif üretimi.</p>
+                <strong>{plan("COOKER_MONTHLY")?.price ?? "—"} ₺</strong>
+                <button
+                  disabled={!plan("COOKER_MONTHLY")?.available || checkoutBusy}
+                  onClick={() => startCheckout("COOKER_MONTHLY")}
+                >
+                  {checkoutBusy ? "Hazırlanıyor..." : "PayTR ile öde"}
+                </button>
               </article>
               <article className="plan-card">
-                <span className="plan-label">YAKINDA</span>
+                <span className="plan-label">TEK ÖDEME · OTOMATİK YENİLEME YOK</span>
                 <h3>Cooker Yearly</h3>
                 <strong>10 tarif / gün</strong>
-                <p>Yıllık ödeme; günlük tarif hakkı değişmez.</p>
-                <button disabled>Ödeme kurulumu bekleniyor</button>
+                <p>Ödeme sonrası 365 gün boyunca günlük 10 AI tarif üretimi.</p>
+                <strong>{plan("COOKER_YEARLY")?.price ?? "—"} ₺</strong>
+                <button
+                  disabled={!plan("COOKER_YEARLY")?.available || checkoutBusy}
+                  onClick={() => startCheckout("COOKER_YEARLY")}
+                >
+                  {checkoutBusy ? "Hazırlanıyor..." : "PayTR ile öde"}
+                </button>
               </article>
               <article className="plan-card chef-plan">
                 <span className="plan-label">COMING SOON</span>
@@ -231,6 +326,24 @@ function App() {
                 <strong>Kişisel mutfak asistanı</strong>
                 <p>Detaylar yakında açıklanacak.</p>
               </article>
+            </div>
+            <div className="checkout-details">
+              <p>PayTR ödeme formu için iletişim bilgileri</p>
+              <input
+                value={checkoutAddress}
+                onChange={(event) => setCheckoutAddress(event.target.value)}
+                placeholder="Adres"
+              />
+              <input
+                value={checkoutPhone}
+                onChange={(event) => setCheckoutPhone(event.target.value)}
+                placeholder="Telefon"
+                type="tel"
+              />
+              <small>
+                Test ortamında ödeme alınmaz. Cooker paketi tek ödemeyle 30/365 gün
+                aktif olur; otomatik yenileme bu test entegrasyonunda yoktur.
+              </small>
             </div>
           </section>
         )}
@@ -241,7 +354,7 @@ function App() {
             <p>Nasıl bir yemek istediğini anlat.</p>
             <input
               value={food}
-              onChange={(e) => setFood(e.target.value)}
+              onChange={(event) => setFood(event.target.value)}
               placeholder="Örn. yumuşak elmalı kek"
             />
             <button onClick={generate} disabled={busy}>
@@ -254,7 +367,7 @@ function App() {
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setImage(e.target.files?.[0] || null)}
+              onChange={(event) => setImage(event.target.files?.[0] || null)}
             />
             <button onClick={recover} disabled={!image || busy}>
               {busy ? "Fotoğraf inceleniyor..." : "Fotoğrafı değerlendir"}
