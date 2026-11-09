@@ -77,7 +77,7 @@ public class RecipeController {
   public RecipeView generate(
       @Valid @RequestBody GenerateRequest request, @AuthenticationPrincipal UUID userId) {
     RecipeGeneration generation = null;
-    boolean quotaReserved = false;
+    EntitlementService.QuotaReservation quotaReservation = null;
     try {
       var match = catalog.find(request.desiredFood());
       if (match.isPresent()) {
@@ -103,10 +103,10 @@ public class RecipeController {
         }
       }
 
-      if (!entitlements.reserve(userId)) {
+      quotaReservation = entitlements.reserve(userId);
+      if (quotaReservation == null) {
         throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Recipe generation quota exhausted");
       }
-      quotaReserved = true;
 
       log.info("Recipe generation source=AI_GENERATED provider=runware");
       generation =
@@ -150,23 +150,23 @@ public class RecipeController {
       return response;
     } catch (JsonProcessingException e) {
       markGenerationFailed(generation, e);
-      releaseQuota(userId, quotaReserved);
+      releaseQuota(quotaReservation);
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Recipe serialization failed");
     } catch (ApiException e) {
       markGenerationFailed(generation, e);
-      releaseQuota(userId, quotaReserved);
+      releaseQuota(quotaReservation);
       throw e;
     } catch (Exception e) {
       markGenerationFailed(generation, e);
-      releaseQuota(userId, quotaReserved);
+      releaseQuota(quotaReservation);
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Recipe generation failed");
     }
   }
 
-  private void releaseQuota(UUID userId, boolean reserved) {
-    if (reserved) {
-      try { entitlements.release(userId); }
-      catch (Exception releaseError) { log.error("Could not release failed recipe quota reservation userId={}", userId, releaseError); }
+  private void releaseQuota(EntitlementService.QuotaReservation reservation) {
+    if (reservation != null) {
+      try { entitlements.release(reservation); }
+      catch (Exception releaseError) { log.error("Could not release failed recipe quota reservation userId={}", reservation.userId(), releaseError); }
     }
   }
 
