@@ -411,6 +411,6 @@ public class RecoveryController {
         analysis==null?attempt.getImageTrustScore():analysis.imageTrustScore(),
         analysis==null?null:analysis.analysisConfidence(),
         analysis==null?attempt.getTargetProximityScore():analysis.targetProximityScore(),
-        problem,assessment,decision,action,follow,attempt.getId(),message);
+        problem,assessment,decision,action,follow,attempt.getId(),message,null);
   }
 }
