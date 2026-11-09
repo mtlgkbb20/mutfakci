@@ -136,7 +136,7 @@ function App() {
       form.append("image", image);
       form.append("desiredOutcome", "İdeal kıvam");
       const { data } = await api.post(
-        `/cooking-sessions/${session.id}/observations`,
+        `/cooking-sessions/${session.id}/recovery-attempts`,
         form,
       );
       setFeedback(data);
@@ -198,7 +198,7 @@ function App() {
             <p>Fotoğraf yükle, mevcut durum için hızlı öneri al.</p>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png"
               onChange={(e) => setImage(e.target.files?.[0] || null)}
             />
             <button onClick={recover} disabled={!image || busy}>
