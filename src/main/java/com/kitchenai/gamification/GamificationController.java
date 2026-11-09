@@ -1,71 +1,157 @@
 package com.kitchenai.gamification;
 
 import java.time.LocalDate;
-import java.util.*;
-import org.springframework.http.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/gamification")
 public class GamificationController {
-  private final GamificationService service;
+
+  private final GamificationService gamificationService;
   private final JdbcTemplate jdbc;
 
-  public GamificationController(GamificationService service, JdbcTemplate jdbc) {
-    this.service = service;
+  public GamificationController(
+      GamificationService gamificationService, JdbcTemplate jdbc) {
+    this.gamificationService = gamificationService;
     this.jdbc = jdbc;
   }
 
   @GetMapping("/me")
-  public Map<String,Object> me(@AuthenticationPrincipal UUID user) { return service.me(user); }
+  public Map<String, Object> me(@AuthenticationPrincipal UUID userId) {
+    return gamificationService.me(userId);
+  }
 
   // Compatibility response for the existing mobile profile/dashboard.
   @GetMapping("/progress")
-  public Map<String,Object> progress(@AuthenticationPrincipal UUID user) {
-    Map<String,Object> data = new LinkedHashMap<>(service.me(user));
-    int xp = ((Number)data.getOrDefault("lifetimeXp",0)).intValue();
-    data.put("totalXp", xp);
-    data.put("level", xp >= 100 ? "KITCHEN_MASTER" : xp >= 60 ? "SKILLED_COOK" : xp >= 30 ? "HOME_COOK" : "BEGINNER_CHEF");
+  public Map<String, Object> progress(@AuthenticationPrincipal UUID userId) {
+    Map<String, Object> data =
+        new LinkedHashMap<>(gamificationService.me(userId));
+    int totalXp = ((Number) data.getOrDefault("lifetimeXp", 0)).intValue();
+
+    data.put("totalXp", totalXp);
+    data.put(
+        "level",
+        totalXp >= 100
+            ? "KITCHEN_MASTER"
+            : totalXp >= 60
+                ? "SKILLED_COOK"
+                : totalXp >= 30
+                    ? "HOME_COOK"
+                    : "BEGINNER_CHEF");
+
     return data;
   }
 
   @GetMapping("/leaderboard/current")
-  public Map<String,Object> leaderboard(@RequestParam(defaultValue="0") int page,
-      @RequestParam(defaultValue="20") int size) { return service.leaderboard(page,size); }
+  public Map<String, Object> leaderboard(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return gamificationService.leaderboard(page, size);
+  }
 
   @GetMapping("/leaderboard/weeks/{weekStart}")
-  public Map<String,Object> historical(@PathVariable LocalDate weekStart) {
-    var snapshot = jdbc.queryForList("SELECT id,week_start AS weekStart,week_end AS weekEnd,status FROM weekly_leaderboard_snapshot WHERE week_start=?",weekStart);
-    if (snapshot.isEmpty()) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND);
-    UUID id=(UUID)snapshot.get(0).get("id");
-    return Map.of("snapshot",snapshot.get(0),"entries",jdbc.queryForList(
-        "SELECT e.rank_position AS rank,u.id AS userId,u.display_name AS displayName,e.weekly_xp AS weeklyXp,e.lifetime_xp AS lifetimeXp FROM weekly_leaderboard_entry e JOIN app_user u ON u.id=e.user_id WHERE e.snapshot_id=? ORDER BY e.rank_position",id));
+  public Map<String, Object> historical(@PathVariable LocalDate weekStart) {
+    var snapshots =
+        jdbc.queryForList(
+            """
+            SELECT
+              id,
+              week_start AS weekStart,
+              week_end AS weekEnd,
+              status
+            FROM weekly_leaderboard_snapshot
+            WHERE week_start = ?
+            """,
+            weekStart);
+
+    if (snapshots.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    }
+
+    UUID snapshotId = (UUID) snapshots.get(0).get("id");
+    var entries =
+        jdbc.queryForList(
+            """
+            SELECT
+              entry.rank_position AS rank,
+              app_user.id AS userId,
+              app_user.display_name AS displayName,
+              entry.weekly_xp AS weeklyXp,
+              entry.lifetime_xp AS lifetimeXp
+            FROM weekly_leaderboard_entry entry
+            JOIN app_user ON app_user.id = entry.user_id
+            WHERE entry.snapshot_id = ?
+            ORDER BY entry.rank_position
+            """,
+            snapshotId);
+
+    return Map.of("snapshot", snapshots.get(0), "entries", entries);
   }
 
   @GetMapping("/badges/catalog")
-  public List<Map<String,Object>> catalog() {
-    return jdbc.queryForList("SELECT code,name,description,icon,category,repeatable FROM badge_definition WHERE active=true ORDER BY category,name");
+  public List<Map<String, Object>> catalog() {
+    return jdbc.queryForList(
+        """
+        SELECT code, name, description, icon, category, repeatable
+        FROM badge_definition
+        WHERE active = TRUE
+        ORDER BY category, name
+        """);
   }
 
   @GetMapping("/badges/me")
-  public List<Map<String,Object>> myBadges(@AuthenticationPrincipal UUID user) { return service.badgeHistory(user); }
-
-  @GetMapping("/users/{userId}/badges")
-  public List<Map<String,Object>> badges(@PathVariable UUID userId) { return service.badgeHistory(userId); }
-
-  @PostMapping("/admin/settlements/{weekStart}")
-  public Map<String,Object> settle(@AuthenticationPrincipal UUID admin, @PathVariable LocalDate weekStart) {
-    requireAdmin(admin);
-    LocalDate currentWeekStart = service.currentWeek().start();
-    if (!weekStart.getDayOfWeek().equals(java.time.DayOfWeek.MONDAY) || !weekStart.plusWeeks(1).isBefore(currentWeekStart.plusDays(1)))
-      throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST,"Only closed Monday-based weeks can be settled");
-    return service.settleWeek(weekStart);
+  public List<Map<String, Object>> myBadges(
+      @AuthenticationPrincipal UUID userId) {
+    return gamificationService.badgeHistory(userId);
   }
 
-  private void requireAdmin(UUID user) {
-    Boolean allowed=jdbc.queryForObject("SELECT is_admin FROM app_user WHERE id=?",Boolean.class,user);
-    if (!Boolean.TRUE.equals(allowed)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
+  @GetMapping("/users/{userId}/badges")
+  public List<Map<String, Object>> badges(@PathVariable UUID userId) {
+    return gamificationService.badgeHistory(userId);
+  }
+
+  @PostMapping("/admin/settlements/{weekStart}")
+  public Map<String, Object> settle(
+      @AuthenticationPrincipal UUID adminId,
+      @PathVariable LocalDate weekStart) {
+
+    requireAdmin(adminId);
+
+    LocalDate currentWeekStart = gamificationService.currentWeek().start();
+    boolean isMonday = weekStart.getDayOfWeek() == java.time.DayOfWeek.MONDAY;
+    boolean isClosedWeek = !weekStart.plusWeeks(1).isAfter(currentWeekStart);
+
+    if (!isMonday || !isClosedWeek) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Only closed Monday-based weeks can be settled");
+    }
+
+    return gamificationService.settleWeek(weekStart);
+  }
+
+  private void requireAdmin(UUID userId) {
+    Boolean isAdmin =
+        jdbc.queryForObject(
+            "SELECT is_admin FROM app_user WHERE id = ?",
+            Boolean.class,
+            userId);
+
+    if (!Boolean.TRUE.equals(isAdmin)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
   }
 }
