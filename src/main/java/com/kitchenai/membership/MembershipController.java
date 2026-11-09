@@ -4,11 +4,10 @@ import com.kitchenai.common.ApiException;
 import com.kitchenai.payment.PaymentProvider;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import java.math.BigDecimal;
-import java.util.*;
-import org.springframework.beans.factory.annotation.Value;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,19 +16,10 @@ import org.springframework.web.bind.annotation.*;
 public class MembershipController {
   private final EntitlementService entitlements;
   private final PaymentProvider payments;
-  private final JdbcTemplate jdbc;
-  private final String callbackUrl;
-  private final String frontendUrl;
 
-  public MembershipController(
-      EntitlementService entitlements, PaymentProvider payments, JdbcTemplate jdbc,
-      @Value("${app.payments.callback-url:}") String callbackUrl,
-      @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
+  public MembershipController(EntitlementService entitlements, PaymentProvider payments) {
     this.entitlements = entitlements;
     this.payments = payments;
-    this.jdbc = jdbc;
-    this.callbackUrl = callbackUrl;
-    this.frontendUrl = frontendUrl;
   }
 
   @GetMapping
