@@ -44,6 +44,12 @@ public class RecipeRecoveryAttempt {
     status="ANALYZING"; createdAt=Instant.now();
   }
   public UUID getId(){return id;}
+  public String getImageObjectKey(){return imageObjectKey;}
+  public String getFallbackRecipeName(){return fallbackRecipeName;}
+  public String getUserProblemCategory(){return userProblemCategory;}
+  public String getUserProblemDescription(){return userProblemDescription;}
+  public String getUserStatusText(){return userStatusText;}
+  public BigDecimal getAnalysisConfidence(){return analysisConfidence;}
   public UUID getRecipeId(){return recipeId;}
   public UUID getSessionId(){return sessionId;}
   public UUID getParentAttemptId(){return parentAttemptId;}
@@ -62,6 +68,7 @@ public class RecipeRecoveryAttempt {
   public void markImageRejected(int trust,String observed){imageTrustScore=trust;observedStateJson=observed;status="IMAGE_REJECTED";}
   public void markUnavailable(String reason){status="VISION_PROVIDER_UNAVAILABLE";assessmentJson=reason;}
   public void markAnalysisIncomplete(String reason){status="ANALYSIS_INCOMPLETE";assessmentJson=reason;}
+  public void setFallbackRecipeName(String recipeName){fallbackRecipeName=recipeName;}
   public void markTextFallbackComplete(String recipeName,String assessment){fallbackRecipeName=recipeName;assessmentJson=assessment;status="TEXT_FALLBACK_COMPLETE";}
   public void markTextFallbackUnavailable(){status="TEXT_FALLBACK_UNAVAILABLE";}
   public void applyAnalysis(int trust,BigDecimal confidence,Integer proximity,String observed,
