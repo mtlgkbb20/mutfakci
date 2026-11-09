@@ -17,6 +17,7 @@ public class EntitlementService {
   }
 
   public record QuotaReservation(UUID userId, String periodKey) {}
+  private record MembershipState(String tier, String status, Instant paidUntil) {}
 
   public Map<String, Object> summary(UUID userId) {
     ensureMembership(userId);
@@ -68,13 +69,27 @@ public class EntitlementService {
     ensureMembership(userId);
     // Serialize quota mutations per account; this prevents concurrent requests from
     // passing the same remaining slot, on PostgreSQL and H2 alike.
-    String tier = jdbc.queryForObject(
-        "SELECT tier FROM user_membership WHERE user_id=? FOR UPDATE", String.class, userId);
-    String period = "COOKER".equals(tier)
+    MembershipState membership = jdbc.queryForObject(
+        "SELECT tier, status, paid_until FROM user_membership WHERE user_id=? FOR UPDATE",
+        (rs, n) -> new MembershipState(
+            rs.getString("tier"),
+            rs.getString("status"),
+            rs.getTimestamp("paid_until") == null ? null : rs.getTimestamp("paid_until").toInstant()),
+        userId);
+    String tier = membership.tier();
+    boolean cookerActive = "COOKER".equals(tier)
+        && "ACTIVE".equals(membership.status())
+        && membership.paidUntil() != null
+        && membership.paidUntil().isAfter(clock.instant());
+    if ("COOKER".equals(tier) && !cookerActive) {
+      jdbc.update("UPDATE user_membership SET tier='FREE', billing_interval='NONE', status='EXPIRED', paid_until=NULL, updated_at=CURRENT_TIMESTAMP WHERE user_id=?", userId);
+      tier = "FREE";
+    }
+    String period = cookerActive
         ? "COOKER_DAILY:" + LocalDate.now(clock.withZone(BUSINESS_ZONE))
         : "FREE_LIFETIME";
     if ("CHEF".equals(tier)) return null;
-    int limit = "COOKER".equals(tier) ? 10 : 3;
+    int limit = cookerActive ? 10 : 3;
     List<Integer> current = jdbc.query(
         "SELECT used_count FROM recipe_quota_usage WHERE user_id=? AND period_key=?",
         (rs, n) -> rs.getInt(1), userId, period);
