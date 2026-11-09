@@ -34,15 +34,22 @@ public class RecoveryController {
   private final CookingSessionRepository sessions;
   private final RecipeRepository recipes;
   private final RecipeRecoveryAttemptRepository attempts;
+  private final RecoveryAiExecutionRepository executions;
+  private final String visionModel;
+  private final String textModel;
   private final RecoveryVisionService vision;
   private final TextFallbackAdviceService textFallback;
   private final ObjectMapper json;
   private final Path storage;
 
   public RecoveryController(CookingSessionRepository sessions,RecipeRepository recipes,
-      RecipeRecoveryAttemptRepository attempts,RecoveryVisionService vision,TextFallbackAdviceService textFallback,ObjectMapper json,
-      @Value("${app.storage-path}") String path){
-    this.sessions=sessions;this.recipes=recipes;this.attempts=attempts;
+      RecipeRecoveryAttemptRepository attempts,RecoveryAiExecutionRepository executions,
+      RecoveryVisionService vision,TextFallbackAdviceService textFallback,ObjectMapper json,
+      @Value("${app.storage-path}") String path,
+      @Value("${app.ai.runware.vision-model:unknown}") String visionModel,
+      @Value("${app.ai.runware.text-fallback-model:unknown}") String textModel){
+    this.sessions=sessions;this.recipes=recipes;this.attempts=attempts;this.executions=executions;
+    this.visionModel=visionModel;this.textModel=textModel;
     this.vision=vision;this.textFallback=textFallback;this.json=json;this.storage=Path.of(path);
   }
 
@@ -79,12 +86,16 @@ public class RecoveryController {
     RecipeRecoveryAttempt attempt=attempts.save(new RecipeRecoveryAttempt(session.getRecipeId(),
         session.getId(),null,component,session.getCurrentStage()+1,number,null,
         "OTHER",request.problemDescription().trim(),null,null));
+    long executionStarted=System.nanoTime();
     try{
       TextFallbackAdviceService.Advice advice=textFallback.suggest(
           request.recipeName().trim(),request.problemDescription().trim());
       attempt.markTextFallbackComplete(request.recipeName().trim(),
           json.writeValueAsString(Map.of("advice",advice.advice(),"caution",advice.caution())));
       attempts.save(attempt);
+      recordExecution(attempt,"TEXT_FALLBACK","SUCCESS",textModel,
+          Map.of("recipeName",request.recipeName().trim(),"problemDescription",request.problemDescription().trim()),
+          Map.of("advice",advice.advice(),"caution",advice.caution()),null,null,executionStarted);
       return new TextFallbackResponse("TEXT_FALLBACK_COMPLETE",attempt.getId(),
           request.recipeName().trim(),advice.advice(),advice.caution(),
           "Bu öneri yalnızca verdiğin açıklamaya dayanır; fotoğraf analizi yapılmadı.");
@@ -93,6 +104,9 @@ public class RecoveryController {
           session.getId(),attempt.getId(),e.getClass().getSimpleName(),e);
       attempt.markTextFallbackUnavailable();
       attempts.save(attempt);
+      recordExecution(attempt,"TEXT_FALLBACK","FAILED",textModel,
+          Map.of("recipeName",request.recipeName().trim()),null,e.getClass().getSimpleName(),
+          safeError(e),executionStarted);
       return new TextFallbackResponse("TEXT_FALLBACK_UNAVAILABLE",attempt.getId(),
           request.recipeName().trim(),null,
           "Bu kez metin önerisi de üretilemedi. Aynı istek otomatik tekrarlanmadı.",
@@ -206,10 +220,19 @@ public class RecoveryController {
             "Görsel analiz servisi yapılandırılmamış. Fotoğrafın analiz edilmedi.");
       }
       Analysis analysis;
-      try{analysis=vision.analyze(bytes,mime,buildContext(recipe,session,component,category,description,statusText,outcome,parent));}
+      long visionStarted=System.nanoTime();
+      try{
+        analysis=vision.analyze(bytes,mime,buildContext(recipe,session,component,category,description,statusText,outcome,parent));
+        recordExecution(attempt,"VISION_ANALYSIS","SUCCESS",visionModel,
+            Map.of("mimeType",mime,"imageBytes",bytes.length,"componentKey",component),
+            json.convertValue(analysis,Map.class),null,null,visionStarted);
+      }
       catch(RecoveryAnalysisFormatException formatError){
         log.warn("Recipe recovery output could not be used: sessionId={}, attemptId={}, reason={}",
             session.getId(), attempt.getId(), formatError.getMessage());
+        recordExecution(attempt,"VISION_ANALYSIS","INVALID_OUTPUT",visionModel,
+            Map.of("mimeType",mime,"imageBytes",bytes.length),null,
+            formatError.getClass().getSimpleName(),safeError(formatError),visionStarted);
         attempt.markAnalysisIncomplete("AI yanıtı beklenen yapılandırılmış formatta değildi; ücretli çağrı tekrar edilmedi.");
         attempts.save(attempt);
         return response(Status.ANALYSIS_INCOMPLETE,attempt,null,null,null,null,
@@ -219,6 +242,9 @@ public class RecoveryController {
         log.error("Recipe recovery vision provider failed: sessionId={}, attemptId={}, implementation={}, reason={}",
             session.getId(), attempt.getId(), vision.getClass().getSimpleName(),
             providerError.getMessage(), providerError);
+        recordExecution(attempt,"VISION_ANALYSIS","FAILED",visionModel,
+            Map.of("mimeType",mime,"imageBytes",bytes.length),null,
+            providerError.getClass().getSimpleName(),safeError(providerError),visionStarted);
         attempt.markUnavailable("Vision provider request failed.");
         attempts.save(attempt);
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
@@ -283,6 +309,28 @@ public class RecoveryController {
       return response(status,attempt,analysis,decision,responseAction,follow,message);
     }catch(ApiException e){throw e;}
     catch(IOException e){throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Photo could not be stored");}
+  }
+
+
+  private void recordExecution(RecipeRecoveryAttempt attempt,String operation,String status,
+      String model,Map<String,Object> requestMetadata,Object response,String errorCode,
+      String errorMessage,long startedNanos){
+    try{
+      executions.save(new RecoveryAiExecution(attempt.getId(),operation,"RUNWARE",model,status,
+          json.writeValueAsString(requestMetadata),
+          response==null?null:json.writeValueAsString(response),errorCode,
+          errorMessage==null?null:errorMessage.substring(0,Math.min(1000,errorMessage.length())),
+          Math.max(0,(System.nanoTime()-startedNanos)/1_000_000)));
+    }catch(Exception auditError){
+      log.error("Recovery AI execution audit could not be persisted: attemptId={}, operation={}",
+          attempt.getId(),operation,auditError);
+    }
+  }
+
+  private String safeError(Exception error){
+    String message=error.getMessage();
+    if(message==null||message.isBlank()) return error.getClass().getSimpleName();
+    return message.replaceAll("[\\r\\n\\t]"," ");
   }
 
   private boolean hasCompleteRecoveryDecision(Analysis analysis){
