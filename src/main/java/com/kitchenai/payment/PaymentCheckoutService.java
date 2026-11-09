@@ -3,8 +3,10 @@ package com.kitchenai.payment;
 import com.kitchenai.common.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +48,14 @@ public class PaymentCheckoutService {
     this.yearlyPrice = yearlyPrice;
   }
 
+  public List<Map<String, Object>> planCatalog() {
+    return List.of(
+        plan("FREE", "FREE", "NONE", BigDecimal.ZERO, true, false),
+        plan("COOKER_MONTHLY", "COOKER", "MONTHLY", monthlyPrice, false, false),
+        plan("COOKER_YEARLY", "COOKER", "YEARLY", yearlyPrice, false, false),
+        plan("CHEF", "CHEF", "NONE", BigDecimal.ZERO, false, true));
+  }
+
   public Map<String, Object> createCheckout(
       UUID userId,
       String planCode,
@@ -61,6 +71,9 @@ public class PaymentCheckoutService {
     }
     if (callbackUrl.isBlank()) {
       throw unavailable("PAYMENT_CALLBACK_URL must point to a public HTTPS callback endpoint.");
+    }
+    if (returnUrl.isBlank()) {
+      throw unavailable("PAYMENT_RETURN_URL must be configured.");
     }
 
     BigDecimal amount = priceFor(planCode);
@@ -182,7 +195,8 @@ public class PaymentCheckoutService {
       return;
     }
 
-    BigDecimal expectedAmount = ((BigDecimal) checkout.get("amount")).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal expectedAmount =
+        ((BigDecimal) checkout.get("amount")).setScale(2, RoundingMode.HALF_UP);
     boolean amountMatches = expectedAmount.compareTo(payment.paidAmount()) == 0;
     boolean currencyMatches = "TRY".equalsIgnoreCase(payment.currency())
         && "TRY".equalsIgnoreCase((String) checkout.get("currency"));
@@ -204,7 +218,10 @@ public class PaymentCheckoutService {
       return;
     }
 
-    Instant expiresAt = (Instant) checkout.get("expires_at");
+    Object expiryValue = checkout.get("expires_at");
+    Instant expiresAt = expiryValue instanceof Timestamp timestamp
+        ? timestamp.toInstant()
+        : expiryValue instanceof Instant instant ? instant : null;
     if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
       jdbc.update("""
           UPDATE payment_checkout
@@ -241,11 +258,30 @@ public class PaymentCheckoutService {
         """, billingInterval, billingInterval, checkout.get("user_id"));
   }
 
+  private Map<String, Object> plan(
+      String code,
+      String tier,
+      String billingInterval,
+      BigDecimal price,
+      boolean freePlan,
+      boolean comingSoon) {
+    Map<String, Object> plan = new LinkedHashMap<>();
+    plan.put("code", code);
+    plan.put("tier", tier);
+    plan.put("billingInterval", billingInterval);
+    plan.put("price", price);
+    plan.put("available", freePlan || (!comingSoon && checkoutEnabled && price.signum() > 0));
+    plan.put("comingSoon", comingSoon);
+    plan.put("autoRenew", false);
+    return plan;
+  }
+
   private BigDecimal priceFor(String planCode) {
     return switch (planCode) {
       case "COOKER_MONTHLY" -> monthlyPrice;
       case "COOKER_YEARLY" -> yearlyPrice;
-      default -> throw new ApiException(HttpStatus.BAD_REQUEST, "This membership plan is not purchasable.");
+      default -> throw new ApiException(
+          HttpStatus.BAD_REQUEST, "This membership plan is not purchasable.");
     };
   }
 

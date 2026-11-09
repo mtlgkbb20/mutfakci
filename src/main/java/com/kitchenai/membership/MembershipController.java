@@ -5,6 +5,7 @@ import com.kitchenai.payment.PaymentCheckoutService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,9 @@ public class MembershipController {
 
   @GetMapping
   public Map<String, Object> summary(@AuthenticationPrincipal UUID userId) {
-    return entitlements.summary(userId);
+    Map<String, Object> result = new LinkedHashMap<>(entitlements.summary(userId));
+    result.put("plans", checkouts.planCatalog());
+    return result;
   }
 
   public record CheckoutRequest(
