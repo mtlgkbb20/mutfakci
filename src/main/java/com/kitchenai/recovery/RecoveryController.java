@@ -323,7 +323,8 @@ public class RecoveryController {
           Map.of("recipeName",recipeName.trim(),"problemDescription",problemDescription.trim(),
               "trigger","VISION_UNAVAILABLE_OR_UNTRUSTED"),
           payload,null,null,started);
-      return responseWithTextAdvice(attempt,reason,advice.advice(),advice.caution());
+      return responseWithTextAdvice(Status.TEXT_FALLBACK_COMPLETE,attempt,reason,
+          advice.advice(),advice.caution());
     }catch(Exception e){
       log.error("Internal text-only recovery fallback failed: attemptId={}, exceptionType={}",
           attempt.getId(),e.getClass().getSimpleName(),e);
@@ -332,15 +333,15 @@ public class RecoveryController {
       recordExecution(attempt,"TEXT_FALLBACK","FAILED",textModel,
           Map.of("recipeName",recipeName.trim(),"trigger","VISION_UNAVAILABLE_OR_UNTRUSTED"),
           null,e.getClass().getSimpleName(),safeError(e),started);
-      return responseWithTextAdvice(attempt,
+      return responseWithTextAdvice(Status.TEXT_FALLBACK_UNAVAILABLE,attempt,
           reason+" Metin değerlendirmesi de şu anda üretilemedi.",null,
           "Lütfen daha sonra tekrar dene. Bu kayıt yardım geçmişinde saklandı.");
     }
   }
 
-  private Response responseWithTextAdvice(RecipeRecoveryAttempt attempt,String message,
-      String advice,String caution){
-    return new Response(Status.ANALYSIS_INCOMPLETE,attempt.getImageTrustScore(),
+  private Response responseWithTextAdvice(Status status,RecipeRecoveryAttempt attempt,
+      String message,String advice,String caution){
+    return new Response(status,attempt.getImageTrustScore(),
         attempt.getAnalysisConfidence(),attempt.getTargetProximityScore(),null,null,null,null,
         null,attempt.getId(),message,new TextAdvice(advice,caution));
   }
