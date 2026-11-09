@@ -52,7 +52,7 @@ public class EmailVerificationService {
    "\n\nBu kod 10 dakika içinde sona erer. Bu isteği sen yapmadıysan e-postayı yok say.");
   mail.send(message);
  }
- @Transactional
+ @Transactional(noRollbackFor = ApiException.class)
  public User verify(String email,String code,String ip) {
   rate("verify-ip:"+safeIp(ip),20);
   User user=users.findByEmailIgnoreCase(email==null?"":email.trim()).orElseThrow(this::invalid);
@@ -78,6 +78,11 @@ public class EmailVerificationService {
   return users.findById(user.getId()).orElseThrow(this::invalid);
  }
  @Transactional
+ public void checkLoginRateLimit(String email,String ip) {
+  rate("login-email:"+(email==null?"":email.trim().toLowerCase()),10);
+  rate("login-ip:"+safeIp(ip),20);
+ }
+ @Transactional(noRollbackFor = ApiException.class)
  public void resend(String email,String ip) {
   if(email==null||email.isBlank()) return;
   users.findByEmailIgnoreCase(email.trim()).filter(u->!u.isEmailVerified())

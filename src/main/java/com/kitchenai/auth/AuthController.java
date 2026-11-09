@@ -19,13 +19,14 @@ public class AuthController {
   EntitlementService entitlements,EmailVerificationService verification) {
   this.users=users; this.encoder=encoder; this.jwt=jwt; this.entitlements=entitlements; this.verification=verification;
  }
- public record Register(@Email @NotBlank String email,@Size(min=12,max=128) String password,@NotBlank @Size(max=120) String displayName){}
+ public record Register(@Email @NotBlank String email,@NotBlank @Size(min=12,max=128) String password,@NotBlank @Size(max=120) String displayName){}
  public record Login(@Email @NotBlank String email,@NotBlank String password){}
- public record VerifyEmail(@Email @NotBlank String email,@Pattern(regexp="\\d{6}") String code){}
+ public record VerifyEmail(@Email @NotBlank String email,@NotBlank @Pattern(regexp="\\d{6}") String code){}
  public record ResendCode(@Email @NotBlank String email){}
  @Transactional @PostMapping("/register") @ResponseStatus(HttpStatus.ACCEPTED)
  public Map<String,Object> register(@Valid @RequestBody Register r,HttpServletRequest request) {
   String email=r.email().trim().toLowerCase(Locale.ROOT);
+  verification.checkLoginRateLimit(email,request.getRemoteAddr());
   Optional<User> existing=users.findByEmailIgnoreCase(email);
   if(existing.isPresent()) {
    if(!existing.get().isEmailVerified()) try {verification.sendCode(existing.get(),request.getRemoteAddr());}
@@ -47,11 +48,12 @@ public class AuthController {
   return Map.of("message",GENERIC);
  }
  @PostMapping("/login")
- public Map<String,Object> login(@Valid @RequestBody Login r) {
+ public Map<String,Object> login(@Valid @RequestBody Login r,HttpServletRequest request) {
+  verification.checkLoginRateLimit(r.email(),request.getRemoteAddr());
   User user=users.findByEmailIgnoreCase(r.email().trim())
    .filter(u->encoder.matches(r.password(),u.getPasswordHash()))
    .orElseThrow(()->new ApiException(HttpStatus.UNAUTHORIZED,"Invalid credentials"));
-  if(!user.isEmailVerified()) throw new ApiException(HttpStatus.FORBIDDEN,"Verify your email before signing in.");
+  if(!user.isEmailVerified()) throw new ApiException(HttpStatus.UNAUTHORIZED,"Invalid credentials or verification status.");
   return response(user);
  }
  @GetMapping("/me")
