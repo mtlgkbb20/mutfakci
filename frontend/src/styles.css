@@ -135,3 +135,19 @@ button:disabled {
     display: none;
   }
 }
+
+.history-heading,.history-layout { display:flex; gap:20px; justify-content:space-between; }
+.history-heading { align-items:center; }
+.history-list { min-width:220px; display:grid; align-content:start; gap:8px; }
+.history-item { width:100%; display:grid; text-align:left; justify-content:start; background:#fbf8f3; color:#2e2924; border:1px solid #eee5da; }
+.history-item span,.history-item small { color:#786e64; font-size:12px; font-weight:400; }
+.history-detail { flex:1; min-width:0; }
+.history-detail pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#fbf8f3; padding:12px; border-radius:10px; }
+.history-image { max-width:100%; max-height:320px; object-fit:contain; border-radius:12px; }
+@media (max-width:700px) {
+  .history-layout { flex-direction:column; }
+  .history-list { min-width:0; }
+  .history-heading { gap:8px; }
+  header { gap:6px; padding:0 12px; }
+  header button { font-size:12px; padding:6px; }
+}
