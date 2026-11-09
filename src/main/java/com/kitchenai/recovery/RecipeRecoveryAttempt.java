@@ -68,6 +68,7 @@ public class RecipeRecoveryAttempt {
   public void markImageRejected(int trust,String observed){imageTrustScore=trust;observedStateJson=observed;status="IMAGE_REJECTED";}
   public void markUnavailable(String reason){status="VISION_PROVIDER_UNAVAILABLE";assessmentJson=reason;}
   public void markAnalysisIncomplete(String reason){status="ANALYSIS_INCOMPLETE";assessmentJson=reason;}
+  public void setFallbackRecipeName(String recipeName){fallbackRecipeName=recipeName;}
   public void markTextFallbackComplete(String recipeName,String assessment){fallbackRecipeName=recipeName;assessmentJson=assessment;status="TEXT_FALLBACK_COMPLETE";}
   public void markTextFallbackUnavailable(){status="TEXT_FALLBACK_UNAVAILABLE";}
   public void applyAnalysis(int trust,BigDecimal confidence,Integer proximity,String observed,
