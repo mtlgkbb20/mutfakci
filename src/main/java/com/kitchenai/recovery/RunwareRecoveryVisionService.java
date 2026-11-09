@@ -67,16 +67,21 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
       task.put("model", model);
       task.putObject("inputs").putArray("images").add(dataUri);
       task.putArray("messages").addObject().put("role", "user").put("content", prompt);
-      task.putObject("settings").put("maxTokens", 1800).put("temperature", 0.1);
+      task.putObject("settings").put("maxTokens", 4096).put("temperature", 0.1).put("thinkingLevel", "low");
+      task.put("includeUsage", true);
       var body = json.createArrayNode().add(task);
       HttpRequest request = HttpRequest.newBuilder(URI.create(URL)).timeout(Duration.ofSeconds(60))
           .header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
       HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-      log.info("Runware recovery response received: status={}, model={}, responseBytes={}, finishReason={}",
-          response.statusCode(), model, response.body() == null ? 0 : response.body().length(),
-          response.body()==null?"unknown":json.readTree(response.body()).path("data").path(0).path("finishReason").asText("unknown"));
       JsonNode root = json.readTree(response.body());
+      JsonNode taskResult = root.path("data").path(0);
+      String finishReason = taskResult.path("finishReason").asText("unknown");
+      JsonNode usage = taskResult.path("usage");
+      log.info("Runware recovery response received: status={}, model={}, responseBytes={}, finishReason={}, promptTokens={}, completionTokens={}, thinkingTokens={}",
+          response.statusCode(), model, response.body() == null ? 0 : response.body().length(),
+          finishReason, usage.path("promptTokens").asInt(-1),
+          usage.path("completionTokens").asInt(-1), usage.path("thinkingTokens").asInt(-1));
       if (response.statusCode() / 100 != 2) {
         logProviderErrors(root, response.statusCode());
         throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis provider failed");
@@ -85,13 +90,22 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
         logProviderErrors(root, response.statusCode());
         throw new ApiException(HttpStatus.BAD_GATEWAY, "Vision analysis provider returned task errors");
       }
-      String content = root.path("data").path(0).path("text").asText("");
+      String content = taskResult.path("text").asText("");
       if (content.isBlank()) {
         log.warn("Runware recovery response has no text: status={}, hasData={}, dataCount={}, rootFields={}",
             response.statusCode(), root.has("data"),
             root.path("data").isArray() ? root.path("data").size() : -1,
             fieldNames(root));
         throw new IllegalArgumentException("Empty model response");
+      }
+      // A length finish reason means the provider stopped before completing the JSON.
+      // Sending a truncated object to the normalizer can only waste another model call and
+      // risks turning a partial response into a misleading result. Let the controller use
+      // its existing text-only fallback instead.
+      if ("length".equalsIgnoreCase(finishReason)) {
+        throw new RecoveryAnalysisFormatException(
+            "Vision model output was truncated at the token limit",
+            new IllegalStateException("Runware finishReason=length"));
       }
       return parseAnalysis(content.trim(), schema, context);
     } catch (RecoveryAnalysisFormatException e) {
