@@ -347,6 +347,21 @@ function App() {
             </button>
           </section>
           <section className="card action">
+            <h2>Yazarak yardım al</h2>
+            <p>Tarifin adını ve yaşadığın sorunu anlat. Fotoğraf gerekmez.</p>
+            <input value={recoveryRecipeName} onChange={(e) => setRecoveryRecipeName(e.target.value)} placeholder="Tarifin adı" />
+            <textarea value={recoveryProblem} onChange={(e) => setRecoveryProblem(e.target.value)} placeholder="Örn. Kekimin içi pişmedi ama dışı kızardı." rows={4} />
+            <button onClick={recoverByText} disabled={busy || !recoveryRecipeName.trim() || !recoveryProblem.trim()}>
+              {busy ? "Öneri hazırlanıyor..." : "Metinle yardım al"}
+            </button>
+            {textAdvice && (
+              <div className="feedback">
+                <h3>{textAdvice.advice || textAdvice.message}</h3>
+                {textAdvice.caution && <p>{textAdvice.caution}</p>}
+              </div>
+            )}
+          </section>
+          <section className="card action">
             <h2>Tarifimi kurtar</h2>
             <p>Fotoğraf yükle, mevcut durum için hızlı öneri al.</p>
             <input
