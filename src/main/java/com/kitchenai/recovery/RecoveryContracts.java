@@ -26,7 +26,8 @@ public final class RecoveryContracts {
   public record Response(Status status, Integer imageTrustScore, BigDecimal analysisConfidence,
       Integer targetProximityScore, Problem problem, Assessment assessment,
       Decision decision, Action action, FollowUp followUp, UUID attemptId,
-      String message) {}
+      String message, TextAdvice textAdvice) {}
+  public record TextAdvice(String advice,String caution) {}
   public record Analysis(Integer imageTrustScore, BigDecimal analysisConfidence,
       String problemCategory, String problemSummary, String observedState,
       String targetState, String gapSummary, String reason,
