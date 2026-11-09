@@ -1,11 +1,10 @@
 server:
   port: ${PORT:8080}
   address: ${SERVER_ADDRESS:0.0.0.0}
+  forward-headers-strategy: framework
 spring:
-  # Load the project-root .env automatically when running locally.
   config:
     import: optional:file:.env[.properties]
-  # Runware is the default provider; explicit SPRING_PROFILES_ACTIVE can override it.
   profiles:
     default: runware
   datasource:
@@ -22,11 +21,29 @@ spring:
     multipart:
       max-file-size: ${MAX_IMAGE_SIZE:10MB}
       max-request-size: ${MAX_IMAGE_REQUEST_SIZE:40MB}
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 jwt:
-  secret: ${JWT_SECRET:change-me-in-development-to-a-long-secret-key}
+  secret: ${JWT_SECRET}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+security:
+  otp:
+    hash-secret: ${OTP_HASH_SECRET:${JWT_SECRET}}
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  email:
+    from: ${EMAIL_FROM:no-reply@your-domain.example}
   storage-path: ${STORAGE_LOCAL_PATH:./data/uploads}
   ai:
     runware:
@@ -35,10 +52,8 @@ app:
       vision-model: ${RUNWARE_VISION_MODEL:google:gemini@3.1-pro}
       text-fallback-model: ${RUNWARE_TEXT_FALLBACK_MODEL:google:gemini@3.1-flash-lite}
       normalizer-model: ${RUNWARE_NORMALIZER_MODEL:google:gemini@3.1-flash-lite}
-
   payments:
     provider: ${PAYMENT_PROVIDER:paytr}
     callback-url: ${PAYMENT_CALLBACK_URL:}
   membership:
     clock-zone: Europe/Istanbul
-

@@ -36,23 +36,44 @@ const GENERIC_ERROR =
 
 function Auth({ onLogin }: { onLogin: (user: any) => void }) {
   const [register, setRegister] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
+    event.preventDefault(); setError(""); setNotice(""); setLoading(true);
     try {
-      const { data } = await api.post(
-        `/auth/${register ? "register" : "login"}`,
-        register ? { email, password, displayName: name } : { email, password },
-      );
-      localStorage.setItem("token", data.token);
-      onLogin(data.user);
-    } catch (error) {
-      console.error("[KitchenAI Web] authentication failed", error);
-      window.alert(GENERIC_ERROR);
-    }
+      if (verifying) {
+        const { data } = await api.post("/auth/verify-email", { email, code });
+        localStorage.setItem("token", data.token);
+        onLogin(data.user);
+      } else if (register) {
+        const { data } = await api.post("/auth/register", { email, password, displayName: name });
+        setVerifying(true);
+        setNotice(data.message || "Doğrulama e-postası gönderildiyse gelen kutunu kontrol et.");
+      } else {
+        const { data } = await api.post("/auth/login", { email, password });
+        localStorage.setItem("token", data.token);
+        onLogin(data.user);
+      }
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.error || "İşlem tamamlanamadı. Bilgilerini kontrol edip tekrar dene.");
+    } finally { setLoading(false); }
+  };
+
+  const resend = async () => {
+    setError(""); setNotice(""); setLoading(true);
+    try {
+      const { data } = await api.post("/auth/resend-verification", { email });
+      setNotice(data.message || "İstek alındı. E-posta adresini kontrol et.");
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.error || "İstek şu anda tamamlanamadı.");
+    } finally { setLoading(false); }
   };
 
   return (
@@ -60,44 +81,30 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
       <section className="card auth">
         <ChefHat size={42} />
         <h1>Kitchen AI</h1>
-        <p>İyi sonuç için mutfağında akıllı bir yardımcı.</p>
+        <p>{verifying ? "E-posta adresine gönderilen 6 haneli kodu gir." : "İyi sonuç için mutfağında akıllı bir yardımcı."}</p>
         <form onSubmit={submit}>
-          {register && (
-            <input
-              required
-              placeholder="Adın"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          )}
-          <input
-            required
-            type="email"
-            placeholder="E-posta"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            required
-            minLength={8}
-            type="password"
-            placeholder="Şifre"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button>
-            <LogIn size={18} />
-            {register ? "Kayıt ol" : "Giriş yap"}
-          </button>
+          {!verifying && register && <input required maxLength={120} placeholder="Adın" value={name} onChange={(e) => setName(e.target.value)} />}
+          <input required type="email" placeholder="E-posta" value={email} onChange={(e) => setEmail(e.target.value)} disabled={verifying} />
+          {!verifying && <input required minLength={12} maxLength={128} type="password" placeholder="Şifre (en az 12 karakter)" value={password} onChange={(e) => setPassword(e.target.value)} />}
+          {verifying && <input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6 haneli doğrulama kodu" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />}
+          {error && <p role="alert" className="error">{error}</p>}
+          {notice && <p role="status">{notice}</p>}
+          <button disabled={loading}>{loading ? "Lütfen bekle..." : verifying ? "E-postayı doğrula" : register ? "Kayıt ol" : "Giriş yap"}</button>
         </form>
-        <button className="link" onClick={() => setRegister(!register)}>
-          {register ? "Zaten hesabım var" : "Hesap oluştur"}
-        </button>
+        {verifying ? (
+          <>
+            <button className="link" type="button" disabled={loading} onClick={resend}>Yeni kod gönder</button>
+            <button className="link" type="button" onClick={() => { setVerifying(false); setRegister(false); setCode(""); setError(""); }}>Giriş ekranına dön</button>
+          </>
+        ) : (
+          <button className="link" type="button" onClick={() => { setRegister(!register); setError(""); setNotice(""); }}>
+            {register ? "Zaten hesabım var" : "Hesap oluştur"}
+          </button>
+        )}
       </section>
     </main>
   );
 }
-
 function App() {
   const [user, setUser] = useState<any>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
