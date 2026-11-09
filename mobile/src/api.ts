@@ -6,14 +6,10 @@ const baseUrl =
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8080/api/v1";
 
-type ApiOptions = RequestInit & {
-  timeoutMs?: number;
-};
-
 export async function api(
   path: string,
-  options: ApiOptions = {},
-  defaultTimeoutMs = 15_000,
+  options: RequestInit = {},
+  timeoutMs = 15_000,
 ) {
   const token = await AsyncStorage.getItem("token");
   const headers = new Headers(options.headers);
@@ -27,10 +23,7 @@ export async function api(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? defaultTimeoutMs,
-  );
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {
@@ -58,9 +51,15 @@ export async function api(
 }
 
 export async function setSession(token: string, user: unknown) {
+  const serializedUser = JSON.stringify(user);
+
+  if (!serializedUser) {
+    throw new Error("Oturum bilgisi kaydedilemedi.");
+  }
+
   await AsyncStorage.multiSet([
     ["token", token],
-    ["user", JSON.stringify(user)],
+    ["user", serializedUser],
   ]);
 }
 
