@@ -2,6 +2,12 @@ server:
   port: ${PORT:8080}
   address: ${SERVER_ADDRESS:0.0.0.0}
 spring:
+  # Load the project-root .env automatically when running locally.
+  config:
+    import: optional:file:.env[.properties]
+  # Runware is the default provider; explicit SPRING_PROFILES_ACTIVE can override it.
+  profiles:
+    default: runware
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}
     username: ${DATABASE_USERNAME:kitchenai}
