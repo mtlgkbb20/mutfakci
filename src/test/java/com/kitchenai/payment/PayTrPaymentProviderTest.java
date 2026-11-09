@@ -15,7 +15,7 @@ class PayTrPaymentProviderTest {
     String salt = "test-merchant-salt";
     String orderId = "ORDER123";
     String status = "success";
-    String amount = "12990";
+    String amount = "1299";
     String source = orderId + salt + status + amount;
     Mac mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
