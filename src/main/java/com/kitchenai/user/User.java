@@ -18,7 +18,7 @@ public class User {
   @Column(nullable = false)
   private String displayName;
 
-  private Instant createdAt;
+  @Column(name = "is_admin", nullable = false)\n  private boolean admin;\n\n  private Instant createdAt;
   private Instant updatedAt;
 
   public User() {}

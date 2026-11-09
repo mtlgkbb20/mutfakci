@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
                 "timestamp",
                 Instant.now(),
                 "error",
-                "Unexpected server error. Please contact support.",
+                exception.getMessage(),
                 "errorId",
                 errorId));
   }
