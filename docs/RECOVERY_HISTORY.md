@@ -20,7 +20,7 @@ Local development defaults to `./data/uploads`. For a persistent deployment, mou
 
 ## Vision diagnostics
 
-The vision output budget was increased from 900 to 1800 tokens, the prompt explicitly requests each contract field once, and logs now include the provider finish reason. A successful JSON normalization is not considered proof of a complete recovery decision: the existing completeness and safety policies still reject missing evidence.
+The vision output budget is 4096 tokens with low thinking effort to leave sufficient room for the compact contract response. Logs include the provider finish reason and token usage. A `length` finish reason is treated as truncated output and bypasses normalization; the controller then invokes its existing text-only fallback rather than trying to reconstruct incomplete JSON. A successful JSON normalization is not considered proof of a complete recovery decision: the existing completeness and safety policies still reject missing evidence.
 
 ## Manual test checklist
 
