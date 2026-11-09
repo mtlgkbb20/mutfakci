@@ -164,7 +164,7 @@ function Auth({ onLogin }: { onLogin: (user: any) => void }) {
               placeholder="6 haneli doğrulama kodu"
               value={code}
               onChange={(event) =>
-                setCode(event.target.value.replace(/\\D/g, "").slice(0, 6))
+                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
               }
             />
           )}

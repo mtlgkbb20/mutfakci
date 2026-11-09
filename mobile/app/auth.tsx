@@ -136,7 +136,7 @@ export default function Auth() {
               maxLength={6}
               value={code}
               onChangeText={(value) =>
-                setCode(value.replace(/\\D/g, "").slice(0, 6))
+                setCode(value.replace(/\D/g, "").slice(0, 6))
               }
             />
           )}
