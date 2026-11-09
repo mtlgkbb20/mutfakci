@@ -282,7 +282,11 @@ public class PaymentCheckoutService {
     plan.put("billingInterval", billingInterval);
     plan.put("price", price);
     plan.put("available",
-        freePlan || (!comingSoon && checkoutEnabled && price.signum() > 0
+        freePlan || (!comingSoon
+            && checkoutEnabled
+            && callbackUrl.startsWith("https://")
+            && provider.isCheckoutConfigured()
+            && price.signum() > 0
             && (testMode || livePaymentsEnabled)));
     plan.put("comingSoon", comingSoon);
     plan.put("autoRenew", false);

@@ -7,8 +7,20 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "app.payments.provider", havingValue = "iyzico")
 public class IyzicoPaymentProvider implements PaymentProvider {
-  @Override public String providerCode() { return "IYZICO"; }
-  @Override public boolean supportsRecurringSubscriptions() { return false; }
+  @Override
+  public String providerCode() {
+    return "IYZICO";
+  }
+
+  @Override
+  public boolean supportsRecurringSubscriptions() {
+    return false;
+  }
+
+  @Override
+  public boolean isCheckoutConfigured() {
+    return false;
+  }
 
   @Override
   public CheckoutResult createCheckout(CheckoutCommand command) {

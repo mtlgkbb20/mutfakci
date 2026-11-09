@@ -9,6 +9,10 @@ public interface PaymentProvider {
 
   boolean supportsRecurringSubscriptions();
 
+  default boolean isCheckoutConfigured() {
+    return true;
+  }
+
   CheckoutResult createCheckout(CheckoutCommand command);
 
   VerifiedPayment verifyCallback(Map<String, String> payload);

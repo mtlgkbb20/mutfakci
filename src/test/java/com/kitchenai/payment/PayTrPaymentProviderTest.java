@@ -40,6 +40,7 @@ class PayTrPaymentProviderTest {
     assertEquals("12.99", verified.paidAmount().toPlainString());
     assertEquals("TRY", verified.currency());
     assertEquals(orderId, verified.merchantOrderId());
+    assertTrue(provider.isCheckoutConfigured());
   }
 
   @Test
@@ -58,5 +59,12 @@ class PayTrPaymentProviderTest {
     var provider = new PayTrPaymentProvider(
         "merchant-id", "merchant-key", "merchant-salt", "", true, new ObjectMapper());
     assertFalse(provider.supportsRecurringSubscriptions());
+  }
+
+  @Test
+  void doesNotEnableCheckoutWithoutMerchantCredentials() {
+    var provider = new PayTrPaymentProvider(
+        "", "", "", "", true, new ObjectMapper());
+    assertFalse(provider.isCheckoutConfigured());
   }
 }

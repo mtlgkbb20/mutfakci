@@ -62,11 +62,14 @@ public class PayTrPaymentProvider implements PaymentProvider {
     return "PAYTR";
   }
 
-  // The iFrame checkout is a one-time payment. It does not enroll a card or
-  // create an automatically renewing subscription.
   @Override
   public boolean supportsRecurringSubscriptions() {
     return false;
+  }
+
+  @Override
+  public boolean isCheckoutConfigured() {
+    return !merchantId.isBlank() && !merchantKey.isBlank() && !merchantSalt.isBlank();
   }
 
   @Override
@@ -132,7 +135,8 @@ public class PayTrPaymentProvider implements PaymentProvider {
       HttpResponse<String> response =
           httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new IllegalStateException("PayTR token request failed with HTTP " + response.statusCode());
+        throw new IllegalStateException(
+            "PayTR token request failed with HTTP " + response.statusCode());
       }
 
       JsonNode body = objectMapper.readTree(response.body());
@@ -178,7 +182,9 @@ public class PayTrPaymentProvider implements PaymentProvider {
     }
 
     String currency = payload.getOrDefault("currency", "TL");
-    String normalizedCurrency = "TL".equalsIgnoreCase(currency) ? "TRY" : currency.toUpperCase();
+    String normalizedCurrency = "TL".equalsIgnoreCase(currency)
+        ? "TRY"
+        : currency.toUpperCase();
     return new VerifiedPayment(
         providerCode(),
         orderId,
@@ -189,7 +195,7 @@ public class PayTrPaymentProvider implements PaymentProvider {
   }
 
   private void requireCredentials() {
-    if (merchantId.isBlank() || merchantKey.isBlank() || merchantSalt.isBlank()) {
+    if (!isCheckoutConfigured()) {
       throw new IllegalStateException("PayTR merchant credentials are not configured.");
     }
   }
