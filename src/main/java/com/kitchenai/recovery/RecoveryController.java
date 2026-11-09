@@ -214,6 +214,9 @@ public class RecoveryController {
       if(!vision.available()){
         log.error("Recipe recovery vision is unavailable: sessionId={}, attemptId={}, implementation={}",
             session.getId(), attempt.getId(), vision.getClass().getSimpleName());
+        recordExecution(attempt,"VISION_ANALYSIS","NOT_CONFIGURED",visionModel,
+            Map.of("mimeType",mime,"imageBytes",bytes.length),null,
+            "PROVIDER_NOT_CONFIGURED","Vision provider is not configured",System.nanoTime());
         attempt.markUnavailable("Vision model is not configured.");
         attempts.save(attempt);
         return response(Status.VISION_PROVIDER_UNAVAILABLE,attempt,null,null,null,null,
