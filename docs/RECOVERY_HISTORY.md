@@ -33,3 +33,7 @@ The vision output budget was increased from 900 to 1800 tokens, the prompt expli
 7. Inspect logs for `finishReason` and compare it with the execution status.
 
 Run the backend test suite and frontend build locally before merging; the GitHub connector cannot execute the project's Maven/Vite builds.
+
+## Unified recovery request
+
+The user-facing recovery flow collects exactly three required inputs: a JPEG/PNG photo, product/recipe name, and problem description. The vision model receives the photo and both text fields in one request. If vision is unavailable, returns malformed/incomplete output, rejects the photo as unclear, or cannot safely derive a decision, the backend automatically invokes text-only advice using the product name and problem description. This is a fallback within the same attempt; the user is not asked to submit a second request. Both model executions are recorded against the same attempt. The standalone text-fallback endpoint is no longer exposed.
