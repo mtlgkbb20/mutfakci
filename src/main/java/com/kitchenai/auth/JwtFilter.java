@@ -1,7 +1,10 @@
 package com.kitchenai.auth;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
+import com.kitchenai.user.UserRepository;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -11,23 +14,40 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
-  private final JwtService jwt;
 
-  public JwtFilter(JwtService j) {
-    jwt = j;
+  private final JwtService jwtService;
+  private final UserRepository users;
+
+  public JwtFilter(JwtService jwtService, UserRepository users) {
+    this.jwtService = jwtService;
+    this.users = users;
   }
 
-  protected void doFilterInternal(HttpServletRequest r, HttpServletResponse s, FilterChain c)
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    String h = r.getHeader("Authorization");
-    if (h != null && h.startsWith("Bearer "))
+    String authorization = request.getHeader("Authorization");
+
+    if (authorization != null && authorization.startsWith("Bearer ")) {
       try {
-        var a =
-            new UsernamePasswordAuthenticationToken(
-                jwt.parse(h.substring(7)), null, AuthorityUtils.NO_AUTHORITIES);
-        SecurityContextHolder.getContext().setAuthentication(a);
-      } catch (Exception ignored) {
+        var userId = jwtService.parse(authorization.substring(7));
+        boolean verified =
+            users.findById(userId).map(user -> user.isEmailVerified()).orElse(false);
+
+        if (verified) {
+          var authentication =
+              new UsernamePasswordAuthenticationToken(
+                  userId, null, AuthorityUtils.NO_AUTHORITIES);
+          SecurityContextHolder.getContext().setAuthentication(authentication);
+        } else {
+          SecurityContextHolder.clearContext();
+        }
+      } catch (RuntimeException exception) {
+        SecurityContextHolder.clearContext();
       }
-    c.doFilter(r, s);
+    }
+
+    chain.doFilter(request, response);
   }
 }
