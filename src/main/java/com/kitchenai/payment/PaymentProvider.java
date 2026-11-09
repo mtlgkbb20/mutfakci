@@ -14,27 +14,54 @@ public interface PaymentProvider {
   VerifiedPayment verifyCallback(Map<String, String> payload);
 
   default VerifiedPayment chargeRecurring(RecurringChargeCommand command) {
-    throw new UnsupportedOperationException(providerCode() + " recurring charges are not configured.");
+    throw new UnsupportedOperationException(
+        providerCode() + " recurring charges are not configured.");
   }
 
   default void cancelSubscription(CancelSubscriptionCommand command) {
-    throw new UnsupportedOperationException(providerCode() + " subscription cancellation is not configured.");
+    throw new UnsupportedOperationException(
+        providerCode() + " subscription cancellation is not configured.");
   }
 
   record CheckoutCommand(
-      UUID userId, String email, String planCode, BigDecimal amount, String currency,
-      String merchantOrderId, String callbackUrl, String successUrl, String failureUrl) {}
+      UUID userId,
+      String email,
+      String displayName,
+      String address,
+      String phone,
+      String userIp,
+      String planCode,
+      BigDecimal amount,
+      String currency,
+      String merchantOrderId,
+      String callbackUrl,
+      String successUrl,
+      String failureUrl) {}
 
   record RecurringChargeCommand(
-      UUID userId, String providerCustomerToken, String providerCardToken,
-      String merchantOrderId, BigDecimal amount, String currency) {}
+      UUID userId,
+      String providerCustomerToken,
+      String providerCardToken,
+      String merchantOrderId,
+      BigDecimal amount,
+      String currency) {}
 
   record CancelSubscriptionCommand(
-      UUID userId, String providerSubscriptionId, boolean atPeriodEnd) {}
+      UUID userId,
+      String providerSubscriptionId,
+      boolean atPeriodEnd) {}
 
-  record CheckoutResult(String provider, String checkoutUrl, String checkoutToken, String reference) {}
+  record CheckoutResult(
+      String provider,
+      String checkoutUrl,
+      String checkoutToken,
+      String reference) {}
 
   record VerifiedPayment(
-      String provider, String eventId, String merchantOrderId, boolean successful,
-      BigDecimal paidAmount, String currency) {}
+      String provider,
+      String eventId,
+      String merchantOrderId,
+      boolean successful,
+      BigDecimal paidAmount,
+      String currency) {}
 }

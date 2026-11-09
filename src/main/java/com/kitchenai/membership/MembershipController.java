@@ -1,25 +1,32 @@
 package com.kitchenai.membership;
 
 import com.kitchenai.common.ApiException;
-import com.kitchenai.payment.PaymentProvider;
+import com.kitchenai.payment.PaymentCheckoutService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/membership")
 public class MembershipController {
   private final EntitlementService entitlements;
-  private final PaymentProvider payments;
+  private final PaymentCheckoutService checkouts;
 
-  public MembershipController(EntitlementService entitlements, PaymentProvider payments) {
+  public MembershipController(
+      EntitlementService entitlements,
+      PaymentCheckoutService checkouts) {
     this.entitlements = entitlements;
-    this.payments = payments;
+    this.checkouts = checkouts;
   }
 
   @GetMapping
@@ -27,19 +34,33 @@ public class MembershipController {
     return entitlements.summary(userId);
   }
 
-  public record CheckoutRequest(@NotBlank String planCode) {}
+  public record CheckoutRequest(
+      @NotBlank String planCode,
+      @NotBlank String displayName,
+      @NotBlank String address,
+      @NotBlank String phone) {}
 
   @PostMapping("/checkout")
   public Map<String, Object> checkout(
-      @Valid @RequestBody CheckoutRequest request, @AuthenticationPrincipal UUID userId) {
-    if (!Set.of("COOKER_MONTHLY", "COOKER_YEARLY").contains(request.planCode())) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "This membership plan is not purchasable.");
+      @Valid @RequestBody CheckoutRequest request,
+      @AuthenticationPrincipal UUID userId,
+      HttpServletRequest servletRequest) {
+    if (userId == null) {
+      throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
     }
-    if (!payments.supportsRecurringSubscriptions()) {
-      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
-          "Recurring subscription checkout is not enabled for the selected payment provider.");
-    }
-    throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
-        "Plan pricing and merchant subscription configuration must be completed before checkout.");
+    return checkouts.createCheckout(
+        userId,
+        request.planCode(),
+        request.displayName(),
+        request.address(),
+        request.phone(),
+        servletRequest.getRemoteAddr());
+  }
+
+  @GetMapping("/checkouts/{orderId}")
+  public Map<String, Object> checkoutStatus(
+      @PathVariable String orderId,
+      @AuthenticationPrincipal UUID userId) {
+    return checkouts.checkoutStatus(userId, orderId);
   }
 }

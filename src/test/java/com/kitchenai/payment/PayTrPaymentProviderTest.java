@@ -1,6 +1,11 @@
 package com.kitchenai.payment;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -19,25 +24,39 @@ class PayTrPaymentProviderTest {
     String source = orderId + salt + status + amount;
     Mac mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-    String hash = Base64.getEncoder().encodeToString(mac.doFinal(source.getBytes(StandardCharsets.UTF_8)));
+    String hash = Base64.getEncoder().encodeToString(
+        mac.doFinal(source.getBytes(StandardCharsets.UTF_8)));
 
-    var verified = new PayTrPaymentProvider(key, salt).verifyCallback(Map.of(
-        "merchant_oid", orderId, "status", status, "total_amount", amount, "hash", hash));
+    var provider = new PayTrPaymentProvider(
+        "merchant-id", key, salt, "", true, new ObjectMapper());
+    var verified = provider.verifyCallback(Map.of(
+        "merchant_oid", orderId,
+        "status", status,
+        "total_amount", amount,
+        "currency", "TL",
+        "hash", hash));
 
     assertTrue(verified.successful());
     assertEquals("12.99", verified.paidAmount().toPlainString());
+    assertEquals("TRY", verified.currency());
     assertEquals(orderId, verified.merchantOrderId());
   }
 
   @Test
   void rejectsInvalidCallbackHash() {
-    var provider = new PayTrPaymentProvider("merchant-key", "merchant-salt");
+    var provider = new PayTrPaymentProvider(
+        "merchant-id", "merchant-key", "merchant-salt", "", true, new ObjectMapper());
     assertThrows(IllegalArgumentException.class, () -> provider.verifyCallback(Map.of(
-        "merchant_oid", "ORDER123", "status", "success", "total_amount", "12990", "hash", "invalid")));
+        "merchant_oid", "ORDER123",
+        "status", "success",
+        "total_amount", "12990",
+        "hash", "invalid")));
   }
 
   @Test
-  void doesNotPretendStandardCallbackIsRecurringCheckout() {
-    assertFalse(new PayTrPaymentProvider("", "").supportsRecurringSubscriptions());
+  void doesNotPretendIframeCheckoutIsAnAutoRenewingSubscription() {
+    var provider = new PayTrPaymentProvider(
+        "merchant-id", "merchant-key", "merchant-salt", "", true, new ObjectMapper());
+    assertFalse(provider.supportsRecurringSubscriptions());
   }
 }

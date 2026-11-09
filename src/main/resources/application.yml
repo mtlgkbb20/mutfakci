@@ -2,10 +2,8 @@ server:
   port: ${PORT:8080}
   address: ${SERVER_ADDRESS:0.0.0.0}
 spring:
-  # Load the project-root .env automatically when running locally.
   config:
     import: optional:file:.env[.properties]
-  # Runware is the default provider; explicit SPRING_PROFILES_ACTIVE can override it.
   profiles:
     default: runware
   datasource:
@@ -35,9 +33,15 @@ app:
       vision-model: ${RUNWARE_VISION_MODEL:google:gemini@3.1-pro}
       text-fallback-model: ${RUNWARE_TEXT_FALLBACK_MODEL:google:gemini@3.1-flash-lite}
       normalizer-model: ${RUNWARE_NORMALIZER_MODEL:google:gemini@3.1-flash-lite}
-
   payments:
     provider: ${PAYMENT_PROVIDER:paytr}
+    checkout-enabled: ${PAYMENT_CHECKOUT_ENABLED:false}
+    test-mode: ${PAYMENT_TEST_MODE:true}
+    live-enabled: ${PAYMENT_LIVE_ENABLED:false}
     callback-url: ${PAYMENT_CALLBACK_URL:}
+    return-url: ${PAYMENT_RETURN_URL:${FRONTEND_URL:http://localhost:5173}/}
   membership:
     clock-zone: Europe/Istanbul
+    pricing:
+      cooker-monthly: ${COOKER_MONTHLY_PRICE:0}
+      cooker-yearly: ${COOKER_YEARLY_PRICE:0}
