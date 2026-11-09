@@ -133,7 +133,7 @@ function App() {
       await refreshMembership();
     } catch (error) {
       console.error("[KitchenAI Web] recipe generation failed", error);
-      window.alert(GENERIC_ERROR);
+      window.alert((error as any)?.response?.data?.error || GENERIC_ERROR);
     } finally {
       setBusy(false);
     }
