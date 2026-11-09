@@ -6,15 +6,17 @@ import { AppShell, Button, Header, s } from "../src/ui";
 export default function Profile() {
   const router = useRouter();
   const [user, setUser] = useState<any>();
+  const [membership, setMembership] = useState<any>();
   const [progress, setProgress] = useState<any>({
     totalXp: 0,
     level: "BEGINNER_CHEF",
   });
   useEffect(() => {
-    Promise.all([api("/auth/me"), api("/gamification/progress")])
-      .then(([u, p]) => {
+    Promise.all([api("/auth/me"), api("/gamification/progress"), api("/membership")])
+      .then(([u, p, m]) => {
         setUser(u);
         setProgress(p);
+        setMembership(m);
       })
       .catch(() => router.replace("/auth"));
   }, []);
@@ -51,6 +53,30 @@ export default function Profile() {
           <Text style={s.title}>{user?.displayName || "Aşçı"}</Text>
           <Text style={[s.body, { marginTop: 5 }]}>{user?.email || ""}</Text>
         </View>
+        {membership && (
+          <View style={[s.card, { marginTop: 16 }]}>
+            <Text style={s.eyebrow}>ÜYELİĞİN</Text>
+            <Text style={s.heading}>
+              {membership.tier === "FREE" ? "Free" : membership.tier === "COOKER" ? "Cooker" : "Chef"}
+            </Text>
+            <Text style={[s.body, { marginTop: 6 }]}>
+              {membership.remaining} / {membership.limit} AI tarif hakkın kaldı
+              {membership.period === "LIFETIME" ? " · ömür boyu" : " · bugün"}
+            </Text>
+            <View style={{ height: 8, backgroundColor: "#f0e6da", borderRadius: 8, overflow: "hidden", marginTop: 14 }}>
+              <View style={{ height: 8, width: `${Math.min(100, membership.usage / Math.max(1, membership.limit) * 100)}%`, backgroundColor: "#c55a36" }} />
+            </View>
+            <View style={{ marginTop: 18, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#e8ded3" }}>
+              <Text style={s.heading}>Cooker</Text>
+              <Text style={[s.body, { marginTop: 5 }]}>Günlük 10 AI tarif üretimi. Aylık veya yıllık üyelik seçeneği.</Text>
+              <Text style={[s.recipeMeta, { marginTop: 8 }]}>Ödeme altyapısı hazırlanıyor.</Text>
+            </View>
+            <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#e8ded3" }}>
+              <Text style={s.heading}>Chef · Coming soon</Text>
+              <Text style={[s.body, { marginTop: 5 }]}>Kişisel mutfak asistanı. Ayrıntılar yakında.</Text>
+            </View>
+          </View>
+        )}
         <View style={s.statRow}>
           <View style={s.stat}>
             <Text style={s.statValue}>{progress.totalXp || 0}</Text>
