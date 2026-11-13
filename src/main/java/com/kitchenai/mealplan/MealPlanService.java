@@ -27,14 +27,17 @@ public class MealPlanService {
   private final MealPlanPantryRepository pantry;
   private final RecipeCatalogService catalog;
   private final ObjectMapper json;
+  private final MealPlanAiSelector aiSelector;
 
   public MealPlanService(MealPlanRepository plans, MealPlanEntryRepository entries,
-      MealPlanPantryRepository pantry, RecipeCatalogService catalog, ObjectMapper json) {
+      MealPlanPantryRepository pantry, RecipeCatalogService catalog, ObjectMapper json,
+      MealPlanAiSelector aiSelector) {
     this.plans = plans;
     this.entries = entries;
     this.pantry = pantry;
     this.catalog = catalog;
     this.json = json;
+    this.aiSelector = aiSelector;
   }
 
   @Transactional
@@ -68,22 +71,21 @@ public class MealPlanService {
         request.currency() == null ? "TRY" : request.currency(), restrictionsJson,
         request.goal(), request.notes()));
 
-    Map<String, Integer> usage = new HashMap<>();
+    Optional<Map<String, String>> aiSelections = aiSelector.select(request, candidates, slots);
+    Map<String, String> selections = aiSelections.filter(result -> validSelection(result, candidates, slots))
+        .orElseGet(() -> deterministicSelection(candidates, slots));
+    List<String> generationWarnings = aiSelections.isPresent() && validSelection(aiSelections.get(), candidates, slots)
+        ? List.of()
+        : List.of("AI_SEÇİMİ_KULLANILAMADI: Doğrulanmış tarif kataloğundan deterministik seçim yapıldı.");
+
     for (int day = 0; day < 7; day++) {
       LocalDate date = request.weekStart().plusDays(day);
       for (String slot : slots) {
-        CatalogRecipe selected = candidates.stream()
-            .min(Comparator
-                .comparingInt((CatalogRecipe recipe) -> usage.getOrDefault(recipe.id(), 0))
-                .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
-                .thenComparing(CatalogRecipe::id))
-            .orElseThrow();
-        usage.merge(selected.id(), 1, Integer::sum);
-        entries.save(new MealPlanEntry(plan.getId(), date, slot, selected.id(),
-            request.servings(), null));
+        String recipeId = selections.get(day + ":" + slot);
+        entries.save(new MealPlanEntry(plan.getId(), date, slot, recipeId, request.servings(), null));
       }
     }
-    return view(plan, entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId()), List.of());
+    return view(plan, entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId()), generationWarnings);
   }
 
   @Transactional(readOnly = true)
@@ -135,7 +137,7 @@ public class MealPlanService {
       for (var ingredient : recipe.ingredients()) {
         String normalized = normalize(ingredient.name());
         String unit = canonicalUnit(ingredient.unit());
-        BigDecimal quantity = BigDecimal.valueOf(ingredient.quantity()).multiply(scale)
+        BigDecimal quantity = toCanonical(BigDecimal.valueOf(ingredient.quantity()).multiply(scale), ingredient.unit())
             .setScale(3, RoundingMode.HALF_UP);
         String key = normalized + "|" + unit;
         IngredientAccumulator accumulator = totals.computeIfAbsent(key,
@@ -166,6 +168,35 @@ public class MealPlanService {
     }).sorted(Comparator.comparing(ShoppingLine::name, String.CASE_INSENSITIVE_ORDER)).toList();
 
     return new ShoppingListView(planId, lines, warnings);
+  }
+
+  private boolean validSelection(Map<String, String> selections, List<CatalogRecipe> candidates, List<String> slots) {
+    if (selections.size() != 7 * slots.size()) return false;
+    Set<String> candidateIds = candidates.stream().map(CatalogRecipe::id).collect(Collectors.toSet());
+    for (int day = 0; day < 7; day++) {
+      for (String slot : slots) {
+        String selected = selections.get(day + ":" + slot);
+        if (selected == null || !candidateIds.contains(selected)) return false;
+      }
+    }
+    return true;
+  }
+
+  private Map<String, String> deterministicSelection(List<CatalogRecipe> candidates, List<String> slots) {
+    Map<String, String> result = new LinkedHashMap<>();
+    Map<String, Integer> usage = new HashMap<>();
+    for (int day = 0; day < 7; day++) {
+      for (String slot : slots) {
+        CatalogRecipe selected = candidates.stream()
+            .min(Comparator.comparingInt((CatalogRecipe recipe) -> usage.getOrDefault(recipe.id(), 0))
+                .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
+                .thenComparing(CatalogRecipe::id))
+            .orElseThrow();
+        usage.merge(selected.id(), 1, Integer::sum);
+        result.put(day + ":" + slot, selected.id());
+      }
+    }
+    return result;
   }
 
   private List<CatalogRecipe> eligibleRecipes(int maxMinutes, List<String> restrictions) {
