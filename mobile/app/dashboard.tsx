@@ -129,6 +129,10 @@ export default function Dashboard() {
             <Text style={s.actionIcon}>?</Text>
             <Text style={s.actionLabel}>Yardım</Text>
           </Pressable>
+          <Pressable style={s.actionButton} onPress={() => router.push("/pantry")}>
+            <Text style={s.actionIcon}>⌂</Text>
+            <Text style={s.actionLabel}>Akıllı Kiler</Text>
+          </Pressable>
         </View>
 
         {expanded === "recipe" && (
