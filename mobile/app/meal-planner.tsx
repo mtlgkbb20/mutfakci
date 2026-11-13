@@ -121,6 +121,7 @@ export default function MealPlannerScreen() {
         }),
       });
       setPlan(created);
+      setCandidates([]);
       setShopping([]);
       setChangingEntry(null);
     } catch (error: any) {
