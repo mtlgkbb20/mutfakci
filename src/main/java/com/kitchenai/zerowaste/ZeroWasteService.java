@@ -58,8 +58,11 @@ public class ZeroWasteService {
         var scaled = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(i.quantity()), servings, recipe.defaultServings());
         return new IngredientLine(i.name(), scaled.quantity(), ZeroWasteQuantityRules.validateUnit(i.unit()), scaled.certainty());
       }).toList();
-      return new Preview("CURATED", recipe.id(), recipe.title(), servings, ingredients, List.of(),
-          "Bu tarif için henüz doğrulanmış yan ürün kuralı tanımlanmamış.");
+      List<IngredientLine> byProducts = deriveByProducts(recipe, servings);
+      String note = byProducts.isEmpty()
+          ? "Bu tarif için henüz doğrulanmış yan ürün kuralı tanımlanmamış."
+          : "Yan ürünler sürümlenmiş tarif kurallarından hesaplandı; pişirme sonrası kullanıcı onayı gerekir.";
+      return new Preview("CURATED", recipe.id(), recipe.title(), servings, ingredients, byProducts, note);
     }
 
     Recipe recipe = ownedRecipe(recipeId, userId);
@@ -182,6 +185,30 @@ public class ZeroWasteService {
       }
     }
     result.sort(Comparator.comparing(Suggestion::requiredQuantity).reversed().thenComparing(Suggestion::title));
+    return List.copyOf(result);
+  }
+
+  private List<IngredientLine> deriveByProducts(RecipeCatalogService.CatalogRecipe recipe, int servings) {
+    if (recipe.byProducts() == null || recipe.byProducts().isEmpty()) return List.of();
+    List<IngredientLine> result = new ArrayList<>();
+    for (var rule : recipe.byProducts()) {
+      if (rule.sourceIngredientName() == null || rule.byProductName() == null
+          || rule.ruleVersion() == null || rule.ruleVersion().isBlank())
+        throw new IllegalStateException("Invalid by-product rule metadata for catalog recipe " + recipe.id());
+      String sourceUnit = ZeroWasteQuantityRules.validateUnit(rule.sourceUnit());
+      String outputUnit = ZeroWasteQuantityRules.validateUnit(rule.byProductUnit());
+      var source = recipe.ingredients().stream()
+          .filter(i -> ZeroWasteQuantityRules.normalize(i.name())
+              .equals(ZeroWasteQuantityRules.normalize(rule.sourceIngredientName())))
+          .filter(i -> ZeroWasteQuantityRules.validateUnit(i.unit()).equals(sourceUnit))
+          .findFirst();
+      if (source.isEmpty()) continue;
+      var scaledSource = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(source.get().quantity()),
+          servings, recipe.defaultServings());
+      var derived = ZeroWasteByProductCalculator.derive(scaledSource.quantity(),
+          rule.numerator(), rule.denominator(), scaledSource.certainty());
+      result.add(new IngredientLine(rule.byProductName(), derived.quantity(), outputUnit, derived.certainty()));
+    }
     return List.copyOf(result);
   }
 
