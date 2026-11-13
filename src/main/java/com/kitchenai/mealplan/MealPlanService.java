@@ -264,7 +264,7 @@ public class MealPlanService {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Geçersiz öğün türü.");
     }
     Set<String> supportedRestrictions = Set.of(
-        "vegan", "vegetarian", "vejetaryen", "glutensiz", "gluten free", "laktozsuz", "lactose free");
+        "vegan", "vegetarian", "vejetaryen", "glutensiz", "gluten free", "glutenfree", "laktozsuz", "lactose free", "lactosefree");
     if (request.dietaryRestrictions() != null && request.dietaryRestrictions().stream()
         .filter(Objects::nonNull).map(MealPlanService::normalize)
         .anyMatch(value -> !supportedRestrictions.contains(value))) {
