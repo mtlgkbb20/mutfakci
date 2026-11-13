@@ -89,10 +89,9 @@ public class MealPlanService {
   }
 
   @Transactional(readOnly = true)
-  public List<RecipeSummary> candidates(int maxPreparationMinutes) {
-    return catalog.all().stream()
-        .filter(recipe -> recipe.estimatedTotalMinutes() <= maxPreparationMinutes)
-        .sorted(Comparator.comparingInt(CatalogRecipe::estimatedTotalMinutes).thenComparing(CatalogRecipe::title))
+  public List<RecipeSummary> candidates(UUID planId, UUID userId) {
+    MealPlan plan = ownedPlan(planId, userId);
+    return eligibleRecipes(plan.getMaxPreparationMinutes(), readRestrictions(plan)).stream()
         .map(this::summary)
         .toList();
   }
