@@ -165,3 +165,21 @@ The planner response includes the selected recipe IDs, dates/slots, serving coun
 - [ ] Manual test plan is documented; unexecuted cases remain `NOT RUN`.
 - [ ] Mobile flow is connected to the API and type-checks/builds.
 - [ ] Documentation and Notion task status are updated.
+
+
+## 9. Implementation status (2026-11-13)
+
+Initial backend and mobile implementation is now present on this branch:
+
+- V14 migration creates the plan and entry tables.
+- Backend endpoints cover plan creation/list/detail, owned-plan alternatives, single-entry replacement, and shopping-list generation.
+- Runware selection is constrained to candidate catalog IDs; missing credentials or invalid output falls back to deterministic selection.
+- The shopping list scales ingredients by servings, aggregates matching names/units, and subtracts matching pantry stock without mutating it.
+- Mobile dashboard links to a weekly planner screen with plan creation, daily display, meal replacement, and shopping-list view.
+- Automated service tests and a manual test matrix have been added; execution results are still pending.
+
+Implementation caveats:
+- The current catalog contains very few recipes, so a valid plan may repeat the same recipe and returns a diversity warning.
+- The current implementation can reject some explicit dietary restrictions based on ingredient-name checks, but it cannot prove broad allergen safety or handle semantic synonyms. The catalog needs structured dietary/allergen metadata before stronger guarantees can be made.
+- Budget is collected and echoed but not enforced because there is no trusted price data.
+- No nutrition values are generated or displayed.
