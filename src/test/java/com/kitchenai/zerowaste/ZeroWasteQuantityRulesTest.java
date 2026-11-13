@@ -27,6 +27,8 @@ class ZeroWasteQuantityRulesTest {
   @Test void onlyConvertsWithinKnownDimensions() {
     assertEquals(new BigDecimal("1000"), ZeroWasteQuantityRules.convert(
         BigDecimal.ONE, "kg", "g"));
+    assertEquals(BigDecimal.ONE, ZeroWasteQuantityRules.convert(
+        BigDecimal.ONE, "adet", "piece"));
     assertFalse(ZeroWasteQuantityRules.compatible("ml", "g"));
     assertThrows(RuntimeException.class, () -> ZeroWasteQuantityRules.convert(
         BigDecimal.ONE, "su bardağı", "ml"));

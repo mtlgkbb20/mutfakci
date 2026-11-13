@@ -46,6 +46,7 @@ public final class ZeroWasteQuantityRules {
     if (from.equals("g") && to.equals("kg")) return quantity.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
     if (from.equals("l") && to.equals("ml")) return quantity.multiply(BigDecimal.valueOf(1000));
     if (from.equals("ml") && to.equals("l")) return quantity.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
+    if ("COUNT".equals(dimension(from)) && "COUNT".equals(dimension(to))) return quantity;
     throw new ApiException(HttpStatus.BAD_REQUEST, "Bu birimler için güvenli dönüşüm tanımlı değil.");
   }
 
