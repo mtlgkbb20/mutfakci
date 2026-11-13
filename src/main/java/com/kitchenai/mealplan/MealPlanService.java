@@ -246,13 +246,18 @@ public class MealPlanService {
       Set<String> excluded = switch (key) {
         case "vegan" -> Set.of("yumurta", "sut", "tereyagi", "peynir", "yogurt", "bal", "et", "tavuk", "balik", "krema");
         case "vegetarian", "vejetaryen" -> Set.of("et", "tavuk", "balik", "kiyma", "sucuk", "salam");
-        case "glutensiz", "gluten free" -> Set.of("un", "bugday", "arpa", "cavdar", "irmik", "bulgur", "makarna", "ekmek");
-        case "laktozsuz", "lactose free" -> Set.of("sut", "tereyagi", "peynir", "yogurt", "krema", "labne");
+        case "glutensiz", "gluten free", "glutenfree" -> Set.of("un", "bugday", "arpa", "cavdar", "irmik", "bulgur", "makarna", "ekmek");
+        case "laktozsuz", "lactose free", "lactosefree" -> Set.of("sut", "tereyagi", "peynir", "yogurt", "krema", "labne");
         default -> Set.of(key);
       };
-      if (ingredients.stream().anyMatch(name -> excluded.stream().anyMatch(name::contains))) return false;
+      if (ingredients.stream().anyMatch(name -> excluded.stream().anyMatch(term -> containsIngredientTerm(name, term)))) return false;
     }
     return true;
+  }
+
+  private boolean containsIngredientTerm(String ingredient, String term) {
+    return ingredient.equals(term) || ingredient.startsWith(term + " ")
+        || ingredient.endsWith(" " + term) || ingredient.contains(" " + term + " ");
   }
 
   private void validateRequest(CreateRequest request) {
