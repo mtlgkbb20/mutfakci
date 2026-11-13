@@ -18,7 +18,6 @@ interface PantryItemRepository extends JpaRepository<PantryItem, UUID> {
 interface PantryMovementRepository extends JpaRepository<PantryMovement,UUID> {
   List<PantryMovement> findTop100ByUserIdAndPantryItemIdOrderByCreatedAtDesc(UUID userId,UUID itemId);
   List<PantryMovement> findTop100ByUserIdOrderByCreatedAtDesc(UUID userId);
-  Optional<PantryMovement> findByUserIdAndOperationKey(UUID userId,String operationKey);
 }
 interface PantryOperationRepository extends JpaRepository<PantryOperation,UUID> {
   boolean existsByUserIdAndOperationKey(UUID userId,String operationKey);
