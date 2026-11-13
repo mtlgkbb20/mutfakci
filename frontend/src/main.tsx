@@ -31,6 +31,7 @@ type Recipe = {
   sourceAuthor?: string;
   sourceUrl?: string;
   sourcePublishedAt?: string;
+  sourceRightsStatus?: string;
 };
 type FeaturedRecipe = {
   id: string;
@@ -288,6 +289,7 @@ function App() {
         sourceAuthor: item.sourceAuthor,
         sourceUrl: item.sourceUrl,
         sourcePublishedAt: item.sourcePublishedAt,
+        sourceRightsStatus: item.sourceRightsStatus,
         servings: 0,
         preparationTime: 0,
         cookingTime: 0,
