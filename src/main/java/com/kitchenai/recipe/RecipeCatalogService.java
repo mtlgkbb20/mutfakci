@@ -67,7 +67,8 @@ public class RecipeCatalogService {
       }
       if (recipe.sourceName() == null || recipe.sourceName().isBlank()
           || recipe.sourceAuthor() == null || recipe.sourceAuthor().isBlank()
-          || recipe.sourceUrl() == null || recipe.sourceUrl().isBlank()) {
+          || recipe.sourceUrl() == null || recipe.sourceUrl().isBlank()
+          || recipe.sourceRightsStatus() == null || recipe.sourceRightsStatus().isBlank()) {
         throw new IllegalStateException("Every featured recipe must have source attribution: " + recipe.id());
       }
       try {
