@@ -10,8 +10,20 @@ class RecipeCatalogServiceTest {
 
   @Test
   void exactAndAliasMatchTheCuratedRecipe() {
-    assertEquals("carrot-cinnamon-cake", catalog.find("Havuçlu Tarçınlı Kek").orElseThrow().id());
-    assertEquals("carrot-cinnamon-cake", catalog.find("  HAVUÇLU kek! ").orElseThrow().id());
+    assertEquals("kisnisli-mercimek-corbasi", catalog.find("Kişnişli Mercimek Çorbası").orElseThrow().id());
+    assertEquals("kisnisli-mercimek-corbasi", catalog.find("  KİŞNİŞLİ mercimek! ").orElseThrow().id());
+  }
+
+  @Test
+  void everyFeaturedRecipeHasARealSourceAndDoesNotInventServingsOrTime() {
+    assertEquals(4, catalog.findAll().size());
+    catalog.findAll().forEach(recipe -> {
+      assertTrue(recipe.sourceUrl().startsWith("https://"));
+      assertFalse(recipe.sourceName().isBlank());
+      assertFalse(recipe.sourceAuthor().isBlank());
+      assertEquals(0, recipe.defaultServings());
+      assertEquals(0, recipe.estimatedTotalMinutes());
+    });
   }
 
   @Test

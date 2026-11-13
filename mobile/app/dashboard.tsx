@@ -14,6 +14,19 @@ type Recipe = {
   ingredients: string;
   stages: string;
 };
+type FeaturedRecipe = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  sourceName: string;
+  sourceAuthor: string;
+  sourceUrl: string;
+  sourcePublishedAt: string;
+  sourceRightsStatus: string;
+  defaultServings: number;
+  estimatedTotalMinutes: number;
+};
 
 const GENERIC_ERROR =
   "Beklenmedik bir hata oluştu. Lütfen support ile iletişime geçin.";
@@ -22,12 +35,14 @@ export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [featured, setFeatured] = useState<FeaturedRecipe[]>([]);
   const [progress, setProgress] = useState<any>({
     totalXp: 0,
     level: "BEGINNER_CHEF",
   });
   const [food, setFood] = useState("");
   const [loading, setLoading] = useState(false);
+  const [featuredLoading, setFeaturedLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<"recipe" | "recovery" | null>(null);
 
   useEffect(() => {
@@ -35,11 +50,13 @@ export default function Dashboard() {
       api("/auth/me"),
       api("/recipes"),
       api("/gamification/progress"),
+      api("/featured-recipes").catch(() => []),
     ])
-      .then(([currentUser, savedRecipes, currentProgress]) => {
+      .then(([currentUser, savedRecipes, currentProgress, featuredRecipes]) => {
         setUser(currentUser);
         setRecipes(savedRecipes);
         setProgress(currentProgress);
+        setFeatured(featuredRecipes);
       })
       .catch((error) => {
         console.error("[KitchenAI Dashboard] bootstrap failed", error);
@@ -53,20 +70,17 @@ export default function Dashboard() {
   };
 
   const generate = async () => {
-    if (!food.trim()) {
-      return;
-    }
-
+    if (!food.trim()) return;
     setLoading(true);
     try {
       const recipe = await api("/recipes/generate", {
         method: "POST",
         body: JSON.stringify({ desiredFood: food, servings: 4 }),
       });
-            setRecipes((current) => [
-              recipe,
-              ...current.filter((item) => item.id !== recipe.id),
-            ]);
+      setRecipes((current) => [
+        recipe,
+        ...current.filter((item) => item.id !== recipe.id),
+      ]);
       setFood("");
       router.push({
         pathname: "/recipe",
@@ -76,6 +90,39 @@ export default function Dashboard() {
       showGenericError(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cookFeatured = async (item: FeaturedRecipe) => {
+    setFeaturedLoading(item.id);
+    try {
+      const recipe = await api("/recipes/generate", {
+        method: "POST",
+        body: JSON.stringify({ desiredFood: item.title }),
+      });
+      setRecipes((current) => [
+        recipe,
+        ...current.filter((saved) => saved.id !== recipe.id),
+      ]);
+      router.push({
+        pathname: "/recipe",
+        params: {
+          data: JSON.stringify({
+            ...recipe,
+            sourceName: item.sourceName,
+            sourceAuthor: item.sourceAuthor,
+            sourceUrl: item.sourceUrl,
+            sourcePublishedAt: item.sourcePublishedAt,
+            servings: item.defaultServings || 0,
+            preparationTime: 0,
+            cookingTime: 0,
+          }),
+        },
+      });
+    } catch (error) {
+      showGenericError(error);
+    } finally {
+      setFeaturedLoading(null);
     }
   };
 
@@ -161,6 +208,40 @@ export default function Dashboard() {
             <Button onPress={() => router.push("/recovery")}>
               Fotoğraf seç
             </Button>
+          </View>
+        )}
+
+        <View style={s.sectionRow}>
+          <Text style={s.heading}>Sabit Tarifler</Text>
+          <Text style={s.smallLink}>Kaynaklı tarifler</Text>
+        </View>
+        <Text style={[s.body, { marginBottom: 12 }]}>
+          Yayınlanmış tariflerden seçildi. Kaynağı her tarifte görebilirsin.
+        </Text>
+        {featured.length === 0 ? (
+          <View style={s.card}>
+            <Text style={s.body}>Şu anda sabit tarif bulunmuyor.</Text>
+          </View>
+        ) : (
+          <View>
+            {featured.map((item) => (
+              <Pressable
+                key={item.id}
+                style={[s.card, { marginBottom: 10 }]}
+                onPress={() => cookFeatured(item)}
+                disabled={featuredLoading !== null}
+              >
+                <Text style={s.eyebrow}>{item.category.replaceAll("_", " ")}</Text>
+                <Text style={s.heading}>{item.title}</Text>
+                <Text style={[s.body, { marginTop: 5 }]}>{item.description}</Text>
+                <Text style={s.recipeMeta}>
+                  Kaynak: {item.sourceName} · {item.sourceAuthor}
+                </Text>
+                <Text style={s.smallLink}>
+                  {featuredLoading === item.id ? "Tarif açılıyor..." : "Tarifi yap →"}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         )}
 
