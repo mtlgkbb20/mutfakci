@@ -185,7 +185,7 @@ Do not add recipes with guessed quantities or fabricate provenance. If a suitabl
 - Backend: `mvn --batch-mode test` — 57 tests, 0 failures, 0 errors.
 - Frontend: build passed.
 - Mobile: TypeScript check passed.
-- CI run: [434271?](https://github.com/mtlgkbb20/mutfakci/actions) — inspect the commit checks for the exact job records.
+- CI run: [43427232785](https://github.com/mtlgkbb20/mutfakci/actions/runs/43427232785) — inspect the commit checks for the exact job records.
 - Unit coverage added for serving scaling, safe unit conversion, by-product ratio/uncertainty, preview, user confirmation, partial/full consumption, transfer invocation, and cross-user read isolation.
 
 ### Remaining work
