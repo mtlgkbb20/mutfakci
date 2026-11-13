@@ -5,6 +5,7 @@ import { api } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
 type PantryItem = { id:string; name:string; category:string; quantity:number; unit:string; expiryDate?:string|null; expired:boolean; expiringSoon:boolean; version:number };
+type Movement = { id:string; pantryItemId:string; movementType:string; quantityDelta:number; unit:string; reason?:string; createdAt:string };
 type Match = { recipeId:string; title:string; servings:number; coverage:number; available:{name:string;pantryItemId:string;required:number;unit:string;stock:number;stockUnit:string}[]; missing:{name:string;required:number;unit:string}[] };
 
 export default function PantryScreen(){
@@ -12,6 +13,7 @@ export default function PantryScreen(){
  const [items,setItems]=useState<PantryItem[]>([]);
  const [expiring,setExpiring]=useState<PantryItem[]>([]);
  const [matches,setMatches]=useState<Match[]>([]);
+ const [movements,setMovements]=useState<Movement[]>([]);
  const [name,setName]=useState("");
  const [quantity,setQuantity]=useState("1");
  const [unit,setUnit]=useState("piece");
@@ -22,8 +24,8 @@ export default function PantryScreen(){
  const [showMatches,setShowMatches]=useState(false);
  const [editingId,setEditingId]=useState<string|null>(null);
  const refresh=useCallback(async()=>{
-   const [inventory,soon]=await Promise.all([api("/pantry/items"),api("/pantry/expiring?withinDays=7")]);
-   setItems(inventory);setExpiring(soon);
+   const [inventory,soon,history]=await Promise.all([api("/pantry/items"),api("/pantry/expiring?withinDays=7"),api("/pantry/movements")]);
+   setItems(inventory);setExpiring(soon);setMovements(history);
  },[]);
  useEffect(()=>{refresh().catch(e=>Alert.alert("Kiler yüklenemedi",e.message));},[refresh]);
  const add=async()=>{
@@ -69,6 +71,7 @@ export default function PantryScreen(){
    <View style={s.card}><Text style={s.eyebrow}>ÖNCE BUNLARI KULLAN</Text><Text style={s.heading}>Son kullanma tarihi yaklaşanlar</Text>
     {expiring.length===0?<Text style={[s.body,{marginTop:8}]}>7 gün içinde tarihi dolacak ürün yok.</Text>:expiring.map(item=><Text key={item.id} style={[s.body,{marginTop:8}]}>{item.expired?"⚠️":"⏳"} {item.name} — {item.expiryDate}</Text>)}
    </View>
+   <View style={s.card}><Text style={s.eyebrow}>STOK HAREKETLERİ</Text><Text style={s.heading}>Son değişiklikler</Text>{movements.length===0?<Text style={[s.body,{marginTop:8}]}>Henüz stok hareketi yok.</Text>:movements.slice(0,8).map(m=><Text key={m.id} style={[s.body,{marginTop:7}]}>{m.movementType==="CONSUME"?"−":"+"}{Math.abs(m.quantityDelta)} {m.unit} · {items.find(i=>i.id===m.pantryItemId)?.name||"Ürün"} · {new Date(m.createdAt).toLocaleDateString("tr-TR")}</Text>)}</View>
    <View style={s.card}><Text style={s.eyebrow}>ELİNDEKİLERLE NE PİŞİRİRSİN?</Text><Text style={s.heading}>Tarif önerileri</Text><Text style={[s.body,{marginTop:6}]}>Kilerindeki malzemeleri sabit tariflerle karşılaştır. Eksikler ayrıca gösterilir.</Text><Button onPress={loadMatches}>Tarifleri bul</Button>
     {showMatches&&matches.map(match=><View key={match.recipeId} style={{borderTopWidth:1,borderTopColor:colors.line,marginTop:14,paddingTop:14}}>
       <Text style={{fontSize:17,fontWeight:"800",color:colors.ink}}>{match.title}</Text><Text style={s.recipeMeta}>Malzeme eşleşmesi: %{Math.round(match.coverage*100)} · {match.servings} porsiyon</Text>
