@@ -191,3 +191,6 @@ The first implementation accepts only `vegan`, `vegetarian`/`vejetaryen`, `glute
 
 
 Pantry-aware selection now ranks eligible catalog recipes by ingredients for which the user's unexpired pantry stock fully covers the planned serving quantity. The shopping list also excludes expired pantry stock from its coverage calculation. Matching remains exact-name and exact/canonical-unit based; no semantic substitutions are made.
+
+
+The curated catalog was expanded with breakfast, soup, main-course, and salad recipes so the planner can fill the three supported meal slots. Slot/category compatibility is enforced by the backend: breakfast accepts BREAKFAST/CAKE; lunch and dinner accept MAIN/SOUP/SALAD. The AI selector is independently validated against this mapping, and the alternatives endpoint is scoped to the selected slot.
