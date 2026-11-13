@@ -186,6 +186,22 @@ class MealPlanServiceTest {
   }
 
   @Test
+  void rejectsVeganBreakfastWhenAllBreakfastCandidatesContainEgg() {
+    CatalogRecipe eggBreakfast = new CatalogRecipe(1, "egg-breakfast", "Yumurtalı Kahvaltı", List.of(),
+        "tr-TR", "BREAKFAST", List.of(), 2, 15,
+        List.of(new Ingredient("Yumurta", 2, "adet", "")), List.of(), "Egg dish");
+    catalog = new RecipeCatalogService(new ObjectMapper()) {
+      @Override public List<CatalogRecipe> all() { return List.of(eggBreakfast); }
+    };
+    service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
+    var veganBreakfast = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
+        List.of("BREAKFAST"), 60, null, "TRY", List.of("vegan"), null, null);
+
+    assertThrows(RuntimeException.class, () -> service.create(veganBreakfast, userId));
+    verify(plans, never()).save(any());
+  }
+
+  @Test
   void rejectsUnsupportedDietaryRestrictionInsteadOfPretendingItIsVerified() {
     var request = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
         List.of("LUNCH"), 60, null, "TRY", List.of("fıstık alerjisi"), null, null);
