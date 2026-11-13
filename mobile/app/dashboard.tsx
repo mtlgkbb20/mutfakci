@@ -50,7 +50,7 @@ export default function Dashboard() {
       api("/auth/me"),
       api("/recipes"),
       api("/gamification/progress"),
-      api("/featured-recipes"),
+      api("/featured-recipes").catch(() => []),
     ])
       .then(([currentUser, savedRecipes, currentProgress, featuredRecipes]) => {
         setUser(currentUser);
