@@ -366,7 +366,8 @@ public class MealPlanService {
   private PlanView view(MealPlan plan, List<MealPlanEntry> planEntries, List<String> extraWarnings) {
     List<String> warnings = new ArrayList<>(extraWarnings);
     if (plan.getWeeklyBudget() != null) warnings.add("BÜTÇE_DOĞRULANAMADI: Tarif kataloğunda güvenilir maliyet verisi bulunmuyor.");
-    if (catalog.all().size() < planEntries.size()) warnings.add("KATALOG ÇEŞİTLİLİĞİ SINIRLI: Bazı tarifler hafta içinde tekrar ediyor.");
+    long distinctRecipes = planEntries.stream().map(MealPlanEntry::getRecipeCatalogId).distinct().count();
+    if (distinctRecipes < planEntries.size()) warnings.add("KATALOG ÇEŞİTLİLİĞİ SINIRLI: Bazı tarifler hafta içinde tekrar ediyor.");
     List<EntryView> entryViews = planEntries.stream().map(entry -> {
       CatalogRecipe recipe = findRecipe(entry.getRecipeCatalogId());
       return new EntryView(entry.getId(), entry.getMealDate(), entry.getMealSlot(),
