@@ -3,11 +3,11 @@ KATEGORİ: Sulu Yemekler
 MUTFAK: Türk Mutfağı
 KAYNAK: https://www.ktb.gov.tr/EN-99105/leek---meat-stew-with-egg---lemon-sauce.html
 
-MALZEMELER (kaynakta görülenler):
-Kaynak sayfasındaki malzemeler esas alınmalıdır; bu dosyada miktar veya ek malzeme türetilmemiştir.
+MALZEMELER:
+1.5 kg pırasa, 1 orta boy soğan (75 g), 250 g kemiksiz kuzu eti, 2 yemek kaşığı margarin (20 g), 2 tatlı kaşığı tuz (12 g), 300 g sıcak su, 1 yumurta, 2 yemek kaşığı limon suyu (20 g).
 
-KAYNAĞA DAYALI YÖNTEM ÖZETİ:
-Pırasa ve etle hazırlanan, yumurta-limon terbiyesiyle tamamlanan geleneksel tencere yemeği. Ölçü ve adımları kaynak sayfadan takip et.
+YÖNTEM ÖZETİ:
+Eti küp doğrayıp soğanla margarin içinde 8-10 dakika kavur. Su ve tuz ekleyip et yumuşayana kadar yaklaşık 30 dakika pişir. Pırasayı 2.5-3 cm parçalara kesip ekle; 20-25 dakika daha pişir. Çırpılmış yumurta ve limon suyunu azar azar yemeğe karıştırarak terbiyeyi ekle.
 
-DOĞRULUK NOTU:
-Bu TXT, kaynak bağlantısı ve kaynakta doğrulanabilen bilgilerin kısa kayıt özetidir. "Malzemeler için orijinal kaynak sayfasına bakılmalıdır" ifadesi bulunan tariflerde malzeme listesi burada tamamlanmamıştır; miktar veya adım uydurulmamıştır. Kaynağa atıf, yeniden yayınlama lisansı anlamına gelmez. Herkese açık/ticari kullanımdan önce yayıncının kullanım koşulları ve gerekli izinler incelenmelidir.
+KAYNAK NOTU:
+Malzeme ölçüleri ve temel yöntem T.C. Kültür ve Turizm Bakanlığı'nın tarif sayfasından alınarak özetlenmiştir. Atıf, yeniden yayınlama izni değildir; ticari/herkese açık kullanım öncesi hak kontrolü yapılmalıdır.
