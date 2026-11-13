@@ -18,8 +18,9 @@ import org.springframework.web.bind.annotation.*;
 public class PantryController {
   private final PantryItemRepository items;
   private final PantryMovementRepository movements;
+  private final PantryOperationRepository operations;
   private final RecipeCatalogService catalog;
-  public PantryController(PantryItemRepository items,PantryMovementRepository movements,RecipeCatalogService catalog){this.items=items;this.movements=movements;this.catalog=catalog;}
+  public PantryController(PantryItemRepository items,PantryMovementRepository movements,PantryOperationRepository operations,RecipeCatalogService catalog){this.items=items;this.movements=movements;this.operations=operations;this.catalog=catalog;}
 
   public record ItemRequest(@NotBlank @Size(max=160) String name,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotBlank String unit,String category,LocalDate expiryDate) {}
   public record ItemView(UUID id,String name,String category,BigDecimal quantity,String unit,LocalDate expiryDate,boolean expired,boolean expiringSoon,long version) {}
@@ -64,11 +65,10 @@ public class PantryController {
     }).sorted(Comparator.comparingDouble(MatchView::coverage).reversed()).limit(20).toList();
   }
   @PostMapping("/recipe-consumptions") @Transactional public Map<String,Object> consume(@Valid @RequestBody ConsumeRequest r,@AuthenticationPrincipal UUID userId){
-    Optional<PantryMovement> prior=movements.findByUserIdAndOperationKey(userId,r.operationKey());
-    if(prior.isPresent()) return Map.of("status","ALREADY_APPLIED","operationKey",r.operationKey());
+    if(operations.existsByUserIdAndOperationKey(userId,r.operationKey())) return Map.of("status","ALREADY_APPLIED","operationKey",r.operationKey());
     Map<UUID,PantryItem> locked=new LinkedHashMap<>();
     for(ConsumptionLine line:r.items()){PantryItem item=items.lockOwned(line.pantryItemId(),userId).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Pantry item not found")); locked.put(item.getId(),item);}
-    if(movements.findByUserIdAndOperationKey(userId,r.operationKey()).isPresent()) return Map.of("status","ALREADY_APPLIED","operationKey",r.operationKey());
+    if(operations.existsByUserIdAndOperationKey(userId,r.operationKey())) return Map.of("status","ALREADY_APPLIED","operationKey",r.operationKey());
     record Deduction(PantryItem item,BigDecimal amount) {}
     Map<UUID,BigDecimal> totals=new LinkedHashMap<>();
     for(ConsumptionLine line:r.items()){
@@ -82,6 +82,7 @@ public class PantryController {
       if(item.getQuantity().compareTo(amount)<0) throw bad("Yetersiz stok: "+item.getName());
       deductions.add(new Deduction(item,amount));
     }
+    operations.save(new PantryOperation(userId,r.operationKey()));
     for(Deduction d:deductions){d.item().adjust(d.amount().negate());items.save(d.item());movements.save(new PantryMovement(userId,d.item().getId(),"CONSUME",d.amount().negate(),d.item().getUnit(),"Confirmed recipe consumption",r.operationKey()));}
     return Map.of("status","APPLIED","operationKey",r.operationKey(),"deductedLines",deductions.size());
   }
