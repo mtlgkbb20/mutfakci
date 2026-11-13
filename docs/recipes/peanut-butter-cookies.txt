@@ -1,13 +1,11 @@
 TARİF: Peanut Butter Cookies
-KATEGORİ: Kurabiyeler
-MUTFAK: Amerikan Mutfağı
+KATEGORİ VE MUTFAK: kaynak sayfasına göre sınıflandırılmıştır.
 KAYNAK: https://www.bbcgoodfood.com/recipes/peanut-butter-cookies
 
 MALZEMELER:
-Malzemeler için orijinal kaynak sayfasına bakılmalıdır.
+200 g fıstık ezmesi; 175 g golden caster sugar; 1/4 tatlı kaşığı ince tuz; 1 büyük yumurta.
 
 YÖNTEM ÖZETİ:
-Fıstık ezmesiyle hazırlanan kurabiye. Tam malzeme ve yöntem için kaynak sayfayı kullan.
+Fırını 180°C'ye ısıtıp iki tepsiyi yağlı kağıtla kapla. Fıstık ezmesi, şeker ve tuzu karıştır; yumurtayı ekleyip hamur oluştur. Ceviz büyüklüğünde parçaları aralıklı yerleştir, çatalla hafifçe bastır. Kenarları altın rengi olana kadar yaklaşık 12 dakika pişir; tepside 10 dakika soğut.
 
-DOĞRULUK / HAK NOTU:
-Bu kayıt kaynak sayfasındaki doğrulanabilir bilgilerin kısa özetidir. Tam tarif ve eksik bırakılan malzeme listesi için orijinal bağlantı esas alınmalıdır; ölçü veya adım uydurulmamıştır. Kaynağa atıf, yeniden yayınlama izni değildir. Ticari ve herkese açık yayından önce kullanım koşulları ve gerekli izinler kontrol edilmelidir.
+NOT: Tarif kaynağındaki ölçüler korunarak özetlenmiştir. Kaynağa atıf tek başına yeniden yayınlama izni değildir; ticari/herkese açık kullanım öncesi hak kontrolü yapılmalıdır.
