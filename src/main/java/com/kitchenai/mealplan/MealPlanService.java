@@ -89,6 +89,15 @@ public class MealPlanService {
   }
 
   @Transactional(readOnly = true)
+  public List<RecipeSummary> candidates(int maxPreparationMinutes) {
+    return catalog.all().stream()
+        .filter(recipe -> recipe.estimatedTotalMinutes() <= maxPreparationMinutes)
+        .sorted(Comparator.comparingInt(CatalogRecipe::estimatedTotalMinutes).thenComparing(CatalogRecipe::title))
+        .map(this::summary)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
   public List<PlanView> list(UUID userId) {
     return plans.findTop20ByUserIdOrderByCreatedAtDesc(userId).stream()
         .map(plan -> view(plan, entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId()), List.of()))
