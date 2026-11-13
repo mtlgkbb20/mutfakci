@@ -97,6 +97,47 @@ class MealPlanServiceTest {
   }
 
   @Test
+  void pantryCoveredRecipesAreRankedBeforeRecipesWithoutUsableStock() {
+    CatalogRecipe rice = new CatalogRecipe(1, "rice-dish", "Pirinç Yemeği", List.of(), "tr-TR",
+        "MAIN", List.of(), 2, 40,
+        List.of(new Ingredient("Pirinç", 100, "g", "")), List.of(), "Rice recipe");
+    catalog = new RecipeCatalogService(new ObjectMapper()) {
+      @Override public List<CatalogRecipe> all() { return List.of(rice, carrotCake); }
+    };
+    service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
+    PantryItem flour = new PantryItem(userId, "Un", "un", "GRAINS", new BigDecimal("500"), "g", null);
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(flour));
+    List<MealPlanEntry> generated = new ArrayList<>();
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> {
+      MealPlanEntry entry = inv.getArgument(0);
+      generated.add(entry);
+      return entry;
+    });
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(any())).thenAnswer(inv -> List.copyOf(generated));
+
+    var result = service.create(request(List.of("LUNCH")), userId);
+
+    assertEquals("carrot-cake", result.entries().get(0).recipeCatalogId());
+  }
+
+  @Test
+  void expiredPantryStockIsNotCountedAsShoppingListCoverage() {
+    MealPlan plan = new MealPlan(userId, LocalDate.of(2026, 11, 9), 2, "[\"LUNCH\"]",
+        60, null, "TRY", "[]", null, null);
+    MealPlanEntry entry = new MealPlanEntry(plan.getId(), plan.getWeekStart(), "LUNCH", "carrot-cake", 2, null);
+    PantryItem expiredFlour = new PantryItem(userId, "Un", "un", "GRAINS",
+        new BigDecimal("500"), "g", LocalDate.now().minusDays(1));
+    when(plans.findByIdAndUserId(plan.getId(), userId)).thenReturn(Optional.of(plan));
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId())).thenReturn(List.of(entry));
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(expiredFlour));
+
+    var result = service.shoppingList(plan.getId(), userId);
+
+    assertEquals(new BigDecimal("100.000"), result.items().get(0).toBuyQuantity());
+    assertEquals(BigDecimal.ZERO.setScale(3), result.items().get(0).pantryCoveredQuantity());
+  }
+
+  @Test
   void shoppingListScalesIngredientsAndSubtractsPantryWithoutMutatingIt() {
     MealPlan plan = new MealPlan(userId, LocalDate.of(2026, 11, 9), 4, "[\"LUNCH\"]",
         60, null, "TRY", "[]", null, null);
