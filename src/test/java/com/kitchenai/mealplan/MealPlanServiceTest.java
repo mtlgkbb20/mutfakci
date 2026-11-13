@@ -32,7 +32,7 @@ class MealPlanServiceTest {
     pantry = mock(MealPlanPantryRepository.class);
     aiSelector = mock(MealPlanAiSelector.class);
     carrotCake = new CatalogRecipe(1, "carrot-cake", "Havuçlu Kek", List.of(), "tr-TR",
-        "CAKE", List.of(), 2, 45,
+        "MAIN", List.of(), 2, 45,
         List.of(new Ingredient("Un", 100, "g", "")), List.of(), "Test recipe");
     catalog = new RecipeCatalogService(new ObjectMapper()) {
       @Override public List<CatalogRecipe> all() { return List.of(carrotCake); }
