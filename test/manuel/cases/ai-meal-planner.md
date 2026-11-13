@@ -39,3 +39,6 @@
 - Test AI behavior with a stub/mock response before using a billable live provider call.
 - The current curated catalog is small; repeated meals are expected until the catalog expands.
 - Do not mark a case as passed based only on source inspection. Record actual HTTP/UI results.
+
+| MP-027 | Regenerate saved plan | Regenerate an existing plan for the same week | Existing entries are replaced atomically and new entries are returned; no duplicate slots remain | NOT RUN |
+| MP-028 | Unsupported dietary restriction | Submit an unsupported allergy/restriction label | HTTP 400; no plan is saved; UI does not imply safety | NOT RUN |
