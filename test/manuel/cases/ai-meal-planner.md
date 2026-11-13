@@ -15,7 +15,7 @@
 | MP-007 | AI unavailable fallback | Remove Runware key and create a plan | Plan is created with deterministic catalog selection and fallback warning | NOT RUN |
 | MP-008 | Invalid AI recipe ID | Simulate model output containing an unknown recipe ID | Entire AI selection is rejected; deterministic fallback is used | NOT RUN |
 | MP-009 | Preparation time | Set maximum time below every catalog recipe time | HTTP 422; no plan is saved | NOT RUN |
-| MP-010 | Dietary restriction | Request a supported restriction that conflicts with every catalog recipe | HTTP 422; no unsafe recipe is inserted | NOT RUN |
+| MP-010 | Dietary restriction vs meal slot | Request a vegan breakfast plan | HTTP 422 when no breakfast-category recipe passes the supported restriction filter | NOT RUN |
 | MP-011 | Duplicate weekly plan | Create a second plan for the same user and week | HTTP 409 | NOT RUN |
 | MP-012 | Plan ownership | Read another user's plan ID | HTTP 404 | NOT RUN |
 | MP-013 | Single entry replacement | Replace one meal in a saved plan | Only the selected entry changes; all other entry IDs and recipe IDs remain unchanged | NOT RUN |
