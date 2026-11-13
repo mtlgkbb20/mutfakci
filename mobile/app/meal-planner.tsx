@@ -131,12 +131,12 @@ export default function MealPlannerScreen() {
     }
   };
 
-  const loadCandidates = async () => {
+  const loadCandidates = async (mealSlot: string) => {
     if (candidates.length > 0) return;
     setCandidateLoading(true);
     try {
       if (!plan) return;
-      setCandidates(await api("/meal-plans/" + plan.id + "/recipes"));
+      setCandidates(await api("/meal-plans/" + plan.id + "/recipes?mealSlot=" + encodeURIComponent(mealSlot)));
     } catch (error: any) {
       Alert.alert("Alternatif tarifler getirilemedi", error.message);
     } finally {
@@ -256,7 +256,7 @@ export default function MealPlannerScreen() {
                         <Text style={{ fontSize: 17, fontWeight: "800", color: colors.ink, marginTop: 3 }}>{entry.recipe.title}</Text>
                         <Text style={s.recipeMeta}>{entry.recipe.estimatedTotalMinutes} dakika</Text>
                       </View>
-                      <Pressable onPress={() => { setChangingEntry(changingEntry === entry.id ? null : entry.id); loadCandidates(); }}>
+                      <Pressable onPress={() => { setChangingEntry(changingEntry === entry.id ? null : entry.id); loadCandidates(entry.mealSlot); }}>
                         <Text style={s.smallLink}>Değiştir</Text>
                       </Pressable>
                     </View>
