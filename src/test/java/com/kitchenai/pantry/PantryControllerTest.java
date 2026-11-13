@@ -44,7 +44,6 @@ class PantryControllerTest {
   }
 
   @Test void duplicateConsumptionOperationDoesNotLockOrDeductAgain(){
-    PantryMovement previous=new PantryMovement(userId,UUID.randomUUID(),"CONSUME",BigDecimal.ONE,"piece","Confirmed","operation-1");
     when(operations.existsByUserIdAndOperationKey(userId,"operation-1")).thenReturn(true);
     var result=controller.consume(new PantryController.ConsumeRequest("operation-1",List.of(new PantryController.ConsumptionLine(UUID.randomUUID(),BigDecimal.ONE,"piece"))),userId);
     assertEquals("ALREADY_APPLIED",result.get("status"));
