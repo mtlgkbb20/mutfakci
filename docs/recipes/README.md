@@ -62,7 +62,7 @@ Bu klasördeki TXT dosyaları tarif kayıtlarını, kategori/mutfak etiketlerini
 
 ### Pastalar ve tartlar
 - [Best Ever Tiramisu](best-ever-tiramisu.txt)
-- [No-Bake Chocolate Tart](no-bake-chocolate-tart.txt)
+- [Lemon Cheesecake (No-Bake)](no-bake-chocolate-tart.txt)
 - [Oreo Cheesecake](oreo-cheesecake.txt)
 - [Luscious Lemon Baked Cheesecake](lemon-baked-cheesecake.txt)
 - [Ultimate Lemon Meringue Pie](lemon-meringue-pie.txt)
