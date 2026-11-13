@@ -19,6 +19,8 @@ class CookingJournalServiceTest {
   private CookingJournalRepository journal;
   private CookingSessionRepository sessions;
   private RecipeRepository recipes;
+  private CookingJournalMediaRepository media;
+  private RecipeVariationRepository variations;
   private CookingJournalService service;
   private final UUID userId = UUID.randomUUID();
 
@@ -27,8 +29,11 @@ class CookingJournalServiceTest {
     journal = mock(CookingJournalRepository.class);
     sessions = mock(CookingSessionRepository.class);
     recipes = mock(RecipeRepository.class);
-    service = new CookingJournalService(journal, sessions, recipes, new ObjectMapper());
+    media = mock(CookingJournalMediaRepository.class);
+    variations = mock(RecipeVariationRepository.class);
+    service = new CookingJournalService(journal, sessions, recipes, media, variations, new ObjectMapper());
     when(journal.save(any(CookingJournalEntry.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(variations.save(any(RecipeVariation.class))).thenAnswer(invocation -> invocation.getArgument(0));
   }
 
   @Test
@@ -50,6 +55,7 @@ class CookingJournalServiceTest {
     assertEquals(3, entry.getServings());
     assertEquals(5, entry.getRating());
     assertEquals("İkinci deneme daha iyi oldu.", entry.getNotes());
+    assertEquals(session.getCompletedAt(), entry.getCookedAt());
     verify(journal).save(any(CookingJournalEntry.class));
   }
 
@@ -107,7 +113,39 @@ class CookingJournalServiceTest {
   void hidesEntriesOwnedByAnotherUser() {
     UUID entryId = UUID.randomUUID();
     when(journal.findByIdAndUserId(entryId, userId)).thenReturn(Optional.empty());
-
     assertThrows(ApiException.class, () -> service.get(userId, entryId));
+  }
+
+  @Test
+  void createsSeparateVariationFromImmutableJournalSnapshot() {
+    Recipe recipe = new Recipe(userId, "Original", "Original description", "MAIN", 2, 10, 20,
+        "[{\"name\":\"Rice\"}]", "[{\"title\":\"Boil\"}]");
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(),
+        "{\"title\":\"Original\",\"description\":\"Original description\",\"productType\":\"MAIN\",\"servings\":2,\"preparationTime\":10,\"cookingTime\":20,\"ingredients\":\"[{\\\"name\\\":\\\"Rice\\\"}]\",\"stages\":\"[{\\\"title\\\":\\\"Boil\\\"}]\"}",
+        2, 4, null, null);
+    when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
+
+    RecipeVariation variation = service.createVariation(userId, entry.getId(),
+        new CookingJournalService.VariationRequest("Spicy rice", "Chili added", 3,
+            "[{\"name\":\"Rice\"},{\"name\":\"Chili\"}]",
+            "[{\"title\":\"Boil\"},{\"title\":\"Season\"}]"));
+
+    assertEquals(recipe.getId(), variation.getSourceRecipeId());
+    assertEquals("Spicy rice", variation.getTitle());
+    assertTrue(variation.getIngredientsJson().contains("Chili"));
+    verify(variations).save(any(RecipeVariation.class));
+  }
+
+  @Test
+  void rejectsInvalidVariationJson() {
+    Recipe recipe = new Recipe(userId, "Original", "Description", "MAIN", 2, 10, 20, "[]", "[]");
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(),
+        "{\"title\":\"Original\",\"description\":\"Description\",\"productType\":\"MAIN\",\"servings\":2,\"preparationTime\":10,\"cookingTime\":20,\"ingredients\":\"[]\",\"stages\":\"[]\"}",
+        2, null, null, null);
+    when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
+
+    assertThrows(ApiException.class, () -> service.createVariation(userId, entry.getId(),
+        new CookingJournalService.VariationRequest("Broken", null, null, "not-json", "[]")));
+    verify(variations, never()).save(any());
   }
 }

@@ -1,6 +1,7 @@
 package com.kitchenai.cookingjournal;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
@@ -19,14 +20,18 @@ public class CookingJournalService {
   private final CookingJournalRepository journal;
   private final CookingSessionRepository sessions;
   private final RecipeRepository recipes;
+  private final CookingJournalMediaRepository media;
+  private final RecipeVariationRepository variations;
   private final ObjectMapper mapper;
 
-  public CookingJournalService(
-      CookingJournalRepository journal, CookingSessionRepository sessions,
-      RecipeRepository recipes, ObjectMapper mapper) {
+  public CookingJournalService(CookingJournalRepository journal, CookingSessionRepository sessions,
+      RecipeRepository recipes, CookingJournalMediaRepository media,
+      RecipeVariationRepository variations, ObjectMapper mapper) {
     this.journal = journal;
     this.sessions = sessions;
     this.recipes = recipes;
+    this.media = media;
+    this.variations = variations;
     this.mapper = mapper;
   }
 
@@ -59,7 +64,8 @@ public class CookingJournalService {
       String snapshotJson = mapper.writeValueAsString(snapshot);
       return journal.save(new CookingJournalEntry(
           userId, session.getId(), recipe == null ? null : recipe.getId(), snapshotJson,
-          snapshot.servings(), request.rating(), normalizeNotes(request.notes()), Instant.now()));
+          snapshot.servings(), request.rating(), normalizeNotes(request.notes()),
+          session.getCompletedAt() == null ? Instant.now() : session.getCompletedAt()));
     } catch (JsonProcessingException exception) {
       throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not snapshot recipe for journal");
     }
@@ -99,6 +105,102 @@ public class CookingJournalService {
     return journal.save(entry);
   }
 
+  @Transactional
+  public String savePhoto(UUID userId, UUID entryId, JournalMediaStorage.StoredPhoto photo) {
+    owned(userId, entryId);
+    var existing = media.findByUserIdAndJournalEntryId(userId, entryId);
+    if (existing.isPresent()) {
+      String previousKey = existing.get().getObjectKey();
+      existing.get().replace(photo.objectKey(), photo.contentType());
+      media.save(existing.get());
+      return previousKey;
+    }
+    media.save(new CookingJournalMedia(entryId, userId, photo.objectKey(), photo.contentType()));
+    return null;
+  }
+
+  @Transactional
+  public String deletePhoto(UUID userId, UUID entryId) {
+    owned(userId, entryId);
+    var existing = media.findByUserIdAndJournalEntryId(userId, entryId);
+    if (existing.isEmpty()) return null;
+    String key = existing.get().getObjectKey();
+    media.delete(existing.get());
+    return key;
+  }
+
+  @Transactional(readOnly = true)
+  public CookingJournalMedia getPhoto(UUID userId, UUID entryId) {
+    owned(userId, entryId);
+    return media.findByUserIdAndJournalEntryId(userId, entryId)
+        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Journal photo not found"));
+  }
+
+  @Transactional(readOnly = true)
+  public boolean hasPhoto(UUID userId, UUID entryId) {
+    owned(userId, entryId);
+    return media.findByUserIdAndJournalEntryId(userId, entryId).isPresent();
+  }
+
+  @Transactional
+  public RecipeVariation createVariation(UUID userId, UUID entryId, VariationRequest request) {
+    CookingJournalEntry entry = owned(userId, entryId);
+    if (entry.getRecipeId() == null) {
+      throw new ApiException(HttpStatus.CONFLICT, "A recipe-based journal entry is required for a variation");
+    }
+    String title = request.title() == null ? "" : request.title().trim();
+    if (title.isBlank() || title.length() > 255) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "Variation title is required (maximum 255 characters)");
+    }
+    if (request.description() != null && request.description().length() > 2000) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "Description must be at most 2000 characters");
+    }
+    if (request.servings() != null && (request.servings() < 1 || request.servings() > 30)) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "Servings must be between 1 and 30");
+    }
+    try {
+      RecipeSnapshot original = mapper.readValue(entry.getRecipeSnapshotJson(), RecipeSnapshot.class);
+      String ingredients = request.ingredientsJson() == null ? original.ingredients() : request.ingredientsJson();
+      String stages = request.stagesJson() == null ? original.stages() : request.stagesJson();
+      requireJsonArray(ingredients, "Ingredients");
+      requireJsonArray(stages, "Stages");
+      return variations.save(new RecipeVariation(userId, entryId, entry.getRecipeId(), title,
+          request.description() == null ? original.description() : request.description(),
+          original.productType() == null ? "OTHER" : original.productType(),
+          request.servings() == null ? original.servings() : request.servings(),
+          original.preparationTime() == null ? 0 : original.preparationTime(),
+          original.cookingTime() == null ? 0 : original.cookingTime(),
+          ingredients, stages));
+    } catch (JsonProcessingException exception) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "The original recipe snapshot is invalid");
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public List<RecipeVariation> listVariations(UUID userId) {
+    return variations.findTop100ByUserIdOrderByCreatedAtDesc(userId);
+  }
+
+  @Transactional(readOnly = true)
+  public RecipeVariation getVariation(UUID userId, UUID variationId) {
+    return variations.findByIdAndUserId(variationId, userId)
+        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Recipe variation not found"));
+  }
+
+  private void requireJsonArray(String value, String field) {
+    if (value == null || value.length() > 100_000) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be a JSON array");
+    }
+    try {
+      JsonNode node = mapper.readTree(value);
+      if (node == null || !node.isArray()) {
+        throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be a JSON array");
+      }
+    } catch (JsonProcessingException exception) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be valid JSON");
+    }
+  }
+
   private CookingJournalEntry owned(UUID userId, UUID entryId) {
     return journal.findByIdAndUserId(entryId, userId)
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Journal entry not found"));
@@ -115,6 +217,8 @@ public class CookingJournalService {
 
   public record CreateRequest(UUID cookingSessionId, Integer servings, Integer rating, String notes) {}
   public record UpdateRequest(Integer servings, Integer rating, String notes) {}
+  public record VariationRequest(String title, String description, Integer servings,
+      String ingredientsJson, String stagesJson) {}
   public record RecipeSnapshot(String title, String description, String productType, Integer servings,
       Integer preparationTime, Integer cookingTime, String ingredients, String stages) {}
 }
