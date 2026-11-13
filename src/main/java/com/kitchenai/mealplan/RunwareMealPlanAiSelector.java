@@ -44,6 +44,8 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           Return JSON only in this exact shape:
           {"selections":[{"dayOffset":0,"mealSlot":"BREAKFAST","recipeCatalogId":"existing-id"}]}
           Create one selection for every dayOffset from 0 through 6 and every requested meal slot.
+          BREAKFAST may use only BREAKFAST or CAKE categories. LUNCH and DINNER may use
+          only MAIN, SOUP, or SALAD categories. The backend independently validates this.
           Only select recipeCatalogId values from the supplied candidate list. Never invent IDs,
           recipes, ingredients, nutrition facts, prices, or cooking instructions.
           Respect the preparation-time limit and dietary restrictions by choosing only from
