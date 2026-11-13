@@ -96,6 +96,12 @@ public class MealPlanService {
 
   private PlanView populateEntries(MealPlan plan, CreateRequest request, List<String> slots,
       List<CatalogRecipe> candidates) {
+    for (String slot : slots) {
+      if (candidates.stream().noneMatch(recipe -> suitableForSlot(recipe, slot))) {
+        throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+            "Katalogda " + slot + " öğününe uygun doğrulanmış tarif bulunamadı.");
+      }
+    }
     Optional<Map<String, String>> aiSelections = aiSelector.select(request, candidates, slots);
     Map<String, String> selections = aiSelections.filter(result -> validSelection(result, candidates, slots))
         .orElseGet(() -> deterministicSelection(candidates, slots));
@@ -114,9 +120,12 @@ public class MealPlanService {
   }
 
   @Transactional(readOnly = true)
-  public List<RecipeSummary> candidates(UUID planId, UUID userId) {
+  public List<RecipeSummary> candidates(UUID planId, UUID userId, String mealSlot) {
     MealPlan plan = ownedPlan(planId, userId);
+    String slot = mealSlot == null ? "" : mealSlot.toUpperCase(Locale.ROOT);
+    if (!ALLOWED_SLOTS.contains(slot)) throw new ApiException(HttpStatus.BAD_REQUEST, "Geçersiz öğün türü.");
     return eligibleRecipes(plan.getMaxPreparationMinutes(), readRestrictions(plan), userId, plan.getServings()).stream()
+        .filter(recipe -> suitableForSlot(recipe, slot))
         .map(this::summary)
         .toList();
   }
@@ -146,6 +155,9 @@ public class MealPlanService {
 
     if (replacement.estimatedTotalMinutes() > plan.getMaxPreparationMinutes()) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Tarif belirlenen hazırlama süresini aşıyor.");
+    }
+    if (!suitableForSlot(replacement, entry.getMealSlot())) {
+      throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Tarif seçilen öğün türüne uygun değil.");
     }
     List<String> restrictions = readRestrictions(plan);
     if (!matchesRestrictions(replacement, restrictions)) {
@@ -214,6 +226,8 @@ public class MealPlanService {
       for (String slot : slots) {
         String selected = selections.get(day + ":" + slot);
         if (selected == null || !candidateIds.contains(selected)) return false;
+        CatalogRecipe recipe = candidates.stream().filter(candidate -> candidate.id().equals(selected)).findFirst().orElse(null);
+        if (recipe == null || !suitableForSlot(recipe, slot)) return false;
       }
     }
     return true;
@@ -224,7 +238,9 @@ public class MealPlanService {
     Map<String, Integer> usage = new HashMap<>();
     for (int day = 0; day < 7; day++) {
       for (String slot : slots) {
-        CatalogRecipe selected = candidates.stream()
+        List<CatalogRecipe> slotCandidates = candidates.stream()
+            .filter(recipe -> suitableForSlot(recipe, slot)).toList();
+        CatalogRecipe selected = slotCandidates.stream()
             .min(Comparator.comparingInt((CatalogRecipe recipe) -> usage.getOrDefault(recipe.id(), 0))
                 .thenComparingInt(candidates::indexOf)
                 .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
@@ -271,6 +287,15 @@ public class MealPlanService {
       if (covered) matched++;
     }
     return matched;
+  }
+
+  private boolean suitableForSlot(CatalogRecipe recipe, String slot) {
+    String category = recipe.category() == null ? "" : recipe.category().toUpperCase(Locale.ROOT);
+    return switch (slot) {
+      case "BREAKFAST" -> Set.of("BREAKFAST", "CAKE").contains(category);
+      case "LUNCH", "DINNER" -> Set.of("MAIN", "SOUP", "SALAD").contains(category);
+      default -> false;
+    };
   }
 
   private boolean matchesRestrictions(CatalogRecipe recipe, List<String> restrictions) {
