@@ -48,3 +48,5 @@
 
 | MP-031 | Breakfast category validation | Create a breakfast plan | Only BREAKFAST/CAKE category recipes are selected | NOT RUN |
 | MP-032 | Lunch/dinner category validation | Create lunch and dinner plan; attempt to replace with breakfast recipe | Only MAIN/SOUP/SALAD recipes are offered; incompatible replacement returns HTTP 422 | NOT RUN |
+
+| MP-033 | AI repetition control | Stub AI output to select the same recipe for every day while alternatives exist | AI selection is rejected and deterministic balanced selection is used | NOT RUN |
