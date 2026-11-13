@@ -121,7 +121,7 @@ All routes are under `/api/v1/meal-plans` and use the existing JWT-authenticated
 | GET | `/` | List the authenticated user's plans |
 | GET | `/{planId}` | Read a plan with resolved recipe summaries |
 | PATCH | `/{planId}/entries/{entryId}` | Replace one meal only |
-| GET | `/{planId}/shopping-list` | Generate consolidated shopping list |
+| GET | `/{planId}/recipes` | List alternatives allowed by the saved plan constraints |\n| POST | `/{planId}/regenerate` | Replace all entries in the saved week |\n| GET | `/{planId}/shopping-list` | Generate consolidated shopping list |
 
 Creation request fields: `weekStart`, `servings`, `mealSlots`, `maxPreparationMinutes`, optional `weeklyBudget` + `currency`, `dietaryRestrictions`, `goal`, and `notes`.
 
@@ -183,3 +183,8 @@ Implementation caveats:
 - The current implementation can reject some explicit dietary restrictions based on ingredient-name checks, but it cannot prove broad allergen safety or handle semantic synonyms. The catalog needs structured dietary/allergen metadata before stronger guarantees can be made.
 - Budget is collected and echoed but not enforced because there is no trusted price data.
 - No nutrition values are generated or displayed.
+
+
+### Supported dietary restriction inputs
+
+The first implementation accepts only `vegan`, `vegetarian`/`vejetaryen`, `glutensiz`/`gluten free`, and `laktozsuz`/`lactose free`. Other restriction strings are rejected instead of being silently treated as verified. Ingredient-name matching is still not an allergen guarantee.
