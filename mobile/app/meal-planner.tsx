@@ -134,7 +134,8 @@ export default function MealPlannerScreen() {
     if (candidates.length > 0) return;
     setCandidateLoading(true);
     try {
-      setCandidates(await api("/meal-plans/recipes?maxPreparationMinutes=" + maxMinutes));
+      if (!plan) return;
+      setCandidates(await api("/meal-plans/" + plan.id + "/recipes"));
     } catch (error: any) {
       Alert.alert("Alternatif tarifler getirilemedi", error.message);
     } finally {
