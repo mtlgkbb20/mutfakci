@@ -98,7 +98,14 @@ Keep forms concise and validate quantities/units client-side, while treating bac
 - [ ] Backend tests cover ownership, CRUD, movement audit, expiry, matching, idempotency and insufficient stock.
 - [ ] Client build/typecheck passes.
 
-## 10. Implementation notes / assumptions
+## 10. Validation status
+
+- Backend unit tests: passed in GitHub Actions.
+- Frontend production build: passed in GitHub Actions.
+- Expo TypeScript check: passed in GitHub Actions.
+- Latest successful validation at the time of writing: [run #30](https://github.com/mtlgkbb20/mutfakci/actions/runs/43396662288).
+
+## 11. Implementation notes / assumptions
 
 - Backend is Spring Boot 3 / Java 21 / PostgreSQL / Spring Data JPA / Flyway.
 - Existing JWT filter exposes authenticated user UUID as the principal.
