@@ -275,6 +275,10 @@ public class RecipeController {
   }
 
   private RecipeView view(Recipe recipe) {
+    var source =
+        recipe.getCatalogId() == null
+            ? Optional.<RecipeCatalogService.CatalogRecipe>empty()
+            : catalog.findById(recipe.getCatalogId());
     return new RecipeView(
         recipe.getId(),
         recipe.getTitle(),
@@ -286,7 +290,12 @@ public class RecipeController {
         recipe.getIngredientsJson(),
         recipe.getStagesJson(),
         recipe.getSourceType(),
-        recipe.getCatalogId());
+        recipe.getCatalogId(),
+        source.map(RecipeCatalogService.CatalogRecipe::sourceName).orElse(null),
+        source.map(RecipeCatalogService.CatalogRecipe::sourceAuthor).orElse(null),
+        source.map(RecipeCatalogService.CatalogRecipe::sourceUrl).orElse(null),
+        source.map(RecipeCatalogService.CatalogRecipe::sourcePublishedAt).orElse(null),
+        source.map(RecipeCatalogService.CatalogRecipe::sourceRightsStatus).orElse(null));
   }
 
   public record RecipeStage(
@@ -308,5 +317,10 @@ public class RecipeController {
       String ingredients,
       String stages,
       String sourceType,
-      String catalogId) {}
+      String catalogId,
+      String sourceName,
+      String sourceAuthor,
+      String sourceUrl,
+      String sourcePublishedAt,
+      String sourceRightsStatus) {}
 }
