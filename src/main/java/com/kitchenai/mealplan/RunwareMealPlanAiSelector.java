@@ -48,6 +48,8 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           recipes, ingredients, nutrition facts, prices, or cooking instructions.
           Respect the preparation-time limit and dietary restrictions by choosing only from
           the pre-filtered candidates. Avoid repeating the same recipe when alternatives exist.
+          Candidate recipes are ordered by pantry stock coverage (best match first).
+          Prefer earlier candidates when choosing, while avoiding unnecessary repetition.
           Consider the user's goal and notes when ranking candidates.
           Requested servings: %d
           Meal slots: %s
