@@ -55,8 +55,8 @@ public class PantryController {
     return catalog.all().stream().map(recipe->{
       List<Map<String,Object>> available=new ArrayList<>(),missing=new ArrayList<>(); int total=recipe.ingredients().size(),matched=0;
       for(var ingredient:recipe.ingredients()){
-        String key=normalize(ingredient.name()); Optional<PantryItem> found=stock.stream().filter(p->p.getNormalizedName().equals(key)).findFirst();
-        if(found.isPresent() && compatible(found.get().getUnit(),ingredient.unit()) && found.get().getQuantity().compareTo(convert(BigDecimal.valueOf(ingredient.quantity()),ingredient.unit(),found.get().getUnit()))>=0){
+        String key=normalize(ingredient.name()); String requiredUnit=unit(ingredient.unit()); Optional<PantryItem> found=stock.stream().filter(p->p.getNormalizedName().equals(key)).findFirst();
+        if(found.isPresent() && compatible(found.get().getUnit(),requiredUnit) && found.get().getQuantity().compareTo(convert(BigDecimal.valueOf(ingredient.quantity()),requiredUnit,found.get().getUnit()))>=0){
           matched++; available.add(Map.of("name",ingredient.name(),"pantryItemId",found.get().getId(),"required",ingredient.quantity(),"unit",ingredient.unit(),"stock",found.get().getQuantity(),"stockUnit",found.get().getUnit()));
         } else missing.add(Map.of("name",ingredient.name(),"required",ingredient.quantity(),"unit",ingredient.unit()));
       }
