@@ -233,10 +233,6 @@ public class MealPlanService {
     return result;
   }
 
-  private List<CatalogRecipe> eligibleRecipes(int maxMinutes, List<String> restrictions) {
-    return eligibleRecipes(maxMinutes, restrictions, null, 1);
-  }
-
   private List<CatalogRecipe> eligibleRecipes(int maxMinutes, List<String> restrictions,
       UUID userId, int servings) {
     List<PantryItem> stock = userId == null ? List.of()
