@@ -122,6 +122,45 @@ class MealPlanServiceTest {
     assertThrows(RuntimeException.class, () -> service.get(planId, userId));
   }
 
+  @Test
+  void rejectsUnknownAiRecipeIdsAndFallsBackToVerifiedCatalog() {
+    Map<String, String> invalid = new HashMap<>();
+    for (int day = 0; day < 7; day++) invalid.put(day + ":LUNCH", "invented-recipe");
+    when(aiSelector.select(any(), any(), any())).thenReturn(Optional.of(invalid));
+    List<MealPlanEntry> savedEntries = new ArrayList<>();
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> {
+      MealPlanEntry entry = inv.getArgument(0);
+      savedEntries.add(entry);
+      return entry;
+    });
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(any())).thenAnswer(inv -> List.copyOf(savedEntries));
+
+    var result = service.create(request(List.of("LUNCH")), userId);
+
+    assertEquals(7, result.entries().size());
+    assertTrue(result.entries().stream().allMatch(e -> e.recipeCatalogId().equals("carrot-cake")));
+    assertTrue(result.warnings().stream().anyMatch(w -> w.startsWith("AI_SEÇİMİ_KULLANILAMADI")));
+  }
+
+  @Test
+  void acceptsOnlyCompleteAiSelectionForEveryRequestedSlot() {
+    Map<String, String> valid = new HashMap<>();
+    for (int day = 0; day < 7; day++) valid.put(day + ":LUNCH", "carrot-cake");
+    when(aiSelector.select(any(), any(), any())).thenReturn(Optional.of(valid));
+    List<MealPlanEntry> savedEntries = new ArrayList<>();
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> {
+      MealPlanEntry entry = inv.getArgument(0);
+      savedEntries.add(entry);
+      return entry;
+    });
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(any())).thenAnswer(inv -> List.copyOf(savedEntries));
+
+    var result = service.create(request(List.of("LUNCH")), userId);
+
+    assertEquals(7, result.entries().size());
+    assertFalse(result.warnings().stream().anyMatch(w -> w.startsWith("AI_SEÇİMİ_KULLANILAMADI")));
+  }
+
   private MealPlanContracts.CreateRequest request(List<String> slots) {
     return new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2, slots,
         60, new BigDecimal("5000"), "TRY", List.of(), "Dengeli beslenme", null);
