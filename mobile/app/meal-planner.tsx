@@ -132,7 +132,7 @@ export default function MealPlannerScreen() {
   };
 
   const loadCandidates = async (mealSlot: string) => {
-    if (candidates.length > 0) return;
+    setCandidates([]);
     setCandidateLoading(true);
     try {
       if (!plan) return;
@@ -256,7 +256,10 @@ export default function MealPlannerScreen() {
                         <Text style={{ fontSize: 17, fontWeight: "800", color: colors.ink, marginTop: 3 }}>{entry.recipe.title}</Text>
                         <Text style={s.recipeMeta}>{entry.recipe.estimatedTotalMinutes} dakika</Text>
                       </View>
-                      <Pressable onPress={() => { setChangingEntry(changingEntry === entry.id ? null : entry.id); loadCandidates(entry.mealSlot); }}>
+                      <Pressable onPress={() => {
+                          if (changingEntry === entry.id) setChangingEntry(null);
+                          else { setChangingEntry(entry.id); loadCandidates(entry.mealSlot); }
+                        }}>
                         <Text style={s.smallLink}>Değiştir</Text>
                       </Pressable>
                     </View>
