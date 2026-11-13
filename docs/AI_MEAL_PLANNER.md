@@ -194,3 +194,6 @@ Pantry-aware selection now ranks eligible catalog recipes by ingredients for whi
 
 
 The curated catalog was expanded with breakfast, soup, main-course, and salad recipes so the planner can fill the three supported meal slots. Slot/category compatibility is enforced by the backend: breakfast accepts BREAKFAST/CAKE; lunch and dinner accept MAIN/SOUP/SALAD. The AI selector is independently validated against this mapping, and the alternatives endpoint is scoped to the selected slot.
+
+
+The backend also validates recipe repetition in AI output. For each requested slot, the model cannot allocate more than an even-share ceiling to one recipe when multiple suitable alternatives exist; an overly repetitive selection is discarded and the deterministic selector is used.
