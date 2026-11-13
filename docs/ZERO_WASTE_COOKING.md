@@ -181,12 +181,12 @@ Do not add recipes with guessed quantities or fabricate provenance. If a suitabl
 
 ### Automated verification on current implementation checkpoint
 
-- Commit: `cad791abf58733713ae235005fa6798d7142cdbc`
+- Commit: `ca6c592781b30d12867449f126b761314e25622c`
 - Backend: `mvn --batch-mode test` — 60 tests, 0 failures, 0 errors.
 - Frontend: build passed.
 - Mobile: TypeScript check passed.
-- CI run: [43427927858](https://github.com/mtlgkbb20/mutfakci/actions/runs/43427927858) — inspect the commit checks for the exact job records.
-- Unit coverage added for serving scaling, safe unit conversion, by-product ratio/uncertainty, preview, user confirmation, partial/full consumption, transfer invocation, source-link consistency, idempotent replay, suggestion ranking, and cross-user read isolation.
+- CI run: [43428512312](https://github.com/mtlgkbb20/mutfakci/actions/runs/43428512312) — inspect the commit checks for the exact job records.
+- Unit coverage added for serving scaling, safe unit conversion, by-product ratio/uncertainty, preview, user confirmation, partial/full consumption, transfer invocation, source-link consistency (including journal/session ownership), idempotent replay, suggestion ranking, and cross-user read isolation.
 
 ### Remaining work
 
