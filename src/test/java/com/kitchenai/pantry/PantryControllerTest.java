@@ -52,8 +52,8 @@ class PantryControllerTest {
   }
 
   @Test void consumptionDeductsOnlyAfterSufficientStockValidation(){
-    UUID itemId=UUID.randomUUID();
     PantryItem item=new PantryItem(userId,"Yumurta","yumurta","DAIRY",new BigDecimal("5"),"piece",null);
+    UUID itemId=item.getId();
     when(movements.findByUserIdAndOperationKey(userId,"operation-2")).thenReturn(Optional.empty());
     when(items.lockOwned(itemId,userId)).thenReturn(Optional.of(item));
     var result=controller.consume(new PantryController.ConsumeRequest("operation-2",List.of(new PantryController.ConsumptionLine(itemId,new BigDecimal("2"),"adet"))),userId);
@@ -63,8 +63,8 @@ class PantryControllerTest {
   }
 
   @Test void insufficientStockRejectsWholeConsumption(){
-    UUID itemId=UUID.randomUUID();
     PantryItem item=new PantryItem(userId,"Yumurta","yumurta","DAIRY",BigDecimal.ONE,"piece",null);
+    UUID itemId=item.getId();
     when(movements.findByUserIdAndOperationKey(userId,"operation-3")).thenReturn(Optional.empty());
     when(items.lockOwned(itemId,userId)).thenReturn(Optional.of(item));
     assertThrows(RuntimeException.class,()->controller.consume(new PantryController.ConsumeRequest("operation-3",List.of(new PantryController.ConsumptionLine(itemId,new BigDecimal("2"),"piece"))),userId));
