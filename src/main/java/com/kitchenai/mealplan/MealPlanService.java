@@ -222,13 +222,20 @@ public class MealPlanService {
   private boolean validSelection(Map<String, String> selections, List<CatalogRecipe> candidates, List<String> slots) {
     if (selections.size() != 7 * slots.size()) return false;
     Set<String> candidateIds = candidates.stream().map(CatalogRecipe::id).collect(Collectors.toSet());
+    Map<String, Map<String, Integer>> usageBySlot = new HashMap<>();
     for (int day = 0; day < 7; day++) {
       for (String slot : slots) {
         String selected = selections.get(day + ":" + slot);
         if (selected == null || !candidateIds.contains(selected)) return false;
         CatalogRecipe recipe = candidates.stream().filter(candidate -> candidate.id().equals(selected)).findFirst().orElse(null);
         if (recipe == null || !suitableForSlot(recipe, slot)) return false;
+        usageBySlot.computeIfAbsent(slot, ignored -> new HashMap<>()).merge(selected, 1, Integer::sum);
       }
+    }
+    for (String slot : slots) {
+      long alternatives = candidates.stream().filter(recipe -> suitableForSlot(recipe, slot)).count();
+      int maxUses = (int) Math.ceil(7.0 / alternatives);
+      if (usageBySlot.getOrDefault(slot, Map.of()).values().stream().anyMatch(count -> count > maxUses)) return false;
     }
     return true;
   }
