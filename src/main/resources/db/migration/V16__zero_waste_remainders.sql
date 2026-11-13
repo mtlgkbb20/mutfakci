@@ -7,7 +7,11 @@ CREATE TABLE ingredient_remainder (
   journal_entry_id UUID REFERENCES cooking_journal_entry(id),
   ingredient_name VARCHAR(160) NOT NULL,
   normalized_name VARCHAR(160) NOT NULL,
-  quantity NUMERIC(12,3) NOT NULL CHECK (quantity > 0),
+  quantity NUMERIC(12,3) NOT NULL CHECK (quantity >= 0),
+  CONSTRAINT ck_ingredient_remainder_quantity_status CHECK (
+    (status = 'CONSUMED' AND quantity = 0) OR
+    (status <> 'CONSUMED' AND quantity > 0)
+  ),
   unit VARCHAR(20) NOT NULL,
   certainty VARCHAR(20) NOT NULL CHECK (certainty IN ('USER_CONFIRMED', 'RULE_DERIVED', 'UNKNOWN')),
   status VARCHAR(20) NOT NULL CHECK (status IN ('AVAILABLE', 'CONSUMED', 'TRANSFERRED', 'DISCARDED')),
