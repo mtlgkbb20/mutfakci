@@ -64,6 +64,7 @@ class ZeroWasteServiceTest {
     assertEquals("EXACT", preview.ingredients().get(0).certainty());
     assertEquals("Yumurta akı", preview.byProducts().get(0).name());
     assertEquals(new BigDecimal("8.000"), preview.byProducts().get(0).quantity());
+    assertEquals("egg-separation-v1", preview.byProducts().get(0).ruleVersion());
     assertTrue(preview.catalogNote().contains("kullanıcı onayı"));
   }
 
@@ -152,10 +153,12 @@ class ZeroWasteServiceTest {
 
   @Test
   void rejectsJournalEntryThatBelongsToAnotherCookingSession() {
-    CookingSession session = new CookingSession(userId, null, "RECIPE", null);
-    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), null,
+    CookingSession requestedSession = new CookingSession(userId, null, "RECIPE", null);
+    CookingSession journalSession = new CookingSession(userId, null, "RECIPE", null);
+    CookingJournalEntry entry = new CookingJournalEntry(userId, journalSession.getId(), null,
         "{}", null, null, null, null);
-    when(sessions.findById(session.getId())).thenReturn(Optional.of(session));
+    when(sessions.findById(requestedSession.getId())).thenReturn(Optional.of(requestedSession));
+    when(sessions.findById(journalSession.getId())).thenReturn(Optional.of(journalSession));
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
 
     assertThrows(RuntimeException.class, () -> service.confirm(userId, "Yumurta akı",

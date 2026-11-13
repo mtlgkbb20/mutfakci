@@ -22,13 +22,13 @@ public class ZeroWasteController {
       @NotNull @DecimalMin("0.001") @Digits(integer=9, fraction=3) BigDecimal quantity,
       @NotBlank @Size(max=20) String unit, String catalogRecipeId, UUID recipeId,
       UUID cookingSessionId, UUID journalEntryId, LocalDate useByDate,
-      @NotBlank @Size(max=100) String operationKey) {}
+      @NotBlank @Size(max=90) String operationKey) {}
   public record CorrectRequest(@NotNull @DecimalMin("0.001") @Digits(integer=9, fraction=3) BigDecimal quantity,
       @NotBlank @Size(max=20) String unit, LocalDate useByDate,
-      @NotBlank @Size(max=100) String operationKey) {}
+      @NotBlank @Size(max=90) String operationKey) {}
   public record ConsumeRequest(@NotNull @DecimalMin("0.001") @Digits(integer=9, fraction=3) BigDecimal quantity,
-      @NotBlank @Size(max=100) String operationKey) {}
-  public record OperationRequest(@NotBlank @Size(max=100) String operationKey) {}
+      @NotBlank @Size(max=90) String operationKey) {}
+  public record OperationRequest(@NotBlank @Size(max=90) String operationKey) {}
 
   @PostMapping("/preview")
   public ZeroWasteService.Preview preview(@Valid @RequestBody PreviewRequest request,

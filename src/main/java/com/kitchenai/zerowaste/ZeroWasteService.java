@@ -38,8 +38,10 @@ public class ZeroWasteService {
   }
 
   public record IngredientLine(String name, BigDecimal quantity, String unit, String certainty) {}
+  public record ByProductLine(String name, BigDecimal quantity, String unit, String certainty,
+      String ruleVersion) {}
   public record Preview(String sourceType, String recipeId, String title, int servings,
-      List<IngredientLine> ingredients, List<IngredientLine> byProducts, String catalogNote) {}
+      List<IngredientLine> ingredients, List<ByProductLine> byProducts, String catalogNote) {}
   public record RemainderView(UUID id, String ingredientName, BigDecimal quantity, String unit,
       String certainty, String status, String sourceCatalogRecipeId, UUID sourceRecipeId,
       UUID cookingSessionId, UUID journalEntryId, LocalDate useByDate, long version) {}
@@ -217,9 +219,9 @@ public class ZeroWasteService {
     return List.copyOf(result);
   }
 
-  private List<IngredientLine> deriveByProducts(RecipeCatalogService.CatalogRecipe recipe, int servings) {
+  private List<ByProductLine> deriveByProducts(RecipeCatalogService.CatalogRecipe recipe, int servings) {
     if (recipe.byProducts() == null || recipe.byProducts().isEmpty()) return List.of();
-    List<IngredientLine> result = new ArrayList<>();
+    List<ByProductLine> result = new ArrayList<>();
     for (var rule : recipe.byProducts()) {
       if (rule.sourceIngredientName() == null || rule.byProductName() == null
           || rule.ruleVersion() == null || rule.ruleVersion().isBlank())
@@ -236,7 +238,8 @@ public class ZeroWasteService {
           servings, recipe.defaultServings());
       var derived = ZeroWasteByProductCalculator.derive(scaledSource.quantity(),
           rule.numerator(), rule.denominator(), scaledSource.certainty());
-      result.add(new IngredientLine(rule.byProductName(), derived.quantity(), outputUnit, derived.certainty()));
+      result.add(new ByProductLine(rule.byProductName(), derived.quantity(), outputUnit,
+          derived.certainty(), rule.ruleVersion()));
     }
     return List.copyOf(result);
   }
@@ -259,14 +262,25 @@ public class ZeroWasteService {
     if (journalId != null) {
       var entry = journal.findByIdAndUserId(journalId, userId)
           .orElseThrow(() -> notFound("Journal entry not found"));
+      var journalSession = sessions.findById(entry.getCookingSessionId())
+          .filter(s -> s.getUserId().equals(userId))
+          .orElseThrow(() -> notFound("Cooking session not found"));
       if (sessionId != null && !sessionId.equals(entry.getCookingSessionId()))
         throw bad("Journal entry and cooking session do not match.");
       if (recipeId != null && entry.getRecipeId() != null && !recipeId.equals(entry.getRecipeId()))
         throw bad("Journal entry and recipe do not match.");
+      if (recipeId != null && journalSession.getRecipeId() != null
+          && !recipeId.equals(journalSession.getRecipeId()))
+        throw bad("Journal session and recipe do not match.");
       if (catalogId != null && entry.getRecipeId() != null) {
         Recipe journalRecipe = ownedRecipe(entry.getRecipeId(), userId);
         if (!catalogId.equals(journalRecipe.getCatalogId()))
           throw bad("Journal entry and catalog recipe do not match.");
+      }
+      if (catalogId != null && journalSession.getRecipeId() != null) {
+        Recipe journalSessionRecipe = ownedRecipe(journalSession.getRecipeId(), userId);
+        if (!catalogId.equals(journalSessionRecipe.getCatalogId()))
+          throw bad("Journal session and catalog recipe do not match.");
       }
     }
   }
