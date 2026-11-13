@@ -48,6 +48,8 @@ public class MealPlan {
     this.updatedAt = this.createdAt;
   }
 
+  public void touch() { this.updatedAt = Instant.now(); }
+
   public UUID getId() { return id; }
   public UUID getUserId() { return userId; }
   public LocalDate getWeekStart() { return weekStart; }
