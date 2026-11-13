@@ -263,6 +263,14 @@ public class MealPlanService {
         || request.mealSlots().stream().anyMatch(slot -> slot == null || !ALLOWED_SLOTS.contains(slot.toUpperCase()))) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Geçersiz öğün türü.");
     }
+    Set<String> supportedRestrictions = Set.of(
+        "vegan", "vegetarian", "vejetaryen", "glutensiz", "gluten free", "laktozsuz", "lactose free");
+    if (request.dietaryRestrictions() != null && request.dietaryRestrictions().stream()
+        .filter(Objects::nonNull).map(MealPlanService::normalize)
+        .anyMatch(value -> !supportedRestrictions.contains(value))) {
+      throw new ApiException(HttpStatus.BAD_REQUEST,
+          "Şu an yalnızca vegan, vejetaryen, glutensiz ve laktozsuz kısıtları doğrulanabiliyor.");
+    }
     if (request.currency() != null && !request.currency().matches("[A-Z]{3}")) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Para birimi ISO 4217 formatında olmalıdır.");
     }
