@@ -203,7 +203,7 @@ export default function MealPlannerScreen() {
           </View>
           <Field value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="Haftalık bütçe (TL, isteğe bağlı)" />
           <Field value={goal} onChangeText={setGoal} placeholder="Hedef (örn. pratik ve dengeli öğünler)" />
-          <Field value={restrictions} onChangeText={setRestrictions} placeholder="Beslenme kısıtları (virgülle ayır)" />
+          <Field value={restrictions} onChangeText={setRestrictions} placeholder="Vegan, vejetaryen, glutensiz, laktozsuz" />
           <Text style={[s.recipeMeta, { marginTop: 12 }]}>Planlanacak öğünler</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
             {Object.entries(slotLabels).map(([slot, label]) => {
