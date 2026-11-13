@@ -1,7 +1,7 @@
 # Smart Pantry (Akıllı Kiler) — Implementation Specification
 
 **Task:** KitchenAI V1 / ID 6  
-**Status:** Implementation in progress  
+**Status:** PR Opened — pending review and CI verification  
 **Branch:** `feature/smart-pantry`  
 **Source:** Notion task — Smart Pantry (Akıllı Kiler)
 
