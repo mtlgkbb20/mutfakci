@@ -89,6 +89,8 @@ public class MealPlanService {
         restrictions, plan.getGoal(), plan.getNotes());
     List<MealPlanEntry> current = entries.findByPlanIdOrderByMealDateAscMealSlotAsc(planId);
     entries.deleteAllInBatch(current);
+    plan.touch();
+    plans.save(plan);
     return populateEntries(plan, request, slots, candidates);
   }
 
@@ -151,6 +153,8 @@ public class MealPlanService {
     }
     entry.replace(replacement.id(), request.servings(), request.note());
     entries.save(entry);
+    plan.touch();
+    plans.save(plan);
     return view(plan, entries.findByPlanIdOrderByMealDateAscMealSlotAsc(planId), List.of());
   }
 
