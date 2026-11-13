@@ -32,8 +32,9 @@ public class MealPlanController {
 
   @GetMapping("/{planId}/recipes")
   public List<com.kitchenai.mealplan.MealPlanContracts.RecipeSummary> candidates(
-      @PathVariable UUID planId, @AuthenticationPrincipal UUID userId) {
-    return service.candidates(planId, userId);
+      @PathVariable UUID planId, @RequestParam String mealSlot,
+      @AuthenticationPrincipal UUID userId) {
+    return service.candidates(planId, userId, mealSlot);
   }
 
   @GetMapping
