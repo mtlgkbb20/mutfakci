@@ -3,7 +3,7 @@
 **Notion task:** [Zero Waste Cooking — ID 12](https://app.notion.com/p/413d941988aa816e8840e7c9b190bbc9)  
 **GitHub issue:** [#21](https://github.com/mtlgkbb20/mutfakci/issues/21)  
 **Branch:** feature/KAI-011-zero-waste-cooking  
-**Base:** feature/KAI-010-cooking-journal (PR #20; V15)  
+**Base:** main (PRs #17, #18, and #20 merged; V13–V15)  
 **Next migration:** V16
 
 ## 1. Goal
@@ -14,7 +14,7 @@ Zero Waste is an optimization objective shared by recipes and planning, not an A
 
 ## 2. Existing codebase findings
 
-- RecipeCatalogService loads structured catalog recipes with ingredient name, quantity, unit, preparation, servings, and steps. It currently has no by-product field.
+- RecipeCatalogService loads structured catalog recipes with ingredient name, quantity, unit, preparation, servings, and steps. It now accepts optional, versioned `byProducts` rules; the current 9 catalog recipes still define none.
 - User-created recipes store ingredients as JSON in Recipe; these payloads must be parsed and validated before use.
 - Smart Pantry owns the authoritative stock quantity in pantry_item; movements and idempotency are recorded in pantry_movement and pantry_operation.
 - Pantry matching is conservative: normalized exact ingredient names and supported unit conversions. It does not infer synonyms or density.
@@ -72,7 +72,7 @@ Use a single transaction and an idempotency key for each state-changing operatio
 
 ## 4. Domain and persistence proposal
 
-Add IngredientRemainder and an operation/audit record in V16.
+Implemented in V16: `ingredient_remainder` and `ingredient_remainder_operation`.
 
 Suggested remainder fields:
 - id, user_id;
@@ -81,7 +81,7 @@ Suggested remainder fields:
 - certainty, status, optional use_by_date;
 - version, created_at, updated_at.
 
-Suggested states: AVAILABLE, CONSUMED, TRANSFERRED, DISCARDED. Partial consumption should retain an AVAILABLE remainder with the reduced quantity; zero quantity transitions to CONSUMED.
+Implemented states: AVAILABLE, CONSUMED, TRANSFERRED, DISCARDED. Partial consumption retains an AVAILABLE remainder with reduced quantity; zero quantity transitions to CONSUMED.
 
 The exact table layout should preserve an audit trail for every state/quantity change and enforce idempotency with a unique (user, operation key) constraint. Do not mutate V13–V15.
 
@@ -140,7 +140,7 @@ Manual acceptance cases: test/manuel/cases/zero-waste-cooking.md.
 - Cooking Journal PR #20 (V15): source cooking session and immutable recipe snapshot.
 - Smart Grocery Assistant (Notion ID 11): later integration; not a blocking dependency for this first slice.
 
-This branch is based on feature/KAI-010-cooking-journal so V16 follows V13–V15. Retarget to main only after the dependency chain is merged.
+This branch is based on `main`; V13–V15 are already merged. V16 is the next additive migration.
 
 ## 10. Definition of Done
 
@@ -165,3 +165,33 @@ The implementation must include a small, curated and reviewed catalog expansion:
 - tests proving that preview quantities scale by servings and that suggestion matching uses only the verified egg-white ingredient.
 
 Do not add recipes with guessed quantities or fabricate provenance. If a suitable verified recipe cannot be sourced in this task, keep the rule-engine/API behavior testable with explicit fixtures and report the catalog content as blocked rather than presenting an invented suggestion.
+
+
+## 12. Implementation status — 2026-11-13
+
+### Implemented on `feature/KAI-011-zero-waste-cooking`
+
+- V16 creates `ingredient_remainder` and `ingredient_remainder_operation`, including owner/history indexes, operation-key uniqueness, quantity/status consistency, and references to recipe/session/journal records.
+- `IngredientRemainder` supports AVAILABLE, CONSUMED, TRANSFERRED, and DISCARDED. Partial consumption reduces the amount; full consumption stores zero and transitions to CONSUMED.
+- `ZeroWasteQuantityRules` scales with BigDecimal to 3 decimal places (HALF_UP), labels rounding as ESTIMATED, and supports only explicit mass/volume conversions plus equivalent count units. No mass-volume density inference.
+- Recipe catalog metadata now supports optional `byProducts` entries with source ingredient/unit, output ingredient/unit, numerator/denominator, and a required rule version. The calculator propagates uncertainty.
+- Authenticated API routes are implemented for preview, confirm, list/detail, correction, partial/full consume, transfer-to-pantry, dismiss, and catalog suggestions. Owner IDs are taken from the JWT principal.
+- Pantry transfer uses the existing Smart Pantry item/movement/operation model and executes in the same Spring transaction as the remainder transition. The transfer operation key is namespaced to avoid collisions.
+- Suggestions are currently exact normalized ingredient matches against curated catalog recipes and require enough remainder after serving scaling. Advanced scoring for pantry coverage and candidate-generated by-products remains pending.
+
+### Automated verification on current implementation checkpoint
+
+- Commit: `09172a35459df867a88abf7da4fabbbdb9f7ff30`
+- Backend: `mvn --batch-mode test` — 57 tests, 0 failures, 0 errors.
+- Frontend: build passed.
+- Mobile: TypeScript check passed.
+- CI run: [434271?](https://github.com/mtlgkbb20/mutfakci/actions) — inspect the commit checks for the exact job records.
+- Unit coverage added for serving scaling, safe unit conversion, by-product ratio/uncertainty, preview, user confirmation, partial/full consumption, transfer invocation, and cross-user read isolation.
+
+### Remaining work
+
+- Curate and review real catalog recipes with source/provenance; do not fabricate egg-white recipes or quantities. Until then, current catalog previews correctly return no by-products.
+- Add integration/controller tests for database constraints, JWT ownership, idempotency under concurrent requests, and transaction rollback during Pantry transfer.
+- Improve suggestion ranking to include pantry coverage and each candidate's by-products.
+- Implement mobile preview/confirm/remainder/suggestion/transfer flows and automated UI/state tests.
+- Execute the manual acceptance cases. All manual cases remain NOT RUN until a person exercises them.
