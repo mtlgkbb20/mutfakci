@@ -29,3 +29,10 @@ CREATE TABLE pantry_movement (
 );
 CREATE INDEX idx_pantry_movement_item ON pantry_movement(user_id, pantry_item_id, created_at DESC);
 CREATE UNIQUE INDEX uq_pantry_movement_operation_item ON pantry_movement(user_id, operation_key, pantry_item_id) WHERE operation_key IS NOT NULL;
+CREATE TABLE pantry_operation (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES app_user(id),
+  operation_key VARCHAR(100) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  CONSTRAINT uq_pantry_operation_user_key UNIQUE(user_id, operation_key)
+);
