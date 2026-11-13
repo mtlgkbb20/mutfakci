@@ -71,6 +71,29 @@ public class MealPlanService {
         request.currency() == null ? "TRY" : request.currency(), restrictionsJson,
         request.goal(), request.notes()));
 
+    return populateEntries(plan, request, slots, candidates);
+  }
+
+  @Transactional
+  public PlanView regenerate(UUID planId, UUID userId) {
+    MealPlan plan = ownedPlan(planId, userId);
+    List<String> slots = readStringList(plan.getMealSlots());
+    List<String> restrictions = readRestrictions(plan);
+    List<CatalogRecipe> candidates = eligibleRecipes(plan.getMaxPreparationMinutes(), restrictions);
+    if (candidates.isEmpty()) {
+      throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+          "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
+    }
+    CreateRequest request = new CreateRequest(plan.getWeekStart(), plan.getServings(), slots,
+        plan.getMaxPreparationMinutes(), plan.getWeeklyBudget(), plan.getCurrency(),
+        restrictions, plan.getGoal(), plan.getNotes());
+    List<MealPlanEntry> current = entries.findByPlanIdOrderByMealDateAscMealSlotAsc(planId);
+    entries.deleteAllInBatch(current);
+    return populateEntries(plan, request, slots, candidates);
+  }
+
+  private PlanView populateEntries(MealPlan plan, CreateRequest request, List<String> slots,
+      List<CatalogRecipe> candidates) {
     Optional<Map<String, String>> aiSelections = aiSelector.select(request, candidates, slots);
     Map<String, String> selections = aiSelections.filter(result -> validSelection(result, candidates, slots))
         .orElseGet(() -> deterministicSelection(candidates, slots));
