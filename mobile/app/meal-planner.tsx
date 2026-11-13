@@ -231,6 +231,19 @@ export default function MealPlannerScreen() {
             {plan.warnings?.map((warning, index) => (
               <Text key={index} style={[s.recipeMeta, { marginBottom: 8, color: colors.orange }]}>{warning}</Text>
             ))}
+            <Button secondary onPress={async () => {
+              setLoading(true);
+              try {
+                const regenerated = await api("/meal-plans/" + plan.id + "/regenerate", { method: "POST", body: "{}" });
+                setPlan(regenerated);
+                setShopping([]);
+                setChangingEntry(null);
+              } catch (error: any) {
+                Alert.alert("Plan yenilenemedi", error.message);
+              } finally {
+                setLoading(false);
+              }
+            }} loading={loading}>Haftalık planı yeniden oluştur</Button>
             {groupedEntries.map(([date, dayEntries]) => (
               <View key={date} style={s.card}>
                 <Text style={s.eyebrow}>{formatDate(date)}</Text>
