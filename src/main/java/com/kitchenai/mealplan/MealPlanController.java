@@ -25,6 +25,12 @@ public class MealPlanController {
     return service.create(request, userId);
   }
 
+  @GetMapping("/recipes")
+  public List<com.kitchenai.mealplan.MealPlanContracts.RecipeSummary> candidates(
+      @RequestParam(defaultValue = "60") int maxPreparationMinutes) {
+    return service.candidates(Math.max(1, Math.min(1440, maxPreparationMinutes)));
+  }
+
   @GetMapping
   public List<PlanView> list(@AuthenticationPrincipal UUID userId) {
     return service.list(userId);
