@@ -153,3 +153,15 @@ This branch is based on feature/KAI-010-cooking-journal so V16 follows V13–V15
 - [ ] Manual acceptance plan executed and evidence recorded.
 - [ ] CI passes on the final commit.
 - [ ] Notion and GitHub tracking links/statuses updated.
+
+
+## 11. Catalog gap identified during implementation analysis
+
+The current catalog contains 9 recipes. It has no tiramisu, meringue, pavlova, or recipe whose ingredient list uses egg whites; it also has no recipe by-product metadata. Therefore the yolk-to-white example cannot be demonstrated end-to-end with the current catalog alone.
+
+The implementation must include a small, curated and reviewed catalog expansion:
+- a recipe with an explicit egg-yolk ingredient and a declared 1:1 egg-white by-product rule;
+- at least one verified egg-white recipe (for example, meringue) with exact ingredient quantities, servings, steps, and source/provenance;
+- tests proving that preview quantities scale by servings and that suggestion matching uses only the verified egg-white ingredient.
+
+Do not add recipes with guessed quantities or fabricate provenance. If a suitable verified recipe cannot be sourced in this task, keep the rule-engine/API behavior testable with explicit fixtures and report the catalog content as blocked rather than presenting an invented suggestion.
