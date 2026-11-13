@@ -128,8 +128,14 @@ class MealPlanServiceTest {
         60, null, "TRY", "[]", null, null);
     MealPlanEntry oldEntry = new MealPlanEntry(plan.getId(), plan.getWeekStart(), "LUNCH", "carrot-cake", 2, "old");
     when(plans.findByIdAndUserId(plan.getId(), userId)).thenReturn(Optional.of(plan));
-    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId())).thenReturn(List.of(oldEntry), List.of());
-    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> inv.getArgument(0));
+    List<MealPlanEntry> generated = new ArrayList<>();
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId()))
+        .thenAnswer(inv -> generated.isEmpty() ? List.of(oldEntry) : List.copyOf(generated));
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> {
+      MealPlanEntry saved = inv.getArgument(0);
+      generated.add(saved);
+      return saved;
+    });
 
     var result = service.regenerate(plan.getId(), userId);
 
