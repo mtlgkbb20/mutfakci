@@ -1,0 +1,13 @@
+TARİF: Etli Kış Türlüsü
+KATEGORİ: Sulu Yemekler
+MUTFAK: Türk Mutfağı
+KAYNAK: https://www.ktb.gov.tr/EN-99107/mixed-winter-vegetables---meat-stew.html
+
+MALZEMELER (kaynakta görülenler):
+Kaynak sayfasındaki malzemeler esas alınmalıdır; bu dosyada miktar veya ek malzeme türetilmemiştir.
+
+KAYNAĞA DAYALI YÖNTEM ÖZETİ:
+Mevsim kış sebzeleri ve etle hazırlanan tencere yemeği. Kaynaktaki sebze seçimi ve pişirme sırası korunmalıdır.
+
+DOĞRULUK NOTU:
+Bu TXT, kaynak bağlantısı ve kaynakta doğrulanabilen bilgilerin kısa kayıt özetidir. "Malzemeler için orijinal kaynak sayfasına bakılmalıdır" ifadesi bulunan tariflerde malzeme listesi burada tamamlanmamıştır; miktar veya adım uydurulmamıştır. Kaynağa atıf, yeniden yayınlama lisansı anlamına gelmez. Herkese açık/ticari kullanımdan önce yayıncının kullanım koşulları ve gerekli izinler incelenmelidir.
