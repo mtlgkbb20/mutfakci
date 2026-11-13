@@ -44,7 +44,8 @@ public class ZeroWasteService {
       String certainty, String status, String sourceCatalogRecipeId, UUID sourceRecipeId,
       UUID cookingSessionId, UUID journalEntryId, LocalDate useByDate, long version) {}
   public record Suggestion(String recipeId, String title, int servings, BigDecimal requiredQuantity,
-      String unit, String quantityCertainty) {}
+      String unit, String quantityCertainty, int pantryCoveredIngredientCount,
+      int missingIngredientCount, int newByProductCount) {}
 
   public Preview preview(String catalogRecipeId, UUID recipeId, int servings, UUID userId) {
     if (servings < 1 || servings > 30) throw bad("Servis sayısı 1-30 arasında olmalı.");
@@ -168,23 +169,51 @@ public class ZeroWasteService {
     IngredientRemainder r = owned(id, userId);
     if (!"AVAILABLE".equals(r.getStatus())) throw bad("Yalnızca kullanılabilir artan malzemeler için öneri alınabilir.");
     List<Suggestion> result = new ArrayList<>();
+    List<PantryRemainderTransferService.PantryStockLine> stock = pantryTransfer.activeStock(userId);
     for (var recipe : catalog.all()) {
+      int servings = requestedServings == null ? recipe.defaultServings() : requestedServings;
+      if (servings < 1 || servings > 30) throw bad("Servis sayısı 1-30 arasında olmalı.");
+      RecipeCatalogService.Ingredient target = recipe.ingredients().stream()
+          .filter(i -> r.getNormalizedName().equals(ZeroWasteQuantityRules.normalize(i.name())))
+          .findFirst().orElse(null);
+      if (target == null) continue;
+      String targetUnit = ZeroWasteQuantityRules.validateUnit(target.unit());
+      if (!ZeroWasteQuantityRules.compatible(r.getUnit(), targetUnit)) continue;
+      var scaledTarget = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(target.quantity()),
+          servings, recipe.defaultServings());
+      BigDecimal required;
+      try { required = ZeroWasteQuantityRules.convert(scaledTarget.quantity(), targetUnit, r.getUnit()); }
+      catch (ApiException ignored) { continue; }
+      if (required.compareTo(r.getQuantity()) > 0) continue;
+
+      int covered = 0;
+      int missing = 0;
       for (var ingredient : recipe.ingredients()) {
-        if (!r.getNormalizedName().equals(ZeroWasteQuantityRules.normalize(ingredient.name()))) continue;
-        int servings = requestedServings == null ? recipe.defaultServings() : requestedServings;
-        if (servings < 1 || servings > 30) throw bad("Servis sayısı 1-30 arasında olmalı.");
-        String unit = ZeroWasteQuantityRules.validateUnit(ingredient.unit());
-        if (!ZeroWasteQuantityRules.compatible(r.getUnit(), unit)) continue;
-        var scaled = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(ingredient.quantity()), servings, recipe.defaultServings());
-        BigDecimal required;
-        try { required = ZeroWasteQuantityRules.convert(scaled.quantity(), unit, r.getUnit()); }
-        catch (ApiException ignored) { continue; }
-        if (required.compareTo(r.getQuantity()) <= 0)
-          result.add(new Suggestion(recipe.id(), recipe.title(), servings, required, r.getUnit(), scaled.certainty()));
-        break;
+        if (ZeroWasteQuantityRules.normalize(ingredient.name()).equals(r.getNormalizedName())) continue;
+        String ingredientUnit = ZeroWasteQuantityRules.validateUnit(ingredient.unit());
+        var needed = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(ingredient.quantity()),
+            servings, recipe.defaultServings());
+        boolean available = stock.stream().anyMatch(item -> {
+          if (!item.normalizedName().equals(ZeroWasteQuantityRules.normalize(ingredient.name()))
+              || !ZeroWasteQuantityRules.compatible(item.unit(), ingredientUnit)) return false;
+          try {
+            return ZeroWasteQuantityRules.convert(item.quantity(), item.unit(), ingredientUnit)
+                .compareTo(needed.quantity()) >= 0;
+          } catch (ApiException ignored) {
+            return false;
+          }
+        });
+        if (available) covered++; else missing++;
       }
+      int newByProducts = deriveByProducts(recipe, servings).size();
+      result.add(new Suggestion(recipe.id(), recipe.title(), servings, required, r.getUnit(),
+          scaledTarget.certainty(), covered, missing, newByProducts));
     }
-    result.sort(Comparator.comparing(Suggestion::requiredQuantity).reversed().thenComparing(Suggestion::title));
+    result.sort(Comparator.comparing(Suggestion::requiredQuantity).reversed()
+        .thenComparing(Comparator.comparingInt(Suggestion::pantryCoveredIngredientCount).reversed())
+        .thenComparingInt(Suggestion::missingIngredientCount)
+        .thenComparingInt(Suggestion::newByProductCount)
+        .thenComparing(Suggestion::title));
     return List.copyOf(result);
   }
 

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PantryRemainderTransferService {
+  public record PantryStockLine(String normalizedName, BigDecimal quantity, String unit) {}
+
   private final PantryItemRepository items;
   private final PantryMovementRepository movements;
   private final PantryOperationRepository operations;
@@ -18,6 +20,13 @@ public class PantryRemainderTransferService {
   public PantryRemainderTransferService(PantryItemRepository items,
       PantryMovementRepository movements, PantryOperationRepository operations) {
     this.items = items; this.movements = movements; this.operations = operations;
+  }
+
+  public java.util.List<PantryStockLine> activeStock(UUID userId) {
+    return items.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId).stream()
+        .filter(item -> item.getExpiryDate() == null || !item.getExpiryDate().isBefore(java.time.LocalDate.now()))
+        .map(item -> new PantryStockLine(item.getNormalizedName(), item.getQuantity(), item.getUnit()))
+        .toList();
   }
 
   @Transactional

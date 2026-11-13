@@ -10,6 +10,7 @@ import com.kitchenai.cooking.CookingSessionRepository;
 import com.kitchenai.cookingjournal.CookingJournalEntry;
 import com.kitchenai.cookingjournal.CookingJournalRepository;
 import com.kitchenai.pantry.PantryRemainderTransferService;
+import com.kitchenai.pantry.PantryRemainderTransferService.PantryStockLine;
 import com.kitchenai.recipe.RecipeCatalogService;
 import com.kitchenai.recipe.RecipeCatalogService.ByProductRule;
 import com.kitchenai.recipe.RecipeCatalogService.CatalogRecipe;
@@ -119,6 +120,34 @@ class ZeroWasteServiceTest {
     assertEquals("TRANSFERRED", result.status());
     verify(pantryTransfer).transfer(userId, "Yumurta akı", "yumurta aki",
         new BigDecimal("4.000"), "adet", null, "zw:transfer-1");
+  }
+
+  @Test
+  void suggestionsPreferPantryCoverageAfterEqualRemainderConsumption() {
+    CatalogRecipe flourRecipe = new CatalogRecipe(1, "egg-white-flour", "Yumurta Akı ve Un",
+        List.of(), "tr-TR", "DESSERT", List.of(), 2, 25,
+        List.of(new Ingredient("Yumurta akı", 4, "adet", ""),
+            new Ingredient("Un", 100, "g", "")), List.of(), "Flour candidate",
+        List.of(new ByProductRule("Un", "g", "Un artığı", "g", 1, 10, "flour-v1")));
+    CatalogRecipe sugarRecipe = new CatalogRecipe(1, "egg-white-sugar", "Yumurta Akı ve Şeker",
+        List.of(), "tr-TR", "DESSERT", List.of(), 2, 25,
+        List.of(new Ingredient("Yumurta akı", 4, "adet", ""),
+            new Ingredient("Şeker", 100, "g", "")), List.of(), "Sugar candidate", List.of());
+    when(catalog.all()).thenReturn(List.of(sugarRecipe, flourRecipe));
+    when(pantryTransfer.activeStock(userId)).thenReturn(
+        List.of(new PantryStockLine("un", new BigDecimal("100.000"), "g")));
+    IngredientRemainder remainder = new IngredientRemainder(userId, null, null, null, null,
+        "Yumurta akı", "yumurta aki", new BigDecimal("4.000"), "adet", "USER_CONFIRMED", null);
+    when(remainders.findByIdAndUserId(remainder.getId(), userId)).thenReturn(Optional.of(remainder));
+
+    var suggestions = service.suggestions(userId, remainder.getId(), 2);
+
+    assertEquals("egg-white-flour", suggestions.get(0).recipeId());
+    assertEquals(1, suggestions.get(0).pantryCoveredIngredientCount());
+    assertEquals(0, suggestions.get(0).missingIngredientCount());
+    assertEquals(1, suggestions.get(0).newByProductCount());
+    assertEquals("egg-white-sugar", suggestions.get(1).recipeId());
+    assertEquals(1, suggestions.get(1).missingIngredientCount());
   }
 
   @Test
