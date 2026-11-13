@@ -61,7 +61,7 @@ public class ZeroWasteService {
         var scaled = ZeroWasteQuantityRules.scale(BigDecimal.valueOf(i.quantity()), servings, recipe.defaultServings());
         return new IngredientLine(i.name(), scaled.quantity(), ZeroWasteQuantityRules.validateUnit(i.unit()), scaled.certainty());
       }).toList();
-      List<IngredientLine> byProducts = deriveByProducts(recipe, servings);
+      List<ByProductLine> byProducts = deriveByProducts(recipe, servings);
       String note = byProducts.isEmpty()
           ? "Bu tarif için henüz doğrulanmış yan ürün kuralı tanımlanmamış."
           : "Yan ürünler sürümlenmiş tarif kurallarından hesaplandı; pişirme sonrası kullanıcı onayı gerekir.";
