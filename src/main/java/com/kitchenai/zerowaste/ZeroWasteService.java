@@ -221,9 +221,25 @@ public class ZeroWasteService {
           .orElseThrow(() -> notFound("Cooking session not found"));
       if (recipeId != null && session.getRecipeId() != null && !recipeId.equals(session.getRecipeId()))
         throw bad("Cooking session and recipe do not match.");
+      if (catalogId != null && session.getRecipeId() != null) {
+        Recipe sessionRecipe = ownedRecipe(session.getRecipeId(), userId);
+        if (!catalogId.equals(sessionRecipe.getCatalogId()))
+          throw bad("Cooking session and catalog recipe do not match.");
+      }
     }
-    if (journalId != null) journal.findByIdAndUserId(journalId, userId)
-        .orElseThrow(() -> notFound("Journal entry not found"));
+    if (journalId != null) {
+      var entry = journal.findByIdAndUserId(journalId, userId)
+          .orElseThrow(() -> notFound("Journal entry not found"));
+      if (sessionId != null && !sessionId.equals(entry.getCookingSessionId()))
+        throw bad("Journal entry and cooking session do not match.");
+      if (recipeId != null && entry.getRecipeId() != null && !recipeId.equals(entry.getRecipeId()))
+        throw bad("Journal entry and recipe do not match.");
+      if (catalogId != null && entry.getRecipeId() != null) {
+        Recipe journalRecipe = ownedRecipe(entry.getRecipeId(), userId);
+        if (!catalogId.equals(journalRecipe.getCatalogId()))
+          throw bad("Journal entry and catalog recipe do not match.");
+      }
+    }
   }
   private Recipe ownedRecipe(UUID id, UUID userId) {
     return recipes.findById(id).filter(r -> r.getUserId() == null || r.getUserId().equals(userId))

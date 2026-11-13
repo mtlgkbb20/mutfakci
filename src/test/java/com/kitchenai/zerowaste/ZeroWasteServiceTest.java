@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
+import com.kitchenai.cookingjournal.CookingJournalEntry;
 import com.kitchenai.cookingjournal.CookingJournalRepository;
 import com.kitchenai.pantry.PantryRemainderTransferService;
 import com.kitchenai.recipe.RecipeCatalogService;
@@ -117,6 +119,37 @@ class ZeroWasteServiceTest {
     assertEquals("TRANSFERRED", result.status());
     verify(pantryTransfer).transfer(userId, "Yumurta akı", "yumurta aki",
         new BigDecimal("4.000"), "adet", null, "zw:transfer-1");
+  }
+
+  @Test
+  void rejectsJournalEntryThatBelongsToAnotherCookingSession() {
+    CookingSession session = new CookingSession(userId, null, "RECIPE", null);
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), null,
+        "{}", null, null, null, null);
+    when(sessions.findById(session.getId())).thenReturn(Optional.of(session));
+    when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
+
+    assertThrows(RuntimeException.class, () -> service.confirm(userId, "Yumurta akı",
+        new BigDecimal("4.000"), "adet", null, null, session.getId(), entry.getId(),
+        null, "mismatched-source"));
+    verify(remainders, never()).save(any(IngredientRemainder.class));
+  }
+
+  @Test
+  void repeatedIdempotencyKeyReturnsExistingRemainderWithoutConsumingAgain() {
+    IngredientRemainder remainder = new IngredientRemainder(userId, null, null, null, null,
+        "Yumurta akı", "yumurta aki", new BigDecimal("4.000"), "adet", "USER_CONFIRMED", null);
+    IngredientRemainderOperation operation = new IngredientRemainderOperation(userId,
+        remainder.getId(), "replay-1", "CONSUME", new BigDecimal("5.000"), new BigDecimal("4.000"));
+    when(operations.existsByUserIdAndOperationKey(userId, "replay-1")).thenReturn(true);
+    when(operations.findByUserIdAndOperationKey(userId, "replay-1")).thenReturn(Optional.of(operation));
+    when(remainders.findByIdAndUserId(remainder.getId(), userId)).thenReturn(Optional.of(remainder));
+
+    var result = service.consume(userId, remainder.getId(), new BigDecimal("1.000"), "replay-1");
+
+    assertEquals(new BigDecimal("4.000"), result.quantity());
+    assertEquals("AVAILABLE", result.status());
+    verify(remainders, never()).save(any(IngredientRemainder.class));
   }
 
   @Test
