@@ -236,7 +236,7 @@ class MealPlanServiceTest {
     var result = service.create(request(List.of("LUNCH")), userId);
 
     assertTrue(result.warnings().stream().anyMatch(w -> w.startsWith("AI_SEÇİMİ_KULLANILAMADI")));
-    assertTrue(result.entries().stream().map(MealPlanEntryView -> MealPlanEntryView.recipeCatalogId()).distinct().count() > 1);
+    assertTrue(result.entries().stream().map(entry -> entry.recipeCatalogId()).distinct().count() > 1);
   }
 
   @Test
