@@ -135,6 +135,15 @@ export default function Dashboard() {
           </Pressable>
         </View>
 
+        <View style={[s.card, { padding: 18 }]}>
+          <Text style={s.eyebrow}>HAFTALIK YEMEK PLANI</Text>
+          <Text style={s.heading}>Bu haftanın öğünlerini planla</Text>
+          <Text style={[s.body, { marginTop: 6 }]}>
+            Kilerindeki malzemeleri değerlendir, eksiklerini tek alışveriş listesinde gör.
+          </Text>
+          <Button onPress={() => router.push("/meal-planner")}>Haftalık planı aç</Button>
+        </View>
+
         {expanded === "recipe" && (
           <View style={s.card}>
             <Text style={s.eyebrow}>YENİ BİR ŞEY YAP</Text>
