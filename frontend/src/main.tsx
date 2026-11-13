@@ -27,6 +27,20 @@ type Recipe = {
   ingredients: string;
   stages: string;
   sourceType?: string;
+  sourceName?: string;
+  sourceAuthor?: string;
+  sourceUrl?: string;
+  sourcePublishedAt?: string;
+};
+type FeaturedRecipe = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  sourceName: string;
+  sourceAuthor: string;
+  sourceUrl: string;
+  sourcePublishedAt: string;
 };
 
 const GENERIC_ERROR =
@@ -231,6 +245,14 @@ function App() {
   const [image, setImage] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<any>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [featured, setFeatured] = useState<FeaturedRecipe[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get("/featured-recipes")
+      .then(({ data }) => setFeatured(data))
+      .catch((error) => console.error("[KitchenAI Web] featured recipes failed", error));
+  }, [user]);
 
   if (!localStorage.getItem("token") || !user) {
     return <Auth onLogin={setUser} />;
@@ -253,6 +275,28 @@ function App() {
     }
   };
 
+
+  const openFeatured = async (item: FeaturedRecipe) => {
+    setBusy(true);
+    try {
+      const { data } = await api.post("/recipes/generate", { desiredFood: item.title });
+      setRecipe({
+        ...data,
+        sourceName: item.sourceName,
+        sourceAuthor: item.sourceAuthor,
+        sourceUrl: item.sourceUrl,
+        sourcePublishedAt: item.sourcePublishedAt,
+        servings: 0,
+        preparationTime: 0,
+        cookingTime: 0,
+      });
+    } catch (error) {
+      console.error("[KitchenAI Web] featured recipe failed", error);
+      window.alert(GENERIC_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const recover = async () => {
     if (!image || !recoveryRecipeName.trim() || !recoveryProblem.trim()) return;
@@ -366,22 +410,50 @@ function App() {
             )}
           </section>
         </div>
+        <section className="card recipe">
+          <p className="eyebrow">KAYNAKLI SABİT TARİFLER</p>
+          <h2>Sabit Tarifler</h2>
+          <p>Yayımlanmış tarifler. Her tarifin orijinal kaynağı kayıtlıdır.</p>
+          <div className="grid">
+            {featured.map((item) => (
+              <article className="card action" key={item.id}>
+                <p className="eyebrow">{item.category.replaceAll("_", " ")}</p>
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
+                <small>Kaynak: {item.sourceName} · {item.sourceAuthor}</small>
+                <button onClick={() => openFeatured(item)} disabled={busy}>
+                  {busy ? "Açılıyor..." : "Tarifi yap"}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
         {recipe && (
           <section className="card recipe">
             <p className="eyebrow">
-              ÖNERİLEN TARİF · {recipe.sourceType || "UNKNOWN"}
+              {recipe.sourceUrl ? "SABİT TARİF" : "ÖNERİLEN TARİF"} · {recipe.sourceType || "UNKNOWN"}
             </p>
             <h2>{recipe.title}</h2>
             <p>{recipe.description}</p>
-            <p>
-              {recipe.preparationTime} dk hazırlık · {recipe.cookingTime} dk
-              pişirme · {recipe.servings} porsiyon
-            </p>
+            {(recipe.preparationTime > 0 || recipe.cookingTime > 0 || recipe.servings > 0) && (
+              <p>
+                {recipe.preparationTime > 0 ? `${recipe.preparationTime} dk hazırlık` : ""}
+                {recipe.cookingTime > 0 ? ` · ${recipe.cookingTime} dk pişirme` : ""}
+                {recipe.servings > 0 ? ` · ${recipe.servings} porsiyon` : ""}
+              </p>
+            )}
+            {recipe.sourceUrl && (
+              <p>
+                Kaynak: {recipe.sourceName} · {recipe.sourceAuthor}
+                {recipe.sourcePublishedAt ? ` · ${recipe.sourcePublishedAt}` : ""}
+                {" · "}<a href={recipe.sourceUrl} target="_blank" rel="noreferrer">Orijinal tarifi aç</a>
+              </p>
+            )}
             <h3>Malzemeler</h3>
             <ul>
               {JSON.parse(recipe.ingredients).map((item: any, index: number) => (
                 <li key={`ingredient-${index}`}>
-                  {item.quantity} {item.unit} {item.name}
+                  {item.quantity > 0 ? `${item.quantity} ${item.unit}` : item.unit} {item.name}
                 </li>
               ))}
             </ul>
