@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
-const baseURL =
+export const apiBaseURL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8080/api/v1";
@@ -16,7 +16,7 @@ export async function api(path: string, options: RequestInit = {}, timeoutMs = 1
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const url = `${baseURL}${path}`;
+  const url = `${apiBaseURL}${path}`;
   console.log("[KitchenAI API] request", options.method || "GET", url);
   try {
     const response = await fetch(url, {

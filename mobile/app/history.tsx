@@ -92,7 +92,14 @@ export default function History() {
   return (
     <AppShell>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        <Header title="Geçmişim" subtitle="Tariflerin ve kurtarma denemelerin" />
+        <Header title="Geçmişim" subtitle="Tariflerin ve pişirme denemelerin" />
+
+        <Pressable style={s.card} onPress={() => router.push("/cooking-journal")}>
+          <Text style={s.eyebrow}>PİŞİRME GÜNLÜĞÜ</Text>
+          <Text style={s.heading}>Denemelerini kaydet ve karşılaştır</Text>
+          <Text style={[s.body, { marginTop: 6 }]}>Puanların, notların ve geçmiş pişirme kayıtların.</Text>
+          <Text style={[s.smallLink, { marginTop: 12 }]}>Günlüğümü aç →</Text>
+        </Pressable>
 
         <View style={s.card}>
           <Text style={s.eyebrow}>TARİF KURTARMA</Text>

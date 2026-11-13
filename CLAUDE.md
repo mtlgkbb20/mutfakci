@@ -168,8 +168,18 @@ If a suite has not yet been established, state that limitation explicitly; do no
 
 ## 5. Pull request and branch rules
 
-- Create feature/fix branches from the latest `main`; do not implement task work directly on `main`.
+- Every Notion task must have a stable Task Key in the form `KAI-NNN` (zero-padded sequence), assigned once and never reused.
+- Use the same Task Key in all tracking artifacts:
+  - Notion title: `KAI-NNN · <Task name>`
+  - GitHub Issue: `[KAI-NNN] <Task name>`
+  - Branch: `feature/KAI-NNN-short-kebab-name` or `fix/KAI-NNN-short-kebab-name`
+  - Commit: `type(KAI-NNN): concise change summary`
+  - Pull request: `[KAI-NNN] <Task name>`
+- Every GitHub Issue must link its Notion page; every Notion task must link its GitHub Issue, branch, PR, and technical/manual documents when available.
+- Create feature/fix branches from the latest `main` by default; never implement task work directly on `main`.
+- Use the dependency graph to choose a branch base. Default to the latest `main`; when the task depends on an unmerged feature or migration ordering, branch from that dependency and set the PR base to it. Record the reason in the Issue and PR. Do not silently mix unrelated feature branches.
 - Keep each PR focused on one task or a tightly related set of changes.
+- Group related files into a single logical commit. Do not create one commit per file. Prefer one cohesive implementation commit; use additional commits only for independently reviewable milestones such as backend, mobile, or follow-up fixes.
 - Include a concise summary, implementation notes, migration/configuration notes, and test evidence in the PR description.
 - List exact commands and results, including checks not run.
 - Link the manual test plan when one is added.
