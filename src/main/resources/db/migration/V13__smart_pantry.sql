@@ -28,4 +28,4 @@ CREATE TABLE pantry_movement (
   created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX idx_pantry_movement_item ON pantry_movement(user_id, pantry_item_id, created_at DESC);
-CREATE UNIQUE INDEX uq_pantry_movement_operation ON pantry_movement(user_id, operation_key) WHERE operation_key IS NOT NULL;
+CREATE UNIQUE INDEX uq_pantry_movement_operation_item ON pantry_movement(user_id, operation_key, pantry_item_id) WHERE operation_key IS NOT NULL;
