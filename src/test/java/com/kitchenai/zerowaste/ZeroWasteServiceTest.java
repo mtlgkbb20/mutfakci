@@ -162,7 +162,7 @@ class ZeroWasteServiceTest {
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
 
     assertThrows(RuntimeException.class, () -> service.confirm(userId, "Yumurta akı",
-        new BigDecimal("4.000"), "adet", null, null, session.getId(), entry.getId(),
+        new BigDecimal("4.000"), "adet", null, null, requestedSession.getId(), entry.getId(),
         null, "mismatched-source"));
     verify(remainders, never()).save(any(IngredientRemainder.class));
   }
