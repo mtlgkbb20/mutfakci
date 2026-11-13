@@ -214,6 +214,32 @@ class MealPlanServiceTest {
   }
 
   @Test
+  void rejectsAiPlansThatRepeatOneRecipeWhenAlternativesExist() {
+    CatalogRecipe alternative = new CatalogRecipe(1, "rice-dish", "Pirinç Yemeği", List.of(), "tr-TR",
+        "MAIN", List.of(), 2, 40,
+        List.of(new Ingredient("Pirinç", 100, "g", "")), List.of(), "Rice recipe");
+    catalog = new RecipeCatalogService(new ObjectMapper()) {
+      @Override public List<CatalogRecipe> all() { return List.of(carrotCake, alternative); }
+    };
+    service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
+    Map<String, String> repetitive = new HashMap<>();
+    for (int day = 0; day < 7; day++) repetitive.put(day + ":LUNCH", "carrot-cake");
+    when(aiSelector.select(any(), any(), any())).thenReturn(Optional.of(repetitive));
+    List<MealPlanEntry> generated = new ArrayList<>();
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> {
+      MealPlanEntry entry = inv.getArgument(0);
+      generated.add(entry);
+      return entry;
+    });
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(any())).thenAnswer(inv -> List.copyOf(generated));
+
+    var result = service.create(request(List.of("LUNCH")), userId);
+
+    assertTrue(result.warnings().stream().anyMatch(w -> w.startsWith("AI_SEÇİMİ_KULLANILAMADI")));
+    assertTrue(result.entries().stream().map(MealPlanEntryView -> MealPlanEntryView.recipeCatalogId()).distinct().count() > 1);
+  }
+
+  @Test
   void acceptsOnlyCompleteAiSelectionForEveryRequestedSlot() {
     Map<String, String> valid = new HashMap<>();
     for (int day = 0; day < 7; day++) valid.put(day + ":LUNCH", "carrot-cake");
