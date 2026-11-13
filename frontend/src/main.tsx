@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import axios from "axios";
-import { ChefHat, LogIn, Plus } from "lucide-react";
+import { ChefHat, Info, LogIn, Plus, X } from "lucide-react";
 import "./styles.css";
 
 const api = axios.create({
@@ -41,6 +41,7 @@ type FeaturedRecipe = {
   sourceAuthor: string;
   sourceUrl: string;
   sourcePublishedAt: string;
+  sourceRightsStatus?: string;
 };
 
 const GENERIC_ERROR =
@@ -246,6 +247,7 @@ function App() {
   const [feedback, setFeedback] = useState<any>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [featured, setFeatured] = useState<FeaturedRecipe[]>([]);
+  const [infoRecipe, setInfoRecipe] = useState<FeaturedRecipe | Recipe | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -420,7 +422,12 @@ function App() {
                 <p className="eyebrow">{item.category.replaceAll("_", " ")}</p>
                 <h3>{item.title}</h3>
                 <p>{item.description}</p>
-                <small>Kaynak: {item.sourceName} · {item.sourceAuthor}</small>
+                <div className="recipe-card-meta">
+                  <small>Kaynak: {item.sourceName} · {item.sourceAuthor}</small>
+                  <button className="info-button" type="button" aria-label={`${item.title} kaynak ve güvence bilgisi`} title="Kaynak ve güvence bilgisi" onClick={() => setInfoRecipe(item)}>
+                    <Info size={17} /> Bilgi
+                  </button>
+                </div>
                 <button onClick={() => openFeatured(item)} disabled={busy}>
                   {busy ? "Açılıyor..." : "Tarifi yap"}
                 </button>
@@ -433,7 +440,10 @@ function App() {
             <p className="eyebrow">
               {recipe.sourceUrl ? "SABİT TARİF" : "ÖNERİLEN TARİF"} · {recipe.sourceType || "UNKNOWN"}
             </p>
-            <h2>{recipe.title}</h2>
+            <div className="recipe-title-row">
+              <h2>{recipe.title}</h2>
+              {recipe.sourceUrl && <button className="info-button" type="button" onClick={() => setInfoRecipe(recipe)}><Info size={17} /> Kaynak bilgisi</button>}
+            </div>
             <p>{recipe.description}</p>
             {(recipe.preparationTime > 0 || recipe.cookingTime > 0 || recipe.servings > 0) && (
               <p>
@@ -467,6 +477,30 @@ function App() {
               </p>
             ))}
           </section>
+        )}
+        {infoRecipe && (
+          <div className="info-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInfoRecipe(null); }}>
+            <section className="info-dialog" role="dialog" aria-modal="true" aria-labelledby="recipe-info-title">
+              <div className="info-dialog-heading">
+                <div><p className="eyebrow">ŞEFFAFLIK VE KAYNAK</p><h2 id="recipe-info-title">Tarif bilgisi</h2></div>
+                <button className="info-close" type="button" aria-label="Bilgi penceresini kapat" onClick={() => setInfoRecipe(null)}><X size={20} /></button>
+              </div>
+              <h3>{infoRecipe.title}</h3>
+              <dl className="info-facts">
+                <div><dt>Yayıncı / kaynak</dt><dd>{infoRecipe.sourceName || "Belirtilmemiş"}</dd></div>
+                <div><dt>Tarif sahibi / yazar</dt><dd>{infoRecipe.sourceAuthor || "Kaynakta belirtilmemiş"}</dd></div>
+                {"sourcePublishedAt" in infoRecipe && infoRecipe.sourcePublishedAt && <div><dt>Yayın tarihi</dt><dd>{infoRecipe.sourcePublishedAt}</dd></div>}
+                {"sourceRightsStatus" in infoRecipe && <div><dt>Hak durumu</dt><dd>{infoRecipe.sourceRightsStatus === "CHECK_REQUIRED" ? "Kontrol gerekli" : infoRecipe.sourceRightsStatus || "Belirtilmemiş"}</dd></div>}
+              </dl>
+              <div className="info-note">
+                <strong>Kaynak ve doğrulama hakkında</strong>
+                <p>Bu tarif, belirtilen yayıncının orijinal tarif kaynağı esas alınarak KitchenAI tarif formatına aktarılmıştır. Orijinal malzeme ve yöntem bilgileri için kaynak sayfayı inceleyebilirsin.</p>
+                <p><b>Kaynak gösterimi, yeniden yayımlama izni anlamına gelmez.</b> İçeriğin kullanım ve lisans hakları ayrıca kontrol edilmelidir.</p>
+                <p>Kaynağın kayıtlı olması, tarifin KitchenAI tarafından bağımsız biçimde test edildiği veya sonucun garanti edildiği anlamına gelmez. Miktarlar, ekipman ve pişirme koşulları sonucu etkileyebilir.</p>
+              </div>
+              {infoRecipe.sourceUrl && <a className="source-link" href={infoRecipe.sourceUrl} target="_blank" rel="noreferrer">Orijinal kaynak sayfasını aç ↗</a>}
+            </section>
+          </div>
         )}
       </main>
     </>
