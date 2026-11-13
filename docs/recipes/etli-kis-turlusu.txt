@@ -3,11 +3,11 @@ KATEGORİ: Sulu Yemekler
 MUTFAK: Türk Mutfağı
 KAYNAK: https://www.ktb.gov.tr/EN-99107/mixed-winter-vegetables---meat-stew.html
 
-MALZEMELER (kaynakta görülenler):
-Kaynak sayfasındaki malzemeler esas alınmalıdır; bu dosyada miktar veya ek malzeme türetilmemiştir.
+MALZEMELER:
+1 büyük soğan (100 g), 250 g kuşbaşı et, 3 yemek kaşığı margarin (30 g), 1.5 yemek kaşığı domates salçası (15 g), 2 tatlı kaşığı tuz (12 g), 1/2 tatlı kaşığı karabiber (2 g), 700 g sıcak su, 2 büyük pırasa (250 g), 3 havuç (250 g), 5 patates (500 g), 1 küçük kereviz (250 g).
 
-KAYNAĞA DAYALI YÖNTEM ÖZETİ:
-Mevsim kış sebzeleri ve etle hazırlanan tencere yemeği. Kaynaktaki sebze seçimi ve pişirme sırası korunmalıdır.
+YÖNTEM ÖZETİ:
+Eti ve ince doğranmış soğanı margarinde 8-10 dakika kavur. Salça, sıcak su, tuz ve karabiberi ekleyip et yumuşayana kadar 40-45 dakika pişir. Sebzeleri 3-4 cm doğrayıp tencereye ekle; 20-25 dakika sebzeler yumuşayana kadar pişir.
 
-DOĞRULUK NOTU:
-Bu TXT, kaynak bağlantısı ve kaynakta doğrulanabilen bilgilerin kısa kayıt özetidir. "Malzemeler için orijinal kaynak sayfasına bakılmalıdır" ifadesi bulunan tariflerde malzeme listesi burada tamamlanmamıştır; miktar veya adım uydurulmamıştır. Kaynağa atıf, yeniden yayınlama lisansı anlamına gelmez. Herkese açık/ticari kullanımdan önce yayıncının kullanım koşulları ve gerekli izinler incelenmelidir.
+KAYNAK NOTU:
+Malzeme ölçüleri ve temel yöntem T.C. Kültür ve Turizm Bakanlığı'nın tarif sayfasından alınarak özetlenmiştir. Atıf, yeniden yayınlama izni değildir; ticari/herkese açık kullanım öncesi hak kontrolü yapılmalıdır.
