@@ -59,7 +59,6 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           Notes: %s
           Candidate recipes: %s
           """.formatted(request.servings(), mealSlots, request.maxPreparationMinutes(),
-          request.weeklyBudget() == null ? "not specified" : request.weeklyBudget().toPlainString(),
           request.currency() == null ? "TRY" : request.currency(),
           request.dietaryRestrictions(), request.goal(), request.notes(), candidateJson);
 
