@@ -10,8 +10,8 @@ class RecipeCatalogServiceTest {
 
   @Test
   void exactAndAliasMatchTheCuratedRecipe() {
-    assertEquals("kisnisli-mercimek-corbasi", catalog.find("Havuçlu Tarçınlı Kek").orElseThrow().id());
-    assertEquals("kisnisli-mercimek-corbasi", catalog.find("  HAVUÇLU kek! ").orElseThrow().id());
+    assertEquals("kisnisli-mercimek-corbasi", catalog.find("Kişnişli Mercimek Çorbası").orElseThrow().id());
+    assertEquals("kisnisli-mercimek-corbasi", catalog.find("  KİŞNİŞLİ mercimek! ").orElseThrow().id());
   }
 
   @Test
