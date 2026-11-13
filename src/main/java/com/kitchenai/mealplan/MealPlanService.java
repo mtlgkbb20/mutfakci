@@ -51,7 +51,7 @@ public class MealPlanService {
     List<String> restrictions = request.dietaryRestrictions() == null
         ? List.of() : request.dietaryRestrictions().stream().map(String::trim).filter(s -> !s.isBlank()).distinct().toList();
 
-    List<CatalogRecipe> candidates = eligibleRecipes(request.maxPreparationMinutes(), restrictions);
+    List<CatalogRecipe> candidates = eligibleRecipes(request.maxPreparationMinutes(), restrictions, userId, request.servings());
     if (candidates.isEmpty()) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
           "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
@@ -79,7 +79,7 @@ public class MealPlanService {
     MealPlan plan = ownedPlan(planId, userId);
     List<String> slots = readStringList(plan.getMealSlots());
     List<String> restrictions = readRestrictions(plan);
-    List<CatalogRecipe> candidates = eligibleRecipes(plan.getMaxPreparationMinutes(), restrictions);
+    List<CatalogRecipe> candidates = eligibleRecipes(plan.getMaxPreparationMinutes(), restrictions, userId, plan.getServings());
     if (candidates.isEmpty()) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
           "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
@@ -114,7 +114,7 @@ public class MealPlanService {
   @Transactional(readOnly = true)
   public List<RecipeSummary> candidates(UUID planId, UUID userId) {
     MealPlan plan = ownedPlan(planId, userId);
-    return eligibleRecipes(plan.getMaxPreparationMinutes(), readRestrictions(plan)).stream()
+    return eligibleRecipes(plan.getMaxPreparationMinutes(), readRestrictions(plan), userId, plan.getServings()).stream()
         .map(this::summary)
         .toList();
   }
@@ -179,6 +179,7 @@ public class MealPlanService {
 
     Map<String, BigDecimal> pantryStock = new HashMap<>();
     for (PantryItem item : pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)) {
+      if (item.getExpiryDate() != null && item.getExpiryDate().isBefore(LocalDate.now())) continue;
       String key = normalize(item.getName()) + "|" + canonicalUnit(item.getUnit());
       pantryStock.merge(key, toCanonical(item.getQuantity(), item.getUnit()), BigDecimal::add);
     }
@@ -195,7 +196,8 @@ public class MealPlanService {
       BigDecimal covered = stock.min(line.required);
       BigDecimal toBuy = line.required.subtract(covered).max(BigDecimal.ZERO);
       return new ShoppingLine(line.name, line.required.setScale(3, RoundingMode.HALF_UP),
-          covered.setScale(3, RoundingMode.HALF_UP), toBuy.setScale(3, RoundingMode.HALF_UP), line.unit);
+          covered.setScale(3, RoundingMode.HALF_UP), toBuy.setScale(3, RoundingMode.HALF_UP),
+          displayUnit(line.unit));
     }).sorted(Comparator.comparing(ShoppingLine::name, String.CASE_INSENSITIVE_ORDER)).toList();
 
     return new ShoppingListView(planId, lines, warnings);
@@ -220,6 +222,7 @@ public class MealPlanService {
       for (String slot : slots) {
         CatalogRecipe selected = candidates.stream()
             .min(Comparator.comparingInt((CatalogRecipe recipe) -> usage.getOrDefault(recipe.id(), 0))
+                .thenComparingInt(candidates::indexOf)
                 .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
                 .thenComparing(CatalogRecipe::id))
             .orElseThrow();
@@ -231,11 +234,43 @@ public class MealPlanService {
   }
 
   private List<CatalogRecipe> eligibleRecipes(int maxMinutes, List<String> restrictions) {
+    return eligibleRecipes(maxMinutes, restrictions, null, 1);
+  }
+
+  private List<CatalogRecipe> eligibleRecipes(int maxMinutes, List<String> restrictions,
+      UUID userId, int servings) {
+    List<PantryItem> stock = userId == null ? List.of()
+        : pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId).stream()
+            .filter(item -> item.getQuantity().signum() > 0)
+            .filter(item -> item.getExpiryDate() == null || !item.getExpiryDate().isBefore(LocalDate.now()))
+            .toList();
     return catalog.all().stream()
         .filter(recipe -> recipe.estimatedTotalMinutes() <= maxMinutes)
         .filter(recipe -> matchesRestrictions(recipe, restrictions))
-        .sorted(Comparator.comparingInt(CatalogRecipe::estimatedTotalMinutes).thenComparing(CatalogRecipe::id))
+        .sorted(Comparator
+            .comparingInt((CatalogRecipe recipe) -> -pantryMatchCount(recipe, stock, servings))
+            .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
+            .thenComparing(CatalogRecipe::id))
         .toList();
+  }
+
+  private int pantryMatchCount(CatalogRecipe recipe, List<PantryItem> stock, int servings) {
+    int matched = 0;
+    for (var ingredient : recipe.ingredients()) {
+      BigDecimal required = toCanonical(
+          BigDecimal.valueOf(ingredient.quantity())
+              .multiply(BigDecimal.valueOf(servings))
+              .divide(BigDecimal.valueOf(recipe.defaultServings()), 6, RoundingMode.HALF_UP),
+          ingredient.unit());
+      String name = normalize(ingredient.name());
+      String unit = canonicalUnit(ingredient.unit());
+      boolean covered = stock.stream().anyMatch(item ->
+          normalize(item.getName()).equals(name)
+              && canonicalUnit(item.getUnit()).equals(unit)
+              && toCanonical(item.getQuantity(), item.getUnit()).compareTo(required) >= 0);
+      if (covered) matched++;
+    }
+    return matched;
   }
 
   private boolean matchesRestrictions(CatalogRecipe recipe, List<String> restrictions) {
@@ -325,6 +360,17 @@ public class MealPlanService {
       case "l" -> "ml";
       case "adet", "pcs", "piece" -> "piece";
       default -> value;
+    };
+  }
+
+  private static String displayUnit(String unit) {
+    return switch (unit) {
+      case "piece" -> "adet";
+      case "su bardagi" -> "su bardağı";
+      case "yemek kasigi" -> "yemek kaşığı";
+      case "cay kasigi" -> "çay kaşığı";
+      case "tatli kasigi" -> "tatlı kaşığı";
+      default -> unit;
     };
   }
 
