@@ -195,8 +195,12 @@ public class RecipeController {
                 catalogRecipe.description(),
                 catalogRecipe.category(),
                 requestedServings == null ? catalogRecipe.defaultServings() : requestedServings,
-                Math.max(1, catalogRecipe.estimatedTotalMinutes() / 3),
-                Math.max(1, catalogRecipe.estimatedTotalMinutes() * 2 / 3),
+                catalogRecipe.estimatedTotalMinutes() == 0
+                    ? 0
+                    : Math.max(1, catalogRecipe.estimatedTotalMinutes() / 3),
+                catalogRecipe.estimatedTotalMinutes() == 0
+                    ? 0
+                    : Math.max(1, catalogRecipe.estimatedTotalMinutes() * 2 / 3),
                 json.writeValueAsString(catalogRecipe.ingredients()),
                 json.writeValueAsString(stages)));
     return view(saved);
