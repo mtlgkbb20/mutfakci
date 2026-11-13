@@ -99,7 +99,7 @@ public class ZeroWasteService {
   }
 
   public List<RemainderView> list(UUID userId) {
-    return remainders.findByUserIdOrderByCreatedAtDesc(userId).stream().map(this::view).toList();
+    return remainders.findByUserIdOrderByCreatedAtDesc(userId).stream().map(ZeroWasteService::view).toList();
   }
 
   public RemainderView get(UUID userId, UUID id) { return view(owned(id, userId)); }
@@ -154,7 +154,7 @@ public class ZeroWasteService {
     IngredientRemainder r = lockAvailable(id, userId);
     BigDecimal before = r.getQuantity();
     pantryTransfer.transfer(userId, r.getIngredientName(), r.getNormalizedName(), r.getQuantity(),
-        r.getUnit(), r.getUseByDate(), "zw:" + operationKey);
+        r.getUnit(), r.getUseByDate(), "zero-waste:" + operationKey);
     r.transition("TRANSFERRED");
     remainders.save(r);
     operations.save(new IngredientRemainderOperation(userId, id, operationKey, "TRANSFER", before, BigDecimal.ZERO));
