@@ -91,5 +91,7 @@ public class RecipeCatalogService {
     return singleMatch || clearWinner ? Optional.of(candidates.get(0).recipe()) : Optional.empty();
   }
 
+  public List<CatalogRecipe> all() { return recipes; }
+
   private record Candidate(CatalogRecipe recipe, double score) {}
 }
