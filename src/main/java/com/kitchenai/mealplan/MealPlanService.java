@@ -224,11 +224,16 @@ public class MealPlanService {
     Set<String> candidateIds = candidates.stream().map(CatalogRecipe::id).collect(Collectors.toSet());
     Map<String, Map<String, Integer>> usageBySlot = new HashMap<>();
     for (int day = 0; day < 7; day++) {
+      Set<String> usedOnDay = new HashSet<>();
       for (String slot : slots) {
         String selected = selections.get(day + ":" + slot);
         if (selected == null || !candidateIds.contains(selected)) return false;
         CatalogRecipe recipe = candidates.stream().filter(candidate -> candidate.id().equals(selected)).findFirst().orElse(null);
         if (recipe == null || !suitableForSlot(recipe, slot)) return false;
+        if (usedOnDay.contains(selected)
+            && candidates.stream().anyMatch(candidate -> suitableForSlot(candidate, slot)
+                && !usedOnDay.contains(candidate.id()))) return false;
+        usedOnDay.add(selected);
         usageBySlot.computeIfAbsent(slot, ignored -> new HashMap<>()).merge(selected, 1, Integer::sum);
       }
     }
