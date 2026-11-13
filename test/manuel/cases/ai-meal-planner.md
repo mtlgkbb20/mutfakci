@@ -45,3 +45,6 @@
 
 | MP-029 | Pantry-aware recipe ranking | Add enough stock for one recipe's ingredients and create a plan | Recipes fully covered by unexpired pantry stock are prioritized | NOT RUN |
 | MP-030 | Expired pantry stock | Add an expired matching pantry item and generate shopping list | Expired quantity is not counted as pantry coverage | NOT RUN |
+
+| MP-031 | Breakfast category validation | Create a breakfast plan | Only BREAKFAST/CAKE category recipes are selected | NOT RUN |
+| MP-032 | Lunch/dinner category validation | Create lunch and dinner plan; attempt to replace with breakfast recipe | Only MAIN/SOUP/SALAD recipes are offered; incompatible replacement returns HTTP 422 | NOT RUN |
