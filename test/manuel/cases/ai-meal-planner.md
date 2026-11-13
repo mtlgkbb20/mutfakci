@@ -42,3 +42,6 @@
 
 | MP-027 | Regenerate saved plan | Regenerate an existing plan for the same week | Existing entries are replaced atomically and new entries are returned; no duplicate slots remain | NOT RUN |
 | MP-028 | Unsupported dietary restriction | Submit an unsupported allergy/restriction label | HTTP 400; no plan is saved; UI does not imply safety | NOT RUN |
+
+| MP-029 | Pantry-aware recipe ranking | Add enough stock for one recipe's ingredients and create a plan | Recipes fully covered by unexpired pantry stock are prioritized | NOT RUN |
+| MP-030 | Expired pantry stock | Add an expired matching pantry item and generate shopping list | Expired quantity is not counted as pantry coverage | NOT RUN |
