@@ -37,7 +37,15 @@ public class RecipeCatalogService {
       List<Ingredient> ingredients,
       List<Step> steps,
       String description,
-      List<ByProductRule> byProducts) {}
+      List<ByProductRule> byProducts) {
+    public CatalogRecipe(int schemaVersion, String id, String title, List<String> aliases,
+        String locale, String category, List<String> searchTerms, int defaultServings,
+        int estimatedTotalMinutes, List<Ingredient> ingredients, List<Step> steps,
+        String description) {
+      this(schemaVersion, id, title, aliases, locale, category, searchTerms, defaultServings,
+          estimatedTotalMinutes, ingredients, steps, description, List.of());
+    }
+  }
 
   /**
    * Versioned deterministic relationship between a recipe input and a potential remainder.
