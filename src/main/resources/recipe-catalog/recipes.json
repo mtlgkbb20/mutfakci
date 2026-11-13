@@ -69,7 +69,7 @@
       {
         "name": "Kişniş tohumu",
         "quantity": 0,
-        "unit": "kaynağa göre",
+        "unit": "miktar belirtilmemiş",
         "preparation": "Havanda dövülmüş"
       },
       {
@@ -93,8 +93,14 @@
       {
         "name": "Pul biber",
         "quantity": 0,
-        "unit": "damak tadına göre",
+        "unit": "miktar belirtilmemiş",
         "preparation": "Üzeri için"
+      },
+      {
+        "name": "Sıcak su",
+        "quantity": 1,
+        "unit": "su bardağı",
+        "preparation": "Blenderdan sonra kıvam ayarı için; kaynak yönteminde belirtilmiştir"
       }
     ],
     "steps": [
@@ -117,7 +123,7 @@
       {
         "order": 3,
         "title": "Pürüzsüzleştir ve servis et",
-        "instruction": "Çorbayı blenderdan geçirin. Kaynağın tarifindeki kıvam ayarı için sıcak su ekleyip bir taşım daha kaynatın. Tereyağında pul biberi kızdırıp üzerine gezdirin.",
+        "instruction": "Çorbayı blenderdan geçirin. Kaynağın yönteminde belirtildiği gibi 1 su bardağı sıcak su ekleyip bir taşım daha kaynatın. Tereyağında pul biberi kızdırıp üzerine gezdirin.",
         "completionCue": "Çorba pürüzsüz ve sıcak; üzerindeki biberli yağ homojen dağılmış olmalı.",
         "temperature": null,
         "durationSeconds": null
@@ -157,9 +163,9 @@
       },
       {
         "name": "Çeri domates",
-        "quantity": 8,
-        "unit": "adet",
-        "preparation": "8-10 adet"
+        "quantity": 0,
+        "unit": "8-10 adet",
+        "preparation": ""
       },
       {
         "name": "Soğan",
@@ -169,26 +175,26 @@
       },
       {
         "name": "Sarımsak",
-        "quantity": 8,
-        "unit": "diş",
-        "preparation": "7-8 diş, bütün veya iri ise ikiye bölünmüş"
+        "quantity": 0,
+        "unit": "7-8 diş",
+        "preparation": ""
       },
       {
         "name": "Köy biberi",
-        "quantity": 4,
-        "unit": "adet",
-        "preparation": "4-5 adet, doğranmış"
+        "quantity": 0,
+        "unit": "4-5 adet",
+        "preparation": ""
       },
       {
         "name": "Tuz",
         "quantity": 0,
-        "unit": "damak tadına göre",
+        "unit": "miktar belirtilmemiş",
         "preparation": ""
       },
       {
         "name": "Karabiber",
         "quantity": 0,
-        "unit": "damak tadına göre",
+        "unit": "miktar belirtilmemiş",
         "preparation": ""
       },
       {
@@ -217,9 +223,9 @@
       },
       {
         "name": "Su",
-        "quantity": 1,
-        "unit": "su bardağı",
-        "preparation": "Kaynakta 1-1,5 su bardağı"
+        "quantity": 0,
+        "unit": "1-1,5 su bardağı",
+        "preparation": ""
       },
       {
         "name": "Tereyağı",
@@ -350,7 +356,7 @@
         "name": "Nohut",
         "quantity": 1,
         "unit": "su bardağı",
-        "preparation": "Haşlanmış"
+        "preparation": ""
       }
     ],
     "steps": [
@@ -438,8 +444,8 @@
       },
       {
         "name": "Zencefil",
-        "quantity": 3,
-        "unit": "küp",
+        "quantity": 0,
+        "unit": "3-4 küp",
         "preparation": "3-4 küp"
       }
     ],
