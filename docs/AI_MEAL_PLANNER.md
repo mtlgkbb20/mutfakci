@@ -188,3 +188,6 @@ Implementation caveats:
 ### Supported dietary restriction inputs
 
 The first implementation accepts only `vegan`, `vegetarian`/`vejetaryen`, `glutensiz`/`gluten free`, and `laktozsuz`/`lactose free`. Other restriction strings are rejected instead of being silently treated as verified. Ingredient-name matching is still not an allergen guarantee.
+
+
+Pantry-aware selection now ranks eligible catalog recipes by ingredients for which the user's unexpired pantry stock fully covers the planned serving quantity. The shopping list also excludes expired pantry stock from its coverage calculation. Matching remains exact-name and exact/canonical-unit based; no semantic substitutions are made.
