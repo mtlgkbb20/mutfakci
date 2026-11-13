@@ -123,6 +123,30 @@ class MealPlanServiceTest {
   }
 
   @Test
+  void regeneratesOnlyTheSelectedUsersPlanEntries() {
+    MealPlan plan = new MealPlan(userId, LocalDate.of(2026, 11, 9), 2, "[\"LUNCH\"]",
+        60, null, "TRY", "[]", null, null);
+    MealPlanEntry oldEntry = new MealPlanEntry(plan.getId(), plan.getWeekStart(), "LUNCH", "carrot-cake", 2, "old");
+    when(plans.findByIdAndUserId(plan.getId(), userId)).thenReturn(Optional.of(plan));
+    when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(plan.getId())).thenReturn(List.of(oldEntry), List.of());
+    when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    var result = service.regenerate(plan.getId(), userId);
+
+    assertEquals(plan.getId(), result.id());
+    assertEquals(7, result.entries().size());
+    verify(entries).deleteAllInBatch(List.of(oldEntry));
+  }
+
+  @Test
+  void rejectsUnsupportedDietaryRestrictionInsteadOfPretendingItIsVerified() {
+    var request = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
+        List.of("LUNCH"), 60, null, "TRY", List.of("fıstık alerjisi"), null, null);
+    assertThrows(RuntimeException.class, () -> service.create(request, userId));
+    verify(plans, never()).save(any());
+  }
+
+  @Test
   void rejectsUnknownAiRecipeIdsAndFallsBackToVerifiedCatalog() {
     Map<String, String> invalid = new HashMap<>();
     for (int day = 0; day < 7; day++) invalid.put(day + ":LUNCH", "invented-recipe");
