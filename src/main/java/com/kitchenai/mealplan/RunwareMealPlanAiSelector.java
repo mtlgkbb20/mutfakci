@@ -52,7 +52,7 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           Requested servings: %d
           Meal slots: %s
           Maximum preparation minutes: %d
-          Weekly budget: %s
+          Budget note: price data is unavailable; budget compliance cannot be verified. Do not invent prices or claim compliance.
           Currency: %s
           Dietary restrictions: %s
           Goal: %s
