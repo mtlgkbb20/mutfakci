@@ -25,6 +25,11 @@ public class MealPlanController {
     return service.create(request, userId);
   }
 
+  @PostMapping("/{planId}/regenerate")
+  public PlanView regenerate(@PathVariable UUID planId, @AuthenticationPrincipal UUID userId) {
+    return service.regenerate(planId, userId);
+  }
+
   @GetMapping("/{planId}/recipes")
   public List<com.kitchenai.mealplan.MealPlanContracts.RecipeSummary> candidates(
       @PathVariable UUID planId, @AuthenticationPrincipal UUID userId) {
