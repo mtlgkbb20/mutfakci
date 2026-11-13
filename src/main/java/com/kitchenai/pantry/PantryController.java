@@ -57,7 +57,7 @@ public class PantryController {
       for(var ingredient:recipe.ingredients()){
         String key=normalize(ingredient.name()); Optional<PantryItem> found=stock.stream().filter(p->p.getNormalizedName().equals(key)).findFirst();
         if(found.isPresent() && compatible(found.get().getUnit(),ingredient.unit()) && found.get().getQuantity().compareTo(convert(BigDecimal.valueOf(ingredient.quantity()),ingredient.unit(),found.get().getUnit()))>=0){
-          matched++; available.add(Map.of("name",ingredient.name(),"required",ingredient.quantity(),"unit",ingredient.unit(),"stock",found.get().getQuantity(),"stockUnit",found.get().getUnit()));
+          matched++; available.add(Map.of("name",ingredient.name(),"pantryItemId",found.get().getId(),"required",ingredient.quantity(),"unit",ingredient.unit(),"stock",found.get().getQuantity(),"stockUnit",found.get().getUnit()));
         } else missing.add(Map.of("name",ingredient.name(),"required",ingredient.quantity(),"unit",ingredient.unit()));
       }
       return new MatchView(recipe.id(),recipe.title(),recipe.defaultServings(),total==0?0:(double)matched/total,available,missing);
@@ -69,11 +69,15 @@ public class PantryController {
     Map<UUID,PantryItem> locked=new LinkedHashMap<>();
     for(ConsumptionLine line:r.items()){PantryItem item=items.lockOwned(line.pantryItemId(),userId).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Pantry item not found")); locked.put(item.getId(),item);}
     record Deduction(PantryItem item,BigDecimal amount) {}
-    List<Deduction> deductions=new ArrayList<>();
+    Map<UUID,BigDecimal> totals=new LinkedHashMap<>();
     for(ConsumptionLine line:r.items()){
       PantryItem item=locked.get(line.pantryItemId()); String from=unit(line.unit());
       if(!compatible(item.getUnit(),from)) throw bad("Birimler birbiriyle dönüştürülemiyor.");
-      BigDecimal amount=convert(line.quantity(),from,item.getUnit());
+      totals.merge(item.getId(),convert(line.quantity(),from,item.getUnit()),BigDecimal::add);
+    }
+    List<Deduction> deductions=new ArrayList<>();
+    for(var entry:totals.entrySet()){
+      PantryItem item=locked.get(entry.getKey()); BigDecimal amount=entry.getValue();
       if(item.getQuantity().compareTo(amount)<0) throw bad("Yetersiz stok: "+item.getName());
       deductions.add(new Deduction(item,amount));
     }
