@@ -1,52 +1,472 @@
 [
   {
     "schemaVersion": 1,
-    "id": "carrot-cinnamon-cake",
-    "title": "Havuçlu Tarçınlı Kek",
-    "aliases": ["havuçlu kek", "tarçınlı havuç keki", "carrot cinnamon cake"],
+    "id": "kisnisli-mercimek-corbasi",
+    "title": "Kişnişli Mercimek Çorbası",
+    "aliases": [
+      "kişnişli mercimek",
+      "kırmızı mercimek çorbası kişnişli"
+    ],
     "locale": "tr-TR",
-    "category": "CAKE",
-    "searchTerms": ["havuç", "tarçın", "ceviz", "kek"],
-    "defaultServings": 8,
-    "estimatedTotalMinutes": 55,
-    "description": "Havuç ve tarçın aromalı, yumuşak ev keki.",
+    "category": "SOUP",
+    "searchTerms": [
+      "mercimek",
+      "çorba",
+      "kişniş",
+      "kırmızı mercimek"
+    ],
+    "defaultServings": 0,
+    "estimatedTotalMinutes": 0,
+    "description": "Arda Türkmen'in yayımladığı tarif esas alınarak KitchenAI pişirme adımlarına uyarlanmıştır.",
+    "sourceName": "Arda'nın Mutfağı",
+    "sourceAuthor": "Arda Türkmen",
+    "sourceUrl": "https://www.ardaninmutfagi.com/yemek-tarifleri/corbalar/kisnisli-mercimek-corbasi",
+    "sourcePublishedAt": "2017-06-11",
+    "sourceRightsStatus": "CHECK_REQUIRED",
     "ingredients": [
       {
-        "name": "Havuç",
+        "name": "Kırmızı mercimek",
         "quantity": 2,
+        "unit": "su bardağı",
+        "preparation": "Yıkanmış"
+      },
+      {
+        "name": "Patates",
+        "quantity": 1,
         "unit": "adet",
-        "preparation": "Rendelenmiş"
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Soğan",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Orta boy, doğranmış"
       },
       {
         "name": "Un",
-        "quantity": 2,
-        "unit": "su bardağı",
-        "preparation": "Elenmiş"
-      },
-      { "name": "Yumurta", "quantity": 3, "unit": "adet", "preparation": "" },
-      {
-        "name": "Tarçın",
         "quantity": 1,
-        "unit": "çay kaşığı",
+        "unit": "yemek kaşığı",
         "preparation": ""
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 0,
+        "unit": "yeteri kadar",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Karabiber",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Kişniş tohumu",
+        "quantity": 0,
+        "unit": "kaynağa göre",
+        "preparation": "Havanda dövülmüş"
+      },
+      {
+        "name": "Et suyu",
+        "quantity": 3,
+        "unit": "su bardağı",
+        "preparation": ""
+      },
+      {
+        "name": "Su",
+        "quantity": 3,
+        "unit": "su bardağı",
+        "preparation": ""
+      },
+      {
+        "name": "Tereyağı",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": "Üzeri için"
+      },
+      {
+        "name": "Pul biber",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": "Üzeri için"
       }
     ],
     "steps": [
       {
         "order": 1,
-        "title": "Hamuru hazırla",
-        "instruction": "Yumurta ve şekeri çırpıp havuç, un ve tarçını ekleyin.",
-        "completionCue": "Karışım homojen ve akışkan olmalı.",
+        "title": "Sebzeleri kavur",
+        "instruction": "Tencerede zeytinyağını ısıtın. Soğanı yumuşatın; patatesi ekleyip kısa süre çevirin. Unu ilave ederek kavurun.",
+        "completionCue": "Soğan yumuşamış, un kokusu hafiflemiş olmalı.",
         "temperature": null,
-        "durationSeconds": 300
+        "durationSeconds": null
       },
       {
         "order": 2,
-        "title": "Keki pişir",
-        "instruction": "Hamuru kalıba aktarın ve 175°C fırında pişirin.",
-        "completionCue": "Ortaya batırılan kürdan temiz çıkmalı.",
-        "temperature": 175,
-        "durationSeconds": 2400
+        "title": "Mercimeği ve sıvıları ekle",
+        "instruction": "Yıkanmış mercimeği ve dövülmüş kişniş tohumunu ekleyin. Et suyu ile suyu ilave edip mercimekler yumuşayana kadar kaynatın.",
+        "completionCue": "Mercimek ve patates kolayca ezilecek kadar yumuşamalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 3,
+        "title": "Pürüzsüzleştir ve servis et",
+        "instruction": "Çorbayı blenderdan geçirin. Kaynağın tarifindeki kıvam ayarı için sıcak su ekleyip bir taşım daha kaynatın. Tereyağında pul biberi kızdırıp üzerine gezdirin.",
+        "completionCue": "Çorba pürüzsüz ve sıcak; üzerindeki biberli yağ homojen dağılmış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "tavuklu-tepsi-kebabi",
+    "title": "Tavuklu Tepsi Kebabı",
+    "aliases": [
+      "tavuk tepsi kebabı",
+      "fırında tavuk tepsi kebabı"
+    ],
+    "locale": "tr-TR",
+    "category": "MAIN_COURSE",
+    "searchTerms": [
+      "tavuk",
+      "tepsi",
+      "kebap",
+      "fırın"
+    ],
+    "defaultServings": 0,
+    "estimatedTotalMinutes": 0,
+    "description": "Arda Türkmen'in 25 Mayıs 2024 tarihli yayımlanmış tarifi esas alınmıştır.",
+    "sourceName": "Arda'nın Mutfağı",
+    "sourceAuthor": "Arda Türkmen",
+    "sourceUrl": "https://www.ardaninmutfagi.com/yemek-tarifleri/tavuk-yemekleri/tavuklu-tepsi-kebabi",
+    "sourcePublishedAt": "2024-05-25",
+    "sourceRightsStatus": "CHECK_REQUIRED",
+    "ingredients": [
+      {
+        "name": "Kemiksiz tavuk but",
+        "quantity": 8,
+        "unit": "adet",
+        "preparation": "İri küp doğranmış"
+      },
+      {
+        "name": "Çeri domates",
+        "quantity": 8,
+        "unit": "adet",
+        "preparation": "8-10 adet"
+      },
+      {
+        "name": "Soğan",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Sarımsak",
+        "quantity": 8,
+        "unit": "diş",
+        "preparation": "7-8 diş, bütün veya iri ise ikiye bölünmüş"
+      },
+      {
+        "name": "Köy biberi",
+        "quantity": 4,
+        "unit": "adet",
+        "preparation": "4-5 adet, doğranmış"
+      },
+      {
+        "name": "Tuz",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Karabiber",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Pul biber",
+        "quantity": 0,
+        "unit": "1 tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Kuru kekik",
+        "quantity": 0,
+        "unit": "1 tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Tatlı biber salçası",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": "Sos için"
+      },
+      {
+        "name": "Domates salçası",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": "Sos için"
+      },
+      {
+        "name": "Su",
+        "quantity": 1,
+        "unit": "su bardağı",
+        "preparation": "Kaynakta 1-1,5 su bardağı"
+      },
+      {
+        "name": "Tereyağı",
+        "quantity": 40,
+        "unit": "gram",
+        "preparation": "Üzeri için; kaynakta 2-3 yemek kaşığı"
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Tavuk ve sebzeleri hazırla",
+        "instruction": "Tavukları iri küp doğrayın. Domates, soğan, sarımsak ve biberlerle karıştırın; tuz, karabiber, pul biber ve kekiği ekleyin.",
+        "completionCue": "Tavuk ve sebzeler baharatlarla eşit biçimde kaplanmış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 2,
+        "title": "Tepsiye yerleştir",
+        "instruction": "Karışımı fırın tepsisine tavuklar üst üste gelmeyecek şekilde yayın. Salçaları suyla açıp üzerine gezdirin. Tereyağını küçük parçalar halinde dağıtın.",
+        "completionCue": "Tavuklar tek kat halinde; salçalı sos tepsiye yayılmış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 3,
+        "title": "Fırında pişir",
+        "instruction": "Önceden ısıtılmış 180°C fırında 40-50 dakika pişirin. Tavukların tamamen piştiğini kontrol ederek sıcak servis edin.",
+        "completionCue": "Tavukların içi tamamen pişmiş olmalı; süre fırına ve parça büyüklüğüne göre değişebilir.",
+        "temperature": 180,
+        "durationSeconds": null
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "nohutlu-bulgur-pilavi",
+    "title": "Nohutlu Bulgur Pilavı",
+    "aliases": [
+      "nohutlu pilav",
+      "bulgur pilavı nohutlu"
+    ],
+    "locale": "tr-TR",
+    "category": "SIDE_DISH",
+    "searchTerms": [
+      "nohut",
+      "bulgur",
+      "pilav",
+      "şehriye"
+    ],
+    "defaultServings": 0,
+    "estimatedTotalMinutes": 0,
+    "description": "Arda Türkmen'in yayımladığı tarif esas alınarak KitchenAI pişirme adımlarına uyarlanmıştır.",
+    "sourceName": "Arda'nın Mutfağı",
+    "sourceAuthor": "Arda Türkmen",
+    "sourceUrl": "https://www.ardaninmutfagi.com/yemek-tarifleri/makarnalar-pilavlar/nohutlu-bulgur-pilavi-2",
+    "sourcePublishedAt": "2017-06-11",
+    "sourceRightsStatus": "CHECK_REQUIRED",
+    "ingredients": [
+      {
+        "name": "Tereyağı",
+        "quantity": 3,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Pilavlık bulgur",
+        "quantity": 2,
+        "unit": "su bardağı",
+        "preparation": "Yıkanmış"
+      },
+      {
+        "name": "Kuru soğan",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "İri yemeklik doğranmış"
+      },
+      {
+        "name": "Tel şehriye",
+        "quantity": 0,
+        "unit": "1 tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Domates salçası",
+        "quantity": 1,
+        "unit": "tatlı kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Kuru kekik",
+        "quantity": 0,
+        "unit": "1 tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Kuru nane",
+        "quantity": 0,
+        "unit": "1 tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Karabiber",
+        "quantity": 0,
+        "unit": "damak tadına göre",
+        "preparation": ""
+      },
+      {
+        "name": "Su",
+        "quantity": 4,
+        "unit": "su bardağı",
+        "preparation": ""
+      },
+      {
+        "name": "Nohut",
+        "quantity": 1,
+        "unit": "su bardağı",
+        "preparation": "Haşlanmış"
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Soğanı kavur",
+        "instruction": "Tencerede tereyağını eritin ve zeytinyağını ekleyin. İri doğranmış soğanları kavurun.",
+        "completionCue": "Soğanlar yumuşamış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 2,
+        "title": "Bulguru ve çeşnileri ekle",
+        "instruction": "Yıkanmış bulguru ve tel şehriyeyi ekleyip çevirin. Domates salçası, kekik, nane, tuz ve karabiberi ilave ederek kavurmaya devam edin.",
+        "completionCue": "Bulgur yağ ve salçayla kaplanmış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 3,
+        "title": "Suyunu çektir",
+        "instruction": "Suyu ve haşlanmış nohudu ekleyin. Kaynayınca ateşi kısın; bulgur suyunu çekene kadar kapağı kapalı pişirin. Dinlendirip sıcak servis edin.",
+        "completionCue": "Bulgur yumuşamış ve serbest sıvı kalmamış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "visne-kompostosu",
+    "title": "Vişne Kompostosu",
+    "aliases": [
+      "vişne hoşafı",
+      "vişne komposto"
+    ],
+    "locale": "tr-TR",
+    "category": "DRINK",
+    "searchTerms": [
+      "vişne",
+      "komposto",
+      "hoşaf",
+      "tarçın",
+      "karanfil"
+    ],
+    "defaultServings": 0,
+    "estimatedTotalMinutes": 0,
+    "description": "Arda Türkmen'in yayımladığı tarif esas alınarak KitchenAI pişirme adımlarına uyarlanmıştır.",
+    "sourceName": "Arda'nın Mutfağı",
+    "sourceAuthor": "Arda Türkmen",
+    "sourceUrl": "https://www.ardaninmutfagi.com/yemek-tarifleri/tatlilar/visne-kompostosu",
+    "sourcePublishedAt": "2015-06-20",
+    "sourceRightsStatus": "CHECK_REQUIRED",
+    "ingredients": [
+      {
+        "name": "Donuk vişne",
+        "quantity": 500,
+        "unit": "gram",
+        "preparation": "Taze kullanılacaksa sap ve çekirdekleri ayıklanmış"
+      },
+      {
+        "name": "Toz şeker",
+        "quantity": 2,
+        "unit": "su bardağı",
+        "preparation": ""
+      },
+      {
+        "name": "Su",
+        "quantity": 1,
+        "unit": "litre",
+        "preparation": ""
+      },
+      {
+        "name": "Karanfil",
+        "quantity": 4,
+        "unit": "adet",
+        "preparation": ""
+      },
+      {
+        "name": "Çubuk tarçın",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": ""
+      },
+      {
+        "name": "Zencefil",
+        "quantity": 3,
+        "unit": "küp",
+        "preparation": "3-4 küp"
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Şerbeti kaynat",
+        "instruction": "Suyu ve şekeri derin bir tencereye alıp kaynatın. Karanfil, çubuk tarçın ve zencefili ekleyin.",
+        "completionCue": "Şeker çözünmüş, baharatlar sıvıya aromasını bırakmaya başlamış olmalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 2,
+        "title": "Baharatları çıkar",
+        "instruction": "Baharatlar aromasını verdikten sonra zencefil, tarçın ve karanfilleri tencereden alın.",
+        "completionCue": "Serviste bütün baharat parçaları kalmamalı.",
+        "temperature": null,
+        "durationSeconds": null
+      },
+      {
+        "order": 3,
+        "title": "Vişneleri ekle ve soğut",
+        "instruction": "Vişneleri ekleyip bir taşım daha kaynatın. Oda sıcaklığına gelince buzdolabında soğutun ve soğuk servis edin.",
+        "completionCue": "Komposto soğumuş olmalı; vişneler dağılmadan formunu korumalı.",
+        "temperature": null,
+        "durationSeconds": null
       }
     ]
   }
