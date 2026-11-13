@@ -422,7 +422,7 @@ public class MealPlanService {
 
   private static String normalize(String value) {
     return Normalizer.normalize(value == null ? "" : value.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
-        .replaceAll("\\p{M}", "").replace('ı', 'i')
+        .replaceAll("\\p{M}", "")
         .replaceAll("[^a-z0-9 ]", "").replaceAll("\\s+", " ");
   }
 
