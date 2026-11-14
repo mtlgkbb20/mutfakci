@@ -66,7 +66,8 @@ public class PantryInventoryService {
   }
 
   private static String normalize(String value) {
-    return Normalizer.normalize(value == null ? "" : value.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+    String lowered = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('ı', 'i');
+    return Normalizer.normalize(lowered, Normalizer.Form.NFD)
         .replaceAll("\\p{M}", "").replaceAll("[^a-z0-9 ]", "").replaceAll("\\s+", " ");
   }
   private static String category(String value) {
