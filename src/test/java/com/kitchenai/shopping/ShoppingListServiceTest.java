@@ -2,10 +2,13 @@ package com.kitchenai.shopping;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.kitchenai.mealplan.MealPlanService;
@@ -83,7 +86,6 @@ class ShoppingListServiceTest {
 
   @Test
   void hidesListsOwnedByAnotherUser() {
-    UUID ownerId = UUID.randomUUID();
     UUID otherUserId = UUID.randomUUID();
     UUID listId = UUID.randomUUID();
     when(lists.findByIdAndUserId(listId, otherUserId)).thenReturn(Optional.empty());
