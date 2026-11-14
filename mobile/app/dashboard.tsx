@@ -136,6 +136,15 @@ export default function Dashboard() {
         </View>
 
         <View style={[s.card, { padding: 18 }]}>
+          <Text style={s.eyebrow}>AKILLI ALIŞVERİŞ</Text>
+          <Text style={s.heading}>Eksiklerini tek listede topla</Text>
+          <Text style={[s.body, { marginTop: 6 }]}>
+            Haftalık planından alışveriş listesi oluştur, aldıklarını kilerine ekle.
+          </Text>
+          <Button onPress={() => router.push("/shopping-list")}>Alışveriş asistanını aç</Button>
+        </View>
+
+        <View style={[s.card, { padding: 18 }]}>
           <Text style={s.eyebrow}>HAFTALIK YEMEK PLANI</Text>
           <Text style={s.heading}>Bu haftanın öğünlerini planla</Text>
           <Text style={[s.body, { marginTop: 6 }]}>
