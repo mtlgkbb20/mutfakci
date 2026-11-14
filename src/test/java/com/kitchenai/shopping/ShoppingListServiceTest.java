@@ -82,7 +82,6 @@ class ShoppingListServiceTest {
     verify(pantry).applyPurchase(eq(userId), any(String.class), anyList());
     verify(lists).save(list);
   }
-}
 
   @Test
   void hidesListsOwnedByAnotherUser() {
@@ -171,4 +170,4 @@ class ShoppingListServiceTest {
 
     verifyNoInteractions(items, pantry);
   }
-
+}
