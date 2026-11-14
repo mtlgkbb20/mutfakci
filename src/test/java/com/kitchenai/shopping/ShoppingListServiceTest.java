@@ -1,7 +1,7 @@
 package com.kitchenai.shopping;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,7 +55,7 @@ class ShoppingListServiceTest {
     assertEquals(new BigDecimal("100.000"), milk.pantryCoveredQuantity());
     assertEquals(new BigDecimal("300.000"), milk.toBuyQuantity());
     assertEquals(false, result.costEstimateAvailable());
-    assertNotNull(result.estimatedTotal());
+    assertNull(result.estimatedTotal());
   }
 
   @Test
