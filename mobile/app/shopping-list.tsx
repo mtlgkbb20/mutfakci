@@ -28,6 +28,7 @@ export default function ShoppingListScreen() {
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [active, setActive] = useState<ShoppingList | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [title, setTitle] = useState("Haftalık alışveriş");
   const [itemName, setItemName] = useState("");
   const [itemQuantity, setItemQuantity] = useState("1");
@@ -40,13 +41,14 @@ export default function ShoppingListScreen() {
     ]);
     setPlans(savedPlans);
     setLists(savedLists);
-    if (active) {
-      const latest = savedLists.find((item) => item.id === active.id);
+    if (activeId) {
+      const latest = savedLists.find((item) => item.id === activeId);
       setActive(latest || null);
     } else if (savedLists.length > 0) {
+      setActiveId(savedLists[0].id);
       setActive(savedLists[0]);
     }
-  }, [active]);
+  }, [activeId]);
 
   useEffect(() => {
     refresh().catch((error) => Alert.alert("Alışveriş verileri yüklenemedi", error.message));
@@ -60,6 +62,7 @@ export default function ShoppingListScreen() {
         body: JSON.stringify({ title: title.trim() || "Alışveriş listem", mealPlanId: planId }),
       });
       setActive(created);
+      setActiveId(created.id);
       setLists((current) => [created, ...current.filter((item) => item.id !== created.id)]);
     } catch (error: any) {
       Alert.alert("Liste oluşturulamadı", error.message);
@@ -73,6 +76,7 @@ export default function ShoppingListScreen() {
     try {
       const detail: ShoppingList = await api("/shopping-lists/" + listId);
       setActive(detail);
+      setActiveId(detail.id);
     } catch (error: any) {
       Alert.alert("Liste açılamadı", error.message);
     } finally {
@@ -136,7 +140,9 @@ export default function ShoppingListScreen() {
       });
       Alert.alert("Alışveriş tamamlandı", "Seçtiğin ürünler Akıllı Kiler'e eklendi.");
       setActive(null);
-      await refresh();
+      setActiveId(null);
+      const savedLists: ShoppingList[] = await api("/shopping-lists");
+      setLists(savedLists);
     } catch (error: any) {
       Alert.alert("Alışveriş tamamlanamadı", error.message);
     } finally {
