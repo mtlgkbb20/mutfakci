@@ -80,3 +80,93 @@ class ShoppingListServiceTest {
     verify(lists).save(list);
   }
 }
+
+  @Test
+  void hidesListsOwnedByAnotherUser() {
+    UUID ownerId = UUID.randomUUID();
+    UUID otherUserId = UUID.randomUUID();
+    UUID listId = UUID.randomUUID();
+    when(lists.findByIdAndUserId(listId, otherUserId)).thenReturn(Optional.empty());
+
+    assertThrows(com.kitchenai.common.ApiException.class, () -> service.get(listId, otherUserId));
+
+    verify(items, never()).findByListIdOrderByCategoryAscNameAsc(any());
+    verify(lists).findByIdAndUserId(listId, otherUserId);
+  }
+
+  @Test
+  void rejectsMutationsWhenListIsNotOwnedByCaller() {
+    UUID listId = UUID.randomUUID();
+    UUID otherUserId = UUID.randomUUID();
+    when(lists.lockOwned(listId, otherUserId)).thenReturn(Optional.empty());
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.rename(listId, new ShoppingListContracts.UpdateListRequest("Yeni ad"), otherUserId));
+
+    verify(lists, never()).save(any(ShoppingList.class));
+    verifyNoInteractions(items);
+  }
+
+  @Test
+  void completionReplayWithSameOperationKeyDoesNotTouchPantryAgain() {
+    UUID userId = UUID.randomUUID();
+    UUID listId = UUID.randomUUID();
+    ShoppingList list = new ShoppingList(userId, "Alışveriş", "RECIPE", null, "TRY");
+    list.complete("purchase-replay");
+    when(lists.lockOwned(listId, userId)).thenReturn(Optional.of(list));
+
+    var result = service.complete(listId,
+        new ShoppingListContracts.CompleteRequest("purchase-replay"), userId);
+
+    assertEquals("ALREADY_COMPLETED", result.status());
+    assertEquals(0, result.pantryLinesAdded());
+    verifyNoInteractions(pantry, items);
+    verify(lists, never()).save(any(ShoppingList.class));
+  }
+
+  @Test
+  void rejectsCompletionReplayWithDifferentOperationKey() {
+    UUID userId = UUID.randomUUID();
+    UUID listId = UUID.randomUUID();
+    ShoppingList list = new ShoppingList(userId, "Alışveriş", "RECIPE", null, "TRY");
+    list.complete("original-operation");
+    when(lists.lockOwned(listId, userId)).thenReturn(Optional.of(list));
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.complete(listId,
+            new ShoppingListContracts.CompleteRequest("different-operation"), userId));
+
+    verifyNoInteractions(pantry, items);
+  }
+
+  @Test
+  void doesNotApplyPurchaseWhenNoItemsAreChecked() {
+    UUID userId = UUID.randomUUID();
+    UUID listId = UUID.randomUUID();
+    ShoppingList list = new ShoppingList(userId, "Alışveriş", "RECIPE", null, "TRY");
+    ShoppingListItem unchecked = new ShoppingListItem(listId, "Un", "un", "BAKING_PANTRY",
+        new BigDecimal("500"), BigDecimal.ZERO, new BigDecimal("500"), "g");
+    when(lists.lockOwned(listId, userId)).thenReturn(Optional.of(list));
+    when(items.findByListIdOrderByCategoryAscNameAsc(listId)).thenReturn(List.of(unchecked));
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.complete(listId,
+            new ShoppingListContracts.CompleteRequest("empty-purchase"), userId));
+
+    verifyNoInteractions(pantry);
+    verify(lists, never()).save(any(ShoppingList.class));
+  }
+
+  @Test
+  void rejectsCompletionForAListOwnedByAnotherUserWithoutLoadingItems() {
+    UUID listId = UUID.randomUUID();
+    UUID otherUserId = UUID.randomUUID();
+    when(lists.lockOwned(listId, otherUserId)).thenReturn(Optional.empty());
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.complete(listId,
+            new ShoppingListContracts.CompleteRequest("foreign-purchase"), otherUserId));
+
+    verifyNoInteractions(items, pantry);
+  }
+
