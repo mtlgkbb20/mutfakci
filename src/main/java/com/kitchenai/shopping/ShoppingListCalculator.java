@@ -51,7 +51,8 @@ public final class ShoppingListCalculator {
   }
 
   public static String normalize(String value) {
-    return Normalizer.normalize(value == null ? "" : value.trim().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+    String lowered = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('ı', 'i');
+    return Normalizer.normalize(lowered, Normalizer.Form.NFD)
         .replaceAll("\\p{M}", "").replaceAll("[^a-z0-9 ]", "").replaceAll("\\s+", " ");
   }
 
@@ -80,7 +81,7 @@ public final class ShoppingListCalculator {
       case "subardagi" -> "su bardağı";
       case "yemekkasigi" -> "yemek kaşığı";
       case "caykasigi" -> "çay kaşığı";
-      case "t atlikasigi", "tatlikasigi" -> "tatlı kaşığı";
+      case "tatlikasigi" -> "tatlı kaşığı";
       default -> unit;
     };
   }
