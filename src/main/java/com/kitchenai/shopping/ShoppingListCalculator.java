@@ -77,6 +77,10 @@ public final class ShoppingListCalculator {
       case "piece" -> "adet";
       case "g" -> "g";
       case "ml" -> "ml";
+      case "subardagi" -> "su bardağı";
+      case "yemekkasigi" -> "yemek kaşığı";
+      case "caykasigi" -> "çay kaşığı";
+      case "t atlikasigi", "tatlikasigi" -> "tatlı kaşığı";
       default -> unit;
     };
   }

@@ -70,4 +70,5 @@ public class ShoppingListItem {
   public boolean isChecked() { return checked; }
   public Instant getCreatedAt() { return createdAt; }
   public Instant getUpdatedAt() { return updatedAt; }
+  public long getVersion() { return version; }
 }

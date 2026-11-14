@@ -183,7 +183,8 @@ public class ShoppingListService {
         .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Shopping list not found"));
   }
   private ShoppingList activeOwned(UUID id, UUID userId) {
-    ShoppingList list = owned(id, userId);
+    ShoppingList list = lists.lockOwned(id, userId)
+        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Shopping list not found"));
     if (!"ACTIVE".equals(list.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "Completed lists cannot be changed.");
     return list;
   }
@@ -203,9 +204,15 @@ public class ShoppingListService {
     List<ItemView> itemViews = rows.stream().map(item -> new ItemView(item.getId(), item.getName(),
         item.getCategory(), item.getRequiredQuantity(), item.getPantryCoveredQuantity(),
         item.getToBuyQuantity(), item.getPurchasedQuantity(), item.getUnit(), item.isChecked(), item.getVersion())).toList();
+    List<String> warnings = new ArrayList<>();
+    warnings.add("COST_ESTIMATE_UNAVAILABLE: Güvenilir ürün fiyatı kaynağı yapılandırılmadı.");
+    java.util.Map<String, java.util.Set<String>> unitsByIngredient = new java.util.HashMap<>();
+    rows.forEach(item -> unitsByIngredient.computeIfAbsent(item.getNormalizedName(), ignored -> new java.util.HashSet<>()).add(item.getUnit()));
+    if (unitsByIngredient.values().stream().anyMatch(units -> units.size() > 1)) {
+      warnings.add("UNIT_MISMATCH: Aynı malzemenin dönüştürülemeyen birimleri ayrı satırlarda tutuldu.");
+    }
     return new ListView(list.getId(), list.getTitle(), list.getSourceType(), list.getSourceMealPlanId(),
-        list.getStatus(), list.getCurrency(), itemViews, false, null,
-        List.of("COST_ESTIMATE_UNAVAILABLE: Güvenilir ürün fiyatı kaynağı yapılandırılmadı."),
+        list.getStatus(), list.getCurrency(), itemViews, false, null, warnings,
         list.getCreatedAt(), list.getUpdatedAt());
   }
 }
