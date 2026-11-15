@@ -9,7 +9,7 @@ Keep a private, durable record of completed cooking sessions, their photos, and 
 - Preserve an immutable JSON snapshot of the recipe title, description, category, servings, preparation/cooking time, ingredients, and stages.
 - Store cooked servings, optional 1–5 rating, optional notes, and an optional private photo.
 - Replace or delete the photo through authenticated owner-scoped endpoints.
-- List the latest 100 entries, inspect a single entry, and list attempts for a recipe.
+- List all of the user's entries newest first, inspect a single entry, and list attempts for a recipe.
 - Compare attempts through their dates, ratings, servings, notes, and immutable snapshots.
 - Edit servings, rating, and notes without changing the recipe snapshot.
 - Create a separate private RecipeVariation from a journal snapshot, allowing the user to edit title, description, servings, ingredients, and stages without mutating the original recipe.
