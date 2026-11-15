@@ -7,7 +7,6 @@ import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
-import com.kitchenai.cooking.CookingSessionSummaryProjection;
 import com.kitchenai.gamification.UserProgress;
 import com.kitchenai.gamification.UserProgressRepository;
 import jakarta.validation.Valid;
@@ -18,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -232,10 +232,17 @@ public class RecipeController {
 
   @GetMapping("/cooking-sessions")
   public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
-    return sessions.findSessionSummariesByUserId(userId).stream()
+    List<CookingSessionSummaryProjection> userSessions =
+        sessions.findByUserIdOrderByStartedAtDesc(userId);
+    List<UUID> recipeIds = userSessions.stream().map(CookingSessionSummaryProjection::getRecipeId)
+        .filter(java.util.Objects::nonNull).distinct().toList();
+    Map<UUID, String> recipeTitles = recipeIds.isEmpty() ? Map.of()
+        : recipes.findByIdIn(recipeIds).stream()
+            .collect(Collectors.toMap(RecipeTitleProjection::getId, RecipeTitleProjection::getTitle));
+    return userSessions.stream()
         .map(session -> new SessionView(session.getId(), session.getRecipeId(), session.getStatus(),
             session.getSessionType(), session.getStartedAt(), session.getDesiredOutcome(),
-            session.getRecipeTitle()))
+            recipeTitles.get(session.getRecipeId())))
         .toList();
   }
 
