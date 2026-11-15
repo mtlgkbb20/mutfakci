@@ -154,17 +154,13 @@ export default function Dashboard() {
             <Text style={s.actionIcon}>?</Text>
             <Text style={s.actionLabel}>Yardım</Text>
           </Pressable>
-          <Pressable style={s.actionButton} onPress={() => router.push("/pantry")}>
-            <Text style={s.actionIcon}>⌂</Text>
-            <Text style={s.actionLabel}>Akıllı Kiler</Text>
-          </Pressable>
         </View>
 
         <View style={[s.card, { padding: 18 }]}>
           <Text style={s.eyebrow}>AKILLI ALIŞVERİŞ</Text>
           <Text style={s.heading}>Eksiklerini tek listede topla</Text>
           <Text style={[s.body, { marginTop: 6 }]}>
-            Haftalık planından alışveriş listesi oluştur, aldıklarını kilerine ekle.
+            Haftalık planından alışveriş listesi oluştur, aldıklarını buzdolabına ekle.
           </Text>
           <Button onPress={() => router.push("/shopping-list")}>Alışveriş asistanını aç</Button>
         </View>
@@ -173,7 +169,7 @@ export default function Dashboard() {
           <Text style={s.eyebrow}>HAFTALIK YEMEK PLANI</Text>
           <Text style={s.heading}>Bu haftanın öğünlerini planla</Text>
           <Text style={[s.body, { marginTop: 6 }]}>
-            Kilerindeki malzemeleri değerlendir, eksiklerini tek alışveriş listesinde gör.
+            Buzdolabındaki malzemeleri değerlendir, eksiklerini tek alışveriş listesinde gör.
           </Text>
           <Button onPress={() => router.push("/meal-planner")}>Haftalık planı aç</Button>
         </View>
