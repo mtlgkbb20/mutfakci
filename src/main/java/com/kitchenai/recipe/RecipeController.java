@@ -72,7 +72,7 @@ public class RecipeController {
   public record SessionRequest(UUID recipeId, String desiredOutcome) {}
 
   public record SessionView(
-      UUID id, UUID recipeId, String status, String sessionType, java.time.Instant startedAt, String recipeTitle) {}
+      UUID id, UUID recipeId, String status, String sessionType, java.time.Instant startedAt, String desiredOutcome, String recipeTitle) {}
 
   @PostMapping("/recipes/generate")
   public RecipeView generate(
@@ -244,7 +244,7 @@ public class RecipeController {
     return userSessions.stream()
         .map(session -> new SessionView(
             session.getId(), session.getRecipeId(), session.getStatus(), session.getSessionType(),
-            session.getStartedAt(), recipeTitles.get(session.getRecipeId())))
+            session.getStartedAt(), session.getDesiredOutcome(), recipeTitles.get(session.getRecipeId())))
         .toList();
   }
 
