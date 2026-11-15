@@ -57,8 +57,8 @@ class PantryControllerTest {
     when(row.getTitle()).thenReturn("Sütlaç");
     when(row.getServings()).thenReturn(4);
     when(row.getCoverage()).thenReturn(0.75d);
-    when(row.getAvailableJson()).thenReturn("[{\\"name\\":\\"Süt\\"}]");
-    when(row.getMissingJson()).thenReturn("[{\\"name\\":\\"Pirinç\\"}]");
+    when(row.getAvailableJson()).thenReturn("[{\"name\":\"Süt\"}]");
+    when(row.getMissingJson()).thenReturn("[{\"name\":\"Pirinç\"}]");
     when(recipeMatches.findMatches(userId,"DESSERT",4,0)).thenReturn(List.of(row,row,row,row));
 
     var result=controller.recipeMatches("DESSERT",0,userId);
