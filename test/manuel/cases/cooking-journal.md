@@ -1,11 +1,12 @@
 # KAI-010 — Cooking Journal Manual Test Cases
 
-**Branch:** `feature/KAI-010-cooking-journal`  
+**Branch:** fix/KAI-010-cooking-journal-ux  
+**Original feature branch:** feature/KAI-010-cooking-journal  
 **GitHub Issue:** [#19](https://github.com/mtlgkbb20/mutfakci/issues/19)  
-**Pull Request:** [#20](https://github.com/mtlgkbb20/mutfakci/pull/20)  
+**Original Pull Request:** [#20](https://github.com/mtlgkbb20/mutfakci/pull/20)  
 **Notion:** [Cooking Journal](https://app.notion.com/p/413d941988aa81fc936ac233fcb3b92f)
 
-All cases are initially `NOT RUN`. Record evidence before changing a status.
+All cases are initially NOT RUN. Record evidence before changing a status.
 
 | Case | Scenario | Preconditions / Steps | Expected result | Status |
 |---|---|---|---|---|
@@ -33,3 +34,11 @@ All cases are initially `NOT RUN`. Record evidence before changing a status.
 | CJ-022 | Reject invalid variation JSON | Submit malformed/non-array ingredients or stages JSON | HTTP 400; no variation is persisted | NOT RUN |
 | CJ-023 | Prevent cross-user variation access | Request another user's variation ID | HTTP 404 | NOT RUN |
 | CJ-024 | Unauthenticated access | Call each endpoint without a valid token | Authentication layer rejects the request | NOT RUN |
+| CJ-025 | Summarize active sessions | Create 0, 1, 3, and more than 3 active sessions | Section shows the total count, at most the first 3 recipe names, and + X more when needed; no full list is rendered inline | NOT RUN |
+| CJ-026 | Open active-session manager | Tap “Tüm oturumları gör” with multiple active sessions | A modal lists all active sessions and allows each to be marked completed | NOT RUN |
+| CJ-027 | Resolve session recipe names | Create active and completed sessions linked to saved recipes | Session rows show the actual recipe title resolved from the user's recipe list, not generic “Tarifli pişirme” text | NOT RUN |
+| CJ-028 | Select completed cooking for journal | Complete multiple sessions; open “Pişirme seç” | A searchable selection modal lists unjournaled completed sessions; selecting one opens only that session's journal editor | NOT RUN |
+| CJ-029 | Filter completed-cooking choices | Search completed sessions by a partial recipe title | Only matching sessions are shown; selecting one binds the journal form to that session | NOT RUN |
+| CJ-030 | Select one historical attempt | Create multiple journal entries; open “Deneme seç” | A searchable selection modal lists attempts; selecting one shows only that attempt's editable details | NOT RUN |
+| CJ-031 | Filter historical attempts | Search historical attempts by recipe title | Only matching attempts are shown and the selected attempt remains unambiguous | NOT RUN |
+| CJ-032 | Empty selection states | Open journal with no active sessions, no completed sessions, or no historical entries | Clear empty-state messages appear; no misleading “Tarifsiz pişirme” heading is shown | NOT RUN |
