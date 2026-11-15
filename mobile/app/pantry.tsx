@@ -74,7 +74,7 @@ export default function PantryScreen(){
     {showMatches&&matches.map(match=><View key={match.recipeId} style={{borderTopWidth:1,borderTopColor:colors.line,marginTop:14,paddingTop:14}}>
       <Text style={{fontSize:17,fontWeight:"800",color:colors.ink}}>{match.title}</Text><Text style={s.recipeMeta}>Malzeme eşleşmesi: %{Math.round(match.coverage*100)} · {match.servings} porsiyon</Text>
       {match.missing.length>0&&<Text style={[s.body,{marginTop:7}]}>Eksikler: {match.missing.map(x=>x.name+" ("+x.required+" "+x.unit+")").join(", ")}</Text>}
-      {match.available.length>0&&<Text style={[s.body,{marginTop:5}]}>Kilerden kullanılacak: {match.available.map(x=>x.name).join(", ")}</Text>}
+      {match.available.length>0&&<Text style={[s.body,{marginTop:5}]}>Buzdolabından kullanılacak: {match.available.map(x=>x.name).join(", ")}</Text>}
       <Button secondary onPress={()=>confirmUse(match)}>Kullanılanları stoktan düş</Button>
     </View>)}
    </View>
