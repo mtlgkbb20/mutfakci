@@ -79,6 +79,7 @@ public class PantryController {
   }
 
   private MatchPage findRecipeMatches(String category, int page, UUID userId) {
+    if (page < 0 || page > 1000) throw bad("Sayfa numarası 0 ile 1000 arasında olmalıdır.");
     String normalizedCategory=category==null?"":category.trim().toUpperCase(Locale.ROOT);
     if(!MATCH_CATEGORIES.contains(normalizedCategory)) throw bad("Kategori MEAL, DESSERT veya DRINK olmalıdır.");
     int offset=Math.multiplyExact(page,MATCH_PAGE_SIZE);
