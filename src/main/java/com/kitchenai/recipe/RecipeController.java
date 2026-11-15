@@ -7,6 +7,7 @@ import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
+import com.kitchenai.cooking.CookingSessionSummaryProjection;
 import com.kitchenai.gamification.UserProgress;
 import com.kitchenai.gamification.UserProgressRepository;
 import jakarta.validation.Valid;
@@ -233,7 +234,7 @@ public class RecipeController {
   @GetMapping("/cooking-sessions")
   public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
     List<CookingSessionSummaryProjection> userSessions =
-        sessions.findByUserIdOrderByStartedAtDesc(userId);
+        sessions.findSummaryByUserIdOrderByStartedAtDesc(userId);
     List<UUID> recipeIds = userSessions.stream().map(CookingSessionSummaryProjection::getRecipeId)
         .filter(java.util.Objects::nonNull).distinct().toList();
     Map<UUID, String> recipeTitles = recipeIds.isEmpty() ? Map.of()
