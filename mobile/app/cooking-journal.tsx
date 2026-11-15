@@ -8,8 +8,7 @@ import { File as ExpoFile } from "expo-file-system";
 import { api, apiBaseURL } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
-type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string };
-type Recipe = { id: string; title: string };
+type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string; recipeTitle?: string | null };
 type Entry = {
   id: string;
   cookingSessionId: string;
@@ -39,7 +38,6 @@ export default function CookingJournal() {
   const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [variations, setVariations] = useState<Variation[]>([]);
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
@@ -65,26 +63,20 @@ export default function CookingJournal() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const recipeNames = useMemo(() => new Map(recipes.map(recipe => [recipe.id, recipe.title])), [recipes]);
-  const sessionTitle = (session: Session) => {
-    if (session.recipeId) return recipeNames.get(session.recipeId) || "Tarif adı yüklenemedi";
-    return "Serbest pişirme";
-  };
+  const sessionTitle = (session: Session) => session.recipeTitle?.trim() || "Serbest pişirme";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [journal, cookingSessions, savedVariations, savedRecipes] = await Promise.all([
+      const [journal, cookingSessions, savedVariations] = await Promise.all([
         api("/cooking-journal"),
         api("/cooking-sessions"),
         api("/cooking-journal/variations"),
-        api("/recipes"),
       ]);
       setEntries(journal);
       setSessions(cookingSessions);
       setVariations(savedVariations);
-      setRecipes(savedRecipes);
       setSelectedHistoryId(current => current || journal[0]?.id || "");
       setSelectedSession(current => cookingSessions.some((session: Session) =>
         session.id === current && session.status === "COMPLETED" &&
