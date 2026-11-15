@@ -47,3 +47,9 @@ All cases are initially NOT RUN. Record evidence before changing a status.
 | CJ-035 | Cache selected detail | Select an entry, close/reopen picker without changing selection | Detail is not fetched again while cached in screen state | NOT RUN |
 | CJ-036 | Lightweight variation list | Inspect `GET /cooking-journal/variations/summaries` | Response contains only ID, title, servings, and createdAt; ingredients/stages are absent | NOT RUN |
 | CJ-037 | Session picker payload | Inspect `GET /cooking-sessions` | Response contains session metadata and recipe title only; recipe ingredients/stages are not loaded | NOT RUN |
+
+| CJ-038 | Display selected recipe description | Select a historical recipe with a non-empty description from the history picker | The selected entry detail displays the immutable snapshot description under “Tarif açıklaması” | NOT RUN |
+| CJ-039 | Paginate journal history | Create more than 20 journal entries; open history picker and tap “Daha fazla geçmiş kaydı yükle” | The next 20 entries append without duplicates; no more request is sent after the final page | NOT RUN |
+| CJ-040 | Paginate personal variations | Create more than 20 personal variations and tap “Daha fazla varyasyon yükle” | The next page appends; summary response excludes ingredients/stages JSON | NOT RUN |
+| CJ-041 | Verify journal DB projection | Inspect query behavior for the paged journal list | Summary query selects only projected columns and never hydrates `recipe_snapshot_json`; media existence uses one bulk query per page | NOT RUN |
+| CJ-042 | Verify session summary projection | Inspect `GET /cooking-sessions` query | Session picker uses session/recipe title projection; context JSON, recipe ingredients, and recipe stages are not loaded | NOT RUN |
