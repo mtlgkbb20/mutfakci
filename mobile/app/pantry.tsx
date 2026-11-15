@@ -54,7 +54,7 @@ export default function PantryScreen(){
      catch(e:any){Alert.alert("Stok güncellenemedi",e.message);}
    }}]);
  };
- const movementLabel=(m:Movement)=>{const itemName=items.find(i=>i.id===m.pantryItemId)?.name||"Ürün";const prefix=m.movementType==="CONSUME"?"−":"+";return prefix+Math.abs(m.quantityDelta)+" "+m.unit+" · "+itemName+" · "+new Date(m.createdAt).toLocaleDateString("tr-TR");};
+ const movementLabel=(m:Movement)=>{const itemName=items.find(i=>i.id===m.pantryItemId)?.name||"Ürün";const prefix=m.movementType==="CONSUME"?"−":"+";const unitLabel=m.unit==="piece"?"adet":m.unit;return prefix+Math.abs(m.quantityDelta)+" "+unitLabel+" · "+itemName+" · "+new Date(m.createdAt).toLocaleDateString("tr-TR");};
  const inventoryRows=(list:PantryItem[])=>list.map(item=><View key={item.id} style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:12}}><Pressable style={{flex:1}} onPress={()=>edit(item)}><Text style={{fontSize:16,fontWeight:"700",color:colors.ink}}>{item.name}</Text></Pressable><Pressable onPress={()=>remove(item)}><Text style={{color:"#b42318",fontWeight:"700"}}>Kaldır</Text></Pressable></View>);
  return <AppShell><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
    <Header title="Buzdolabım" subtitle="Evindeki malzemeleri takip et"/>
@@ -63,7 +63,7 @@ export default function PantryScreen(){
     <View style={s.sectionRow}><Text style={s.heading}>{items.length} ürün</Text><Pressable onPress={()=>{setEditingId(null);setName("");setQuantity("");setUnit("");setCategory("");setExpiry("");setShowForm(v=>!v);}}><Text style={s.smallLink}>{showForm?"Kapat":"+ Ürün ekle"}</Text></Pressable></View>
     {showForm&&<View>
       <Field value={name} onChangeText={setName} placeholder="Ürün adı"/>
-      <View style={{flexDirection:"row",gap:8}}><Field value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="Miktar" style={{flex:1}}/><Field value={unit} onChangeText={setUnit} placeholder="Birim (isteğe göre)" style={{flex:1}}/></View>
+      <View style={{flexDirection:"row",gap:8}}><Field value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="Miktar" style={{flex:1}}/><Field value={unit} onChangeText={setUnit} placeholder="Birim" style={{flex:1}}/></View>
       <Field value={category} onChangeText={setCategory} placeholder="Kategori (isteğe bağlı)"/>
       <Field value={expiry} onChangeText={setExpiry} placeholder="Son kullanma tarihi (YYYY-AA-GG) — isteğe bağlı"/>
       <Button onPress={add} loading={loading}>{editingId?"Değişiklikleri kaydet":"Ekle"}</Button>
