@@ -74,7 +74,7 @@ public class CookingJournalService {
 
   @Transactional(readOnly = true)
   public List<CookingJournalEntry> list(UUID userId) {
-    return journal.findTop100ByUserIdOrderByCookedAtDesc(userId);
+    return journal.findByUserIdOrderByCookedAtDesc(userId);
   }
 
   @Transactional(readOnly = true)
