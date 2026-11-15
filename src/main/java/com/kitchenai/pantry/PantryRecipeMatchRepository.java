@@ -80,6 +80,7 @@ interface PantryRecipeMatchRepository extends Repository<PantryItem, java.util.U
       WHERE r.active = TRUE
         AND r.category = :category
       GROUP BY r.id, r.title, r.servings
+      HAVING COUNT(*) FILTER (WHERE pm.pantry_item_id IS NOT NULL) > 0
       ORDER BY "coverage" DESC,
         COUNT(*) FILTER (WHERE pm.pantry_item_id IS NOT NULL) DESC,
         SUM(COALESCE(pm.match_confidence, 0)) DESC,
