@@ -48,7 +48,8 @@ interface PantryRecipeMatchRepository extends Repository<PantryItem, java.util.U
         SELECT
           pi.id AS pantry_item_id,
           pi.quantity AS stock_quantity,
-          pi.unit AS stock_unit
+          pi.unit AS stock_unit,
+          ia.confidence AS match_confidence
         FROM pantry_item pi
         JOIN ingredient_alias ia
           ON ia.normalized_alias = pi.normalized_name
@@ -81,6 +82,7 @@ interface PantryRecipeMatchRepository extends Repository<PantryItem, java.util.U
       GROUP BY r.id, r.title, r.servings
       ORDER BY "coverage" DESC,
         COUNT(*) FILTER (WHERE pm.pantry_item_id IS NOT NULL) DESC,
+        SUM(COALESCE(pm.match_confidence, 0)) DESC,
         COUNT(*) FILTER (WHERE pm.pantry_item_id IS NULL) ASC,
         r.title ASC,
         r.id ASC
