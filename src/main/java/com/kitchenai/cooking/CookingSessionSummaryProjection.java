@@ -10,5 +10,4 @@ public interface CookingSessionSummaryProjection {
   String getSessionType();
   Instant getStartedAt();
   String getDesiredOutcome();
-  String getRecipeTitle();
 }
