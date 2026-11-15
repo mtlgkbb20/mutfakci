@@ -26,6 +26,11 @@ class PantryControllerTest {
     when(movements.save(any(PantryMovement.class))).thenAnswer(inv->inv.getArgument(0));
   }
 
+  @Test void createPreservesTurkishDisplayNameAndNormalizesDotlessIForMatching(){
+    controller.create(new PantryController.ItemRequest("Iğdır",BigDecimal.ONE,"adet",null,null),userId);
+    verify(items).save(argThat(item->item.getName().equals("Iğdır")&&item.getNormalizedName().equals("igdir")&&item.getCategory().isEmpty()&&item.getUnit().equals("adet")));
+  }
+
   @Test void createAddsInitialMovementAndReturnsOwnedItem(){
     var result=controller.create(new PantryController.ItemRequest("Yumurta",new BigDecimal("6"),"adet","DAIRY", LocalDate.now().plusDays(10)),userId);
     assertEquals("Yumurta",result.name());
