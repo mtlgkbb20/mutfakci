@@ -13,7 +13,7 @@ The migration seeds the current nine curated recipes plus Sütlaç, Ev Yapımı 
 
 ## Matching rules
 
-The query is scoped to the authenticated user's active pantry rows and one requested category. Ingredient matching is exact against a curated normalized alias; there is no fuzzy substring matching that could accidentally equate unrelated foods. Alias confidence is used as a ranking tie-breaker, not as a hidden multiplier in the displayed coverage percentage.
+The query is scoped to the authenticated user's active pantry rows and one requested category. Ingredient matching is exact against a curated normalized alias; there is no fuzzy substring matching that could accidentally equate unrelated foods. Recipes with zero pantry coverage are excluded, so an empty result means none of the recipes in that category can currently be started with an available ingredient. Alias confidence is used as a ranking tie-breaker, not as a hidden multiplier in the displayed coverage percentage.
 
 A pantry ingredient is counted as available only when its stock is sufficient and its unit is compatible. Supported conversions are g/kg, ml/l, and adet/piece/pcs. Other units must match exactly. Missing ingredients include both absent ingredients and ingredients with insufficient/incompatible stock.
 
