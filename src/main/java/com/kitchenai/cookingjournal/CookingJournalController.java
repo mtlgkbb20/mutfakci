@@ -69,7 +69,13 @@ public class CookingJournalController {
     }
   }
 
-  public record VariationSummaryView(UUID id, String title, int servings, Instant createdAt) {\n    static VariationSummaryView from(RecipeVariation variation) {\n      return new VariationSummaryView(variation.getId(), variation.getTitle(), variation.getServings(), variation.getCreatedAt());\n    }\n  }\n\n  public record VariationView(UUID id, UUID journalEntryId, UUID sourceRecipeId, String title,
+  public record VariationSummaryView(UUID id, String title, int servings, Instant createdAt) {
+    static VariationSummaryView from(RecipeVariation variation) {
+      return new VariationSummaryView(variation.getId(), variation.getTitle(), variation.getServings(), variation.getCreatedAt());
+    }
+  }
+
+  public record VariationView(UUID id, UUID journalEntryId, UUID sourceRecipeId, String title,
       String description, String productType, int servings, int preparationTime, int cookingTime,
       String ingredientsJson, String stagesJson, Instant createdAt) {
     static VariationView from(RecipeVariation variation) {
