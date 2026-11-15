@@ -1,8 +1,43 @@
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../src/ui";
+
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const [ready, setReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem("token")
+      .then((token) => {
+        if (!active) return;
+        setAuthenticated(Boolean(token));
+        setReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAuthenticated(false);
+        setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={colors.orange} />
+      </View>
+    );
+  }
+
+  if (!authenticated) return <Redirect href="/auth" />;
+
   return (
     <Tabs
       screenOptions={{

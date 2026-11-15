@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { api } from "../src/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api, ApiError, clearSession } from "../src/api";
 import { AppShell, Button, Field, Header, s } from "../src/ui";
 
 type Recipe = {
@@ -31,20 +32,44 @@ export default function Dashboard() {
   const [expanded, setExpanded] = useState<"recipe" | "recovery" | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      api("/auth/me"),
-      api("/recipes"),
-      api("/gamification/progress"),
-    ])
-      .then(([currentUser, savedRecipes, currentProgress]) => {
-        setUser(currentUser);
-        setRecipes(savedRecipes);
-        setProgress(currentProgress);
-      })
-      .catch((error) => {
-        console.error("[KitchenAI Dashboard] bootstrap failed", error);
+    let active = true;
+
+    const bootstrap = async () => {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
         router.replace("/auth");
-      });
+        return;
+      }
+
+      const storedUser = await AsyncStorage.getItem("user");
+      if (storedUser && active) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          await AsyncStorage.removeItem("user");
+        }
+      }
+
+      const [savedRecipes, currentProgress] = await Promise.all([
+        api("/recipes"),
+        api("/gamification/progress"),
+      ]);
+      if (!active) return;
+      setRecipes(savedRecipes);
+      setProgress(currentProgress);
+    };
+
+    bootstrap().catch(async (error) => {
+      console.error("[KitchenAI Dashboard] bootstrap failed", error);
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        await clearSession();
+      }
+      if (active) router.replace("/auth");
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const showGenericError = (error: unknown) => {
