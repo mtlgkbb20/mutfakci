@@ -96,8 +96,6 @@ export default function CookingJournal() {
       setVariations(savedVariations.content);
       setVariationPage(savedVariations.page);
       setVariationHasMore(savedVariations.hasNext);
-      setSelectedHistoryId(current => current && journal.content.some(entry => entry.id === current) ? current : "");
-      setSelectedHistoryDetail(current => current && journal.content.some(entry => entry.id === current.id) ? current : null);
       setSelectedSession(current => cookingSessions.some((session: Session) =>
         session.id === current && session.status === "COMPLETED" &&
         !savedSessionIds.includes(session.id)) ? current : "");
@@ -397,7 +395,6 @@ export default function CookingJournal() {
               </Pressable>
               {selectedHistory ? (() => {
                 const entry = selectedHistory;
-                const attemptCount = entry.recipeId ? entries.filter(item => item.recipeId === entry.recipeId).length : 1;
                 const draftPhoto = draftPhotos[entry.id];
                 return (
                   <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14 }}>
@@ -409,7 +406,7 @@ export default function CookingJournal() {
                         <Text style={s.body}>{snapshot(entry).description}</Text>
                       </View>
                     ) : null}
-                    <Text style={s.recipeMeta}>{entry.servings ?? "—"} porsiyon · {attemptCount} kayıtlı deneme · {entry.rating ? `${entry.rating}/5 yıldız` : "Puanlanmadı"}</Text>
+                    <Text style={s.recipeMeta}>{entry.servings ?? "—"} porsiyon · {entry.rating ? `${entry.rating}/5 yıldız` : "Puanlanmadı"}</Text>
                     {entry.hasPhoto && token ? (
                       <Image source={{ uri: `${apiBaseURL}/cooking-journal/${entry.id}/photo`, headers: { Authorization: `Bearer ${token}` } }}
                         style={{ height: 190, borderRadius: 14, marginTop: 12 }} resizeMode="cover" />
