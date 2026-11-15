@@ -7,6 +7,7 @@ import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
+import com.kitchenai.cooking.CookingSessionSummaryProjection;
 import com.kitchenai.gamification.UserProgress;
 import com.kitchenai.gamification.UserProgressRepository;
 import jakarta.validation.Valid;
@@ -17,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -233,18 +233,17 @@ public class RecipeController {
 
   @GetMapping("/cooking-sessions")
   public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
-    List<CookingSession> userSessions = sessions.findByUserIdOrderByStartedAtDesc(userId);
-    List<UUID> recipeIds = userSessions.stream()
-        .map(CookingSession::getRecipeId)
-        .filter(Objects::nonNull)
-        .distinct()
-        .toList();
-    Map<UUID, String> recipeTitles = recipes.findAllById(recipeIds).stream()
-        .collect(Collectors.toMap(Recipe::getId, Recipe::getTitle));
+    List<CookingSessionSummaryProjection> userSessions =
+        sessions.findSessionSummariesByUserId(userId);
+    List<UUID> recipeIds = userSessions.stream().map(CookingSessionSummaryProjection::getRecipeId)
+        .filter(java.util.Objects::nonNull).distinct().toList();
+    Map<UUID, String> recipeTitles = recipeIds.isEmpty() ? Map.of()
+        : recipes.findByIdIn(recipeIds).stream()
+            .collect(Collectors.toMap(RecipeTitleProjection::getId, RecipeTitleProjection::getTitle));
     return userSessions.stream()
-        .map(session -> new SessionView(
-            session.getId(), session.getRecipeId(), session.getStatus(), session.getSessionType(),
-            session.getStartedAt(), session.getDesiredOutcome(), recipeTitles.get(session.getRecipeId())))
+        .map(session -> new SessionView(session.getId(), session.getRecipeId(), session.getStatus(),
+            session.getSessionType(), session.getStartedAt(), session.getDesiredOutcome(),
+            recipeTitles.get(session.getRecipeId())))
         .toList();
   }
 

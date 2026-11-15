@@ -15,6 +15,8 @@ public class CookingJournalEntry {
   private UUID cookingSessionId;
   private UUID recipeId;
   @Column(columnDefinition = "TEXT", nullable = false)
+  private String recipeTitle;
+  @Column(columnDefinition = "TEXT", nullable = false)
   private String recipeSnapshotJson;
   private Integer servings;
   private Integer rating;
@@ -27,12 +29,13 @@ public class CookingJournalEntry {
   protected CookingJournalEntry() {}
 
   public CookingJournalEntry(
-      UUID userId, UUID cookingSessionId, UUID recipeId, String recipeSnapshotJson,
+      UUID userId, UUID cookingSessionId, UUID recipeId, String recipeTitle, String recipeSnapshotJson,
       Integer servings, Integer rating, String notes, Instant cookedAt) {
     this.id = UUID.randomUUID();
     this.userId = userId;
     this.cookingSessionId = cookingSessionId;
     this.recipeId = recipeId;
+    this.recipeTitle = recipeTitle;
     this.recipeSnapshotJson = recipeSnapshotJson;
     this.servings = servings;
     this.rating = rating;
@@ -53,6 +56,7 @@ public class CookingJournalEntry {
   public UUID getUserId() { return userId; }
   public UUID getCookingSessionId() { return cookingSessionId; }
   public UUID getRecipeId() { return recipeId; }
+  public String getRecipeTitle() { return recipeTitle; }
   public String getRecipeSnapshotJson() { return recipeSnapshotJson; }
   public Integer getServings() { return servings; }
   public Integer getRating() { return rating; }
