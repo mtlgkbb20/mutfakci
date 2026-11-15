@@ -51,6 +51,7 @@ class CookingJournalServiceTest {
     var snapshot = new ObjectMapper().readTree(entry.getRecipeSnapshotJson());
 
     assertEquals(recipe.getId(), entry.getRecipeId());
+    assertEquals("Elmalı Kek", entry.getRecipeTitle());
     assertEquals("Elmalı Kek", snapshot.get("title").asText());
     assertEquals(3, entry.getServings());
     assertEquals(5, entry.getRating());
@@ -135,7 +136,7 @@ class CookingJournalServiceTest {
   void createsSeparateVariationFromImmutableJournalSnapshot() {
     Recipe recipe = new Recipe(userId, "Original", "Original description", "MAIN", 2, 10, 20,
         "[{\"name\":\"Rice\"}]", "[{\"title\":\"Boil\"}]");
-    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(),
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(), "Original",
         "{\"title\":\"Original\",\"description\":\"Original description\",\"productType\":\"MAIN\",\"servings\":2,\"preparationTime\":10,\"cookingTime\":20,\"ingredients\":\"[{\\\"name\\\":\\\"Rice\\\"}]\",\"stages\":\"[{\\\"title\\\":\\\"Boil\\\"}]\"}",
         2, 4, null, null);
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
