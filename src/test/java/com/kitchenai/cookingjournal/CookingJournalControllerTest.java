@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +21,7 @@ class CookingJournalControllerTest {
     CookingJournalService service = mock(CookingJournalService.class);
     JournalMediaStorage media = mock(JournalMediaStorage.class);
     CookingJournalController controller =
-        new CookingJournalController(service, media, new ObjectMapper());
+        new CookingJournalController(service, media);
     CookingJournalSummaryProjection row = mock(CookingJournalSummaryProjection.class);
     when(row.getId()).thenReturn(entryId);
     when(row.getCookingSessionId()).thenReturn(UUID.randomUUID());
