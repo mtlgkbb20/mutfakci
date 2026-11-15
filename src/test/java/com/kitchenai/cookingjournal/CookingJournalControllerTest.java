@@ -33,4 +33,25 @@ class CookingJournalControllerTest {
     assertEquals(5, summaries.get(0).rating());
     assertTrue(summaries.get(0).hasPhoto());
   }
+  @Test
+  void variationSummaryListOmitsFullRecipePayload() {
+    UUID userId = UUID.randomUUID();
+    CookingJournalService service = mock(CookingJournalService.class);
+    JournalMediaStorage media = mock(JournalMediaStorage.class);
+    CookingJournalController controller =
+        new CookingJournalController(service, media, new ObjectMapper());
+    RecipeVariation variation = new RecipeVariation(userId, UUID.randomUUID(), UUID.randomUUID(),
+        "Baharatlı Elmalı Kek", "description", "DESSERT", 4, 20, 35,
+        "[{\"name\":\"apple\"}]", "[{\"step\":\"mix\"}]");
+    when(service.listVariations(userId)).thenReturn(List.of(variation));
+
+    List<CookingJournalController.VariationSummaryView> summaries =
+        controller.listVariationSummaries(userId);
+
+    assertEquals(1, summaries.size());
+    assertEquals(variation.getId(), summaries.get(0).id());
+    assertEquals("Baharatlı Elmalı Kek", summaries.get(0).title());
+    assertEquals(4, summaries.get(0).servings());
+  }
+
 }
