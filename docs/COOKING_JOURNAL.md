@@ -26,15 +26,15 @@ All endpoints require authentication.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/api/v1/cooking-journal` | Create from a completed session |
-| GET | `/api/v1/cooking-journal` | Latest 100 entries |
-| GET | `/api/v1/cooking-journal/{entryId}` | Entry detail |
+| GET | `/api/v1/cooking-journal` | Lightweight journal summaries (ID, title, date, servings, rating, photo flag) |
+| GET | `/api/v1/cooking-journal/{entryId}` | Full entry detail, fetched after selection |
 | GET | `/api/v1/cooking-journal/recipes/{recipeId}/attempts` | Attempts for a recipe |
 | PATCH | `/api/v1/cooking-journal/{entryId}` | Update servings, rating, notes |
 | PUT | `/api/v1/cooking-journal/{entryId}/photo` | Upload/replace private photo (multipart `image`) |
 | GET | `/api/v1/cooking-journal/{entryId}/photo` | Read private photo |
 | DELETE | `/api/v1/cooking-journal/{entryId}/photo` | Delete photo |
 | POST | `/api/v1/cooking-journal/{entryId}/variations` | Create a separate recipe variation |
-| GET | `/api/v1/cooking-journal/variations` | List own variations |
+| GET | `/api/v1/cooking-journal/variations/summaries` | Lightweight list of own variations |\n| GET | `/api/v1/cooking-journal/variations` | Full list of own variations (non-picker clients) |
 | GET | `/api/v1/cooking-journal/variations/{variationId}` | Read own variation |
 
 ### Create journal payload
@@ -68,7 +68,7 @@ All fields are optional. Null means “leave unchanged”; an empty notes string
 
 The variation is stored in its own table and never overwrites the source `recipe` row. Ingredient and stage overrides must be valid JSON arrays.
 
-## Media security
+## Lazy loading\n- The journal screen initially loads only summary data for journal entries and personal variations. Recipe snapshots, notes, and full variation payloads are not part of the picker/list response.\n- Selecting a historical journal entry triggers `GET /cooking-journal/{entryId}`; the selected detail is held in client state and reused until another entry is selected.\n- Session list responses contain only session metadata and recipe titles; recipe ingredients/stages are not loaded for the session picker.\n- Journal photos remain separately fetched from the protected photo endpoint only when the selected entry has a photo.\n\n## Media security
 - Only JPEG and PNG uploads are accepted; max 10 MB, minimum 160 px per dimension, maximum 20 MP.
 - Images are decoded and re-encoded to strip embedded metadata.
 - Files are stored under an owner-specific directory with restrictive POSIX permissions where supported.
