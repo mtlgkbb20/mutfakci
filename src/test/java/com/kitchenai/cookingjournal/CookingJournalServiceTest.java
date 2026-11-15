@@ -155,7 +155,7 @@ class CookingJournalServiceTest {
   @Test
   void rejectsInvalidVariationJson() {
     Recipe recipe = new Recipe(userId, "Original", "Description", "MAIN", 2, 10, 20, "[]", "[]");
-    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(),
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), recipe.getId(), "Original",
         "{\"title\":\"Original\",\"description\":\"Description\",\"productType\":\"MAIN\",\"servings\":2,\"preparationTime\":10,\"cookingTime\":20,\"ingredients\":\"[]\",\"stages\":\"[]\"}",
         2, null, null, null);
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
