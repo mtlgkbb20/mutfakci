@@ -1,5 +1,5 @@
 ALTER TABLE cooking_journal_entry
-  ADD COLUMN recipe_title VARCHAR(255);
+  ADD COLUMN recipe_title TEXT;
 
 UPDATE cooking_journal_entry
 SET recipe_title = COALESCE(
