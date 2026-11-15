@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
-import { api, clearSession } from "../src/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api, ApiError, clearSession } from "../src/api";
 import { AppShell, Button, Header, s } from "../src/ui";
 export default function Profile() {
   const router = useRouter();
@@ -11,12 +12,40 @@ export default function Profile() {
     level: "BEGINNER_CHEF",
   });
   useEffect(() => {
-    Promise.all([api("/auth/me"), api("/gamification/progress")])
-      .then(([u, p]) => {
-        setUser(u);
-        setProgress(p);
-      })
-      .catch(() => router.replace("/auth"));
+    let active = true;
+
+    const loadProfile = async () => {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/auth");
+        return;
+      }
+
+      const [storedUser, currentProgress] = await Promise.all([
+        AsyncStorage.getItem("user"),
+        api("/gamification/progress"),
+      ]);
+      if (!active) return;
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          await AsyncStorage.removeItem("user");
+        }
+      }
+      setProgress(currentProgress);
+    };
+
+    loadProfile().catch(async (error) => {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        await clearSession();
+      }
+      if (active) router.replace("/auth");
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
   const level =
     progress.level === "BEGINNER_CHEF"
