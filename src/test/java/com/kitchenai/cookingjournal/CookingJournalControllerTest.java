@@ -49,7 +49,7 @@ class CookingJournalControllerTest {
     CookingJournalService service = mock(CookingJournalService.class);
     JournalMediaStorage media = mock(JournalMediaStorage.class);
     CookingJournalController controller =
-        new CookingJournalController(service, media, new ObjectMapper());
+        new CookingJournalController(service, media);
     RecipeVariationSummaryProjection row = mock(RecipeVariationSummaryProjection.class);
     when(row.getId()).thenReturn(UUID.randomUUID());
     when(row.getTitle()).thenReturn("Baharatlı Elmalı Kek");
