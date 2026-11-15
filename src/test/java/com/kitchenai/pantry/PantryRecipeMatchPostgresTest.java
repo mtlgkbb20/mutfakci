@@ -41,9 +41,7 @@ class PantryRecipeMatchPostgresTest {
         "SELECT COUNT(*) FROM recipe_catalog WHERE category = 'DRINK'", Integer.class));
 
     var desserts = recipeMatches.findMatches(UUID.randomUUID(), "DESSERT", 4, 0);
-    assertEquals(2, desserts.size());
-    assertEquals("[]", desserts.get(0).getAvailableJson());
-    assertTrue(desserts.get(0).getMissingJson().startsWith("["));
+    assertTrue(desserts.isEmpty(), "Recipes with zero pantry coverage must not be recommended");
   }
 
   @Test
