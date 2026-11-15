@@ -9,6 +9,7 @@ import { api, apiBaseURL } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
 type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string; desiredOutcome?: string | null; recipeTitle?: string | null };
+type EntrySummary = { id: string; cookingSessionId: string; recipeId?: string | null; title: string; servings?: number | null; rating?: number | null; cookedAt: string; hasPhoto?: boolean; };
 type Entry = {
   id: string;
   cookingSessionId: string;
@@ -36,7 +37,9 @@ function dateLabel(value?: string) {
 
 export default function CookingJournal() {
   const router = useRouter();
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<EntrySummary[]>([]);
+  const [selectedHistoryDetail, setSelectedHistoryDetail] = useState<Entry | null>(null);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [variations, setVariations] = useState<Variation[]>([]);
   const [selectedSession, setSelectedSession] = useState("");
@@ -77,7 +80,8 @@ export default function CookingJournal() {
       setEntries(journal);
       setSessions(cookingSessions);
       setVariations(savedVariations);
-      setSelectedHistoryId(current => current || journal[0]?.id || "");
+      setSelectedHistoryId(current => current && journal.some((entry: EntrySummary) => entry.id === current) ? current : "");
+      setSelectedHistoryDetail(current => current && journal.some((entry: EntrySummary) => entry.id === current.id) ? current : null);
       setSelectedSession(current => cookingSessions.some((session: Session) =>
         session.id === current && session.status === "COMPLETED" &&
         !journal.some((entry: Entry) => entry.cookingSessionId === session.id)) ? current : "");
@@ -157,7 +161,7 @@ export default function CookingJournal() {
           rating: draftRatings[entry.id] ?? entry.rating,
         }),
       });
-      setEntries(current => current.map(item => item.id === entry.id ? updated : item));
+      setSelectedHistoryDetail(updated);\n      setEntries(current => current.map(item => item.id === entry.id ? { ...item, servings: updated.servings, rating: updated.rating } : item));
       setNotice("Pişirme kaydı güncellendi.");
     } catch (e: any) { setError(e.message || "Kayıt güncellenemedi."); }
     finally { setSaving(false); }
@@ -211,16 +215,16 @@ export default function CookingJournal() {
     finally { setSaving(false); }
   };
 
-  const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
+  const selectHistory = async (entryId: string) => {\n    setSelectedHistoryId(entryId);\n    setSelectedHistoryDetail(null);\n    setHistoryDetailLoading(true);\n    setPicker(null);\n    setError("");\n    try {\n      const detail = await api(`/cooking-journal/${entryId}`);\n      setSelectedHistoryDetail(detail);\n    } catch (e: any) {\n      setError(e.message || "Pişirme detayı yüklenemedi.");\n    } finally { setHistoryDetailLoading(false); }\n  };\n\n  const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
   const completedSessions = sessions.filter(item => item.status === "COMPLETED" &&
     !entries.some(entry => entry.cookingSessionId === item.id));
   const selectedCompletedSession = completedSessions.find(item => item.id === selectedSession);
-  const selectedHistory = entries.find(entry => entry.id === selectedHistoryId);
+  const selectedHistory = selectedHistoryDetail?.id === selectedHistoryId ? selectedHistoryDetail : undefined;
   const pickerItems = picker === "completed" ? completedSessions : entries;
   const filteredPickerItems = pickerItems.filter(item => {
     const title = picker === "completed"
       ? sessionTitle(item as Session)
-      : recipeTitle(item as Entry);
+      : (item as EntrySummary).title;
     return title.toLocaleLowerCase("tr-TR").includes(pickerQuery.toLocaleLowerCase("tr-TR"));
   });
 
@@ -310,7 +314,7 @@ export default function CookingJournal() {
           </View>
           {loading ? <ActivityIndicator color={colors.orange} /> : null}
           {!loading && entries.length === 0 ? <Text style={s.body}>Henüz pişirme kaydı yok.</Text> : null}
-          {entries.length > 0 ? (
+          {historyDetailLoading ? <ActivityIndicator color={colors.orange} /> : null}\n          {entries.length > 0 ? (
             <>
               <Pressable onPress={() => openPicker("history")} style={{
                 borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14,
@@ -318,8 +322,8 @@ export default function CookingJournal() {
               }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={s.eyebrow}>DENEME SEÇ</Text>
-                  <Text style={s.body}>{selectedHistory ? recipeTitle(selectedHistory) : "Geçmiş denemelerden birini seç"}</Text>
-                  {selectedHistory ? <Text style={s.recipeMeta}>{dateLabel(selectedHistory.cookedAt)}</Text> : null}
+                  <Text style={s.body}>{selectedHistory ? recipeTitle(selectedHistory) : (entries.find(item => item.id === selectedHistoryId)?.title || "Geçmiş denemelerden birini seç")}</Text>
+                  {selectedHistoryId ? <Text style={s.recipeMeta}>{dateLabel(selectedHistory?.cookedAt || entries.find(item => item.id === selectedHistoryId)?.cookedAt)}</Text> : null}
                 </View>
                 <Text style={{ color: colors.orange, fontWeight: "800" }}>⌄</Text>
               </Pressable>
@@ -429,7 +433,7 @@ export default function CookingJournal() {
               {filteredPickerItems.map(item => {
                 const isCompleted = picker === "completed";
                 const id = item.id;
-                const title = isCompleted ? sessionTitle(item as Session) : recipeTitle(item as Entry);
+                const title = isCompleted ? sessionTitle(item as Session) : (item as EntrySummary).title;
                 const date = isCompleted ? dateLabel((item as Session).startedAt) : dateLabel((item as Entry).cookedAt);
                 const selected = isCompleted ? selectedSession === id : selectedHistoryId === id;
                 return (
