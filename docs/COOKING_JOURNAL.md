@@ -26,7 +26,8 @@ All endpoints require authentication.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/api/v1/cooking-journal` | Create from a completed session |
-| GET | `/api/v1/cooking-journal` | Lightweight journal summaries (ID, title, date, servings, rating, photo flag) |
+| GET | `/api/v1/cooking-journal?page=0&size=20` | Paginated lightweight journal summaries (projection: ID, title, date, servings, rating, photo flag) |
+| GET | `/api/v1/cooking-journal/session-ids` | Lightweight IDs used to exclude already-journaled completed sessions |
 | GET | `/api/v1/cooking-journal/{entryId}` | Full entry detail, fetched after selection |
 | GET | `/api/v1/cooking-journal/recipes/{recipeId}/attempts` | Attempts for a recipe |
 | PATCH | `/api/v1/cooking-journal/{entryId}` | Update servings, rating, notes |
@@ -34,7 +35,7 @@ All endpoints require authentication.
 | GET | `/api/v1/cooking-journal/{entryId}/photo` | Read private photo |
 | DELETE | `/api/v1/cooking-journal/{entryId}/photo` | Delete photo |
 | POST | `/api/v1/cooking-journal/{entryId}/variations` | Create a separate recipe variation |
-| GET | `/api/v1/cooking-journal/variations/summaries` | Lightweight list of own variations |
+| GET | `/api/v1/cooking-journal/variations/summaries?page=0&size=20` | Paginated variation summary projection (ID, title, description, servings, createdAt) |
 | GET | `/api/v1/cooking-journal/variations` | Full list of own variations (non-picker clients) |
 | GET | `/api/v1/cooking-journal/variations/{variationId}` | Read own variation |
 
@@ -70,9 +71,12 @@ All fields are optional. Null means “leave unchanged”; an empty notes string
 The variation is stored in its own table and never overwrites the source `recipe` row. Ingredient and stage overrides must be valid JSON arrays.
 
 ## Lazy loading
-- The journal screen initially loads only summary data for journal entries and personal variations. Recipe snapshots, notes, and full variation payloads are not part of the picker/list response.
+- The journal screen initially loads the first 20 summary rows for journal entries and personal variations. A “Daha fazla yükle” action requests subsequent pages; no unbounded history list is downloaded.
+- Journal summaries use a Spring Data interface projection backed by a dedicated `recipe_title` column; the `recipe_snapshot_json` TEXT column is not selected. Existing titles are backfilled from the immutable snapshot in migration V16.
+- Photo existence is resolved with one bulk query for the current page, not one query per entry. The recipe-attempt endpoint also batches photo lookup.
+- Variation summaries use an interface projection and do not select `ingredients_json` or `stages_json`.
 - Selecting a historical journal entry triggers `GET /cooking-journal/{entryId}`; the selected detail is held in client state and reused until another entry is selected.
-- Session list responses contain only session metadata and recipe titles; recipe ingredients/stages are not loaded for the session picker.
+- Session list responses use a JPQL projection joining recipe titles; neither full `CookingSession` entities/context JSON nor full `Recipe` entities/ingredient-stage JSON are loaded for the session picker.
 - Journal photos remain separately fetched from the protected photo endpoint only when the selected entry has a photo.
 
 ## Media security
@@ -90,7 +94,7 @@ The variation is stored in its own table and never overwrites the source `recipe
 - A unique constraint on `cooking_session_id` prevents duplicate journal entries.
 - Snapshot data is stored on the journal entry and never re-read from the mutable recipe for display.
 - Variation and media references are separate entities.
-- Migration is additive and uses V15 because the pending AI Meal Planner branch reserves V14.
+- Migrations are additive; V15 introduced the journal tables and V16 adds the denormalized journal title used by summary projections.
 
 ## Verification
 Backend unit tests cover session completion, ownership, duplicate prevention, snapshot immutability, variation validation, and private media storage. Manual cases are in `test/manuel/cases/cooking-journal.md`.
