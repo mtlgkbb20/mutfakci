@@ -5,10 +5,17 @@ import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
 type PantryItem = { id:string; name:string; category:string; quantity:number; unit:string; expiryDate?:string|null; expired:boolean; expiringSoon:boolean; version:number };
 type Movement = { id:string; pantryItemId:string; movementType:string; quantityDelta:number; unit:string; reason?:string; createdAt:string };
+type RecipeCategory = "MEAL" | "DESSERT" | "DRINK";
 type Match = { recipeId:string; title:string; servings:number; coverage:number; available:{name:string;pantryItemId:string;required:number;unit:string;stock:number;stockUnit:string}[]; missing:{name:string;required:number;unit:string}[] };
+type MatchPage = { category:RecipeCategory; page:number; size:number; hasMore:boolean; recipes:Match[] };
 
 const modalCard = { backgroundColor: colors.white, borderRadius: 22, padding: 20, maxHeight: "82%" as const, width: "100%" as const };
 const modalBackdrop = { flex: 1 as const, backgroundColor: "rgba(30,24,20,0.48)", justifyContent: "center" as const, padding: 20 };
+const recipeCategories: {value:RecipeCategory;label:string;emoji:string}[] = [
+ {value:"MEAL",label:"Yemek",emoji:"🍲"},
+ {value:"DESSERT",label:"Tatlı",emoji:"🍰"},
+ {value:"DRINK",label:"İçecek",emoji:"🥤"}
+];
 
 export default function PantryScreen(){
  const [items,setItems]=useState<PantryItem[]>([]);
@@ -21,12 +28,17 @@ export default function PantryScreen(){
  const [category,setCategory]=useState("");
  const [expiry,setExpiry]=useState("");
  const [loading,setLoading]=useState(false);
+ const [loadingMatches,setLoadingMatches]=useState(false);
+ const [loadingMore,setLoadingMore]=useState(false);
  const [showForm,setShowForm]=useState(false);
  const [showMatches,setShowMatches]=useState(false);
  const [showInventoryModal,setShowInventoryModal]=useState(false);
  const [showMovementsModal,setShowMovementsModal]=useState(false);
  const [showRecipeInfo,setShowRecipeInfo]=useState(false);
  const [editingId,setEditingId]=useState<string|null>(null);
+ const [recipeCategory,setRecipeCategory]=useState<RecipeCategory>("MEAL");
+ const [matchPage,setMatchPage]=useState(0);
+ const [hasMoreMatches,setHasMoreMatches]=useState(false);
  const refresh=useCallback(async()=>{
    const [inventory,soon,history]=await Promise.all([api("/pantry/items"),api("/pantry/expiring?withinDays=7"),api("/pantry/movements")]);
    setItems(inventory);setExpiring(soon);setMovements(history);
@@ -46,7 +58,25 @@ export default function PantryScreen(){
  };
  const edit=(item:PantryItem)=>{setEditingId(item.id);setName(item.name);setQuantity(String(item.quantity));setUnit(item.unit);setCategory(item.category==="OTHER"?"":item.category);setExpiry(item.expiryDate||"");setShowInventoryModal(false);setShowForm(true);};
  const remove=(item:PantryItem)=>Alert.alert("Ürünü kaldır",item.name+" buzdolabından kaldırılsın mı?",[{text:"Vazgeç",style:"cancel"},{text:"Kaldır",style:"destructive",onPress:async()=>{try{await api("/pantry/items/"+item.id,{method:"DELETE"});await refresh();}catch(e:any){Alert.alert("İşlem başarısız",e.message);}}}]);
- const loadMatches=async()=>{try{setMatches(await api("/pantry/recipe-matches",{method:"POST",body:"{}"}));setShowMatches(true);}catch(e:any){Alert.alert("Tarifler getirilemedi",e.message);}};
+ const loadMatches=async()=>{
+   setLoadingMatches(true);
+   try{
+     const result:MatchPage=await api("/pantry/recipe-matches?category="+recipeCategory+"&page=0");
+     setMatches(result.recipes);setMatchPage(result.page);setHasMoreMatches(result.hasMore);setShowMatches(true);
+   }catch(e:any){Alert.alert("Tarifler getirilemedi",e.message);}finally{setLoadingMatches(false);}
+ };
+ const loadMoreMatches=async()=>{
+   if(!hasMoreMatches||loadingMore)return;
+   const nextPage=matchPage+1;setLoadingMore(true);
+   try{
+     const result:MatchPage=await api("/pantry/recipe-matches?category="+recipeCategory+"&page="+nextPage);
+     setMatches(current=>[...current,...result.recipes]);setMatchPage(result.page);setHasMoreMatches(result.hasMore);
+   }catch(e:any){Alert.alert("Diğer tarifler getirilemedi",e.message);}finally{setLoadingMore(false);}
+ };
+ const selectRecipeCategory=(next:RecipeCategory)=>{
+   if(next===recipeCategory)return;
+   setRecipeCategory(next);setMatches([]);setShowMatches(false);setHasMoreMatches(false);setMatchPage(0);
+ };
  const confirmUse=(match:Match)=>{
    if(match.available.length===0){Alert.alert("Stok hareketi yok","Bu tarif için buzdolabından düşülecek eşleşen ürün bulunamadı.");return;}
    Alert.alert("Malzemeleri stoktan düş",match.title+" için eşleşen "+match.available.length+" malzeme stoktan düşülecek. Onaylıyor musun?",[{text:"İptal",style:"cancel"},{text:"Onayla",onPress:async()=>{
@@ -78,18 +108,31 @@ export default function PantryScreen(){
    <View style={s.card}><Text style={s.eyebrow}>STOK HAREKETLERİ</Text><View style={s.sectionRow}><Text style={s.heading}>Son değişiklikler</Text>{movements.length>3&&<Pressable onPress={()=>setShowMovementsModal(true)}><Text style={s.smallLink}>Tümünü gör</Text></Pressable>}</View>
     {movements.length===0?<Text style={[s.body,{marginTop:8}]}>Henüz stok hareketi yok.</Text>:movements.slice(0,3).map(m=><Text key={m.id} style={[s.body,{marginTop:7}]}>{movementLabel(m)}</Text>)}
    </View>
-   <View style={s.card}><Text style={s.eyebrow}>ELİNDEKİLERLE NE PİŞİRİRSİN?</Text><Text style={s.heading}>Tarif önerileri</Text><Text style={[s.body,{marginTop:6}]}>Buzdolabındaki malzemeleri tariflerle karşılaştırıp eksiklerini gösterelim.</Text><Button onPress={loadMatches}>Tarifleri bul</Button>
+   <View style={s.card}>
+    <Text style={s.eyebrow}>ELİNDEKİLERLE NE PİŞİRİRSİN?</Text>
+    <Text style={s.heading}>Tarif önerileri</Text>
+    <Text style={[s.body,{marginTop:6}]}>Önce görmek istediğin tarif türünü seç.</Text>
+    <View style={{flexDirection:"row",gap:8,marginTop:12}}>
+      {recipeCategories.map(option=><Pressable key={option.value} onPress={()=>selectRecipeCategory(option.value)} style={{flex:1,paddingVertical:12,paddingHorizontal:5,borderRadius:14,borderWidth:recipeCategory===option.value?2:1,borderColor:recipeCategory===option.value?colors.primary:colors.line,backgroundColor:recipeCategory===option.value?"#fff7ed":colors.white,alignItems:"center"}}>
+        <Text style={{fontSize:20}}>{option.emoji}</Text>
+        <Text style={{fontWeight:"700",fontSize:13,color:colors.ink,marginTop:4}}>{option.label}</Text>
+      </Pressable>)}
+    </View>
+    <View style={{marginTop:12}}><Button onPress={loadMatches} loading={loadingMatches}>İlk 3 tarifi bul</Button></View>
     <Pressable onPress={()=>setShowRecipeInfo(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tarifler nasıl bulunuyor?</Text></Pressable>
+    {showMatches&&matches.length===0&&<Text style={[s.body,{marginTop:12}]}>Bu kategoride şu an eşleşen tarif bulunamadı.</Text>}
     {showMatches&&matches.map(match=><View key={match.recipeId} style={{borderTopWidth:1,borderTopColor:colors.line,marginTop:14,paddingTop:14}}>
-      <Text style={{fontSize:17,fontWeight:"800",color:colors.ink}}>{match.title}</Text><Text style={s.recipeMeta}>Malzeme eşleşmesi: %{Math.round(match.coverage*100)} · {match.servings} porsiyon</Text>
-      {match.missing.length>0&&<Text style={[s.body,{marginTop:7}]}>Eksikler: {match.missing.map(x=>x.name+" ("+x.required+" "+x.unit+")").join(", ")}</Text>}
-      {match.available.length>0&&<Text style={[s.body,{marginTop:5}]}>Buzdolabından kullanılacak: {match.available.map(x=>x.name).join(", ")}</Text>}
-      <Button secondary onPress={()=>confirmUse(match)}>Kullanılanları stoktan düş</Button>
+      <Text style={{fontSize:17,fontWeight:"800",color:colors.ink}}>{match.title}</Text>
+      <Text style={s.recipeMeta}>Malzeme eşleşmesi: %{Math.round(match.coverage*100)} · {match.servings} porsiyon</Text>
+      {match.available.length>0&&<View style={{marginTop:8}}><Text style={[s.recipeMeta,{fontWeight:"700",marginBottom:5}]}>Elindekiler</Text><Text style={s.body}>{match.available.map(x=>x.name).join(", ")}</Text></View>}
+      {match.missing.length>0&&<View style={{marginTop:8}}><Text style={[s.recipeMeta,{fontWeight:"700",marginBottom:5}]}>Eksik malzemeler</Text><Text style={s.body}>{match.missing.map(x=>x.name+" ("+x.required+" "+x.unit+")").join(", ")}</Text></View>}
+      {match.available.length>0&&<View style={{marginTop:10}}><Button secondary onPress={()=>confirmUse(match)}>Kullanılanları stoktan düş</Button></View>}
     </View>)}
+    {showMatches&&hasMoreMatches&&<View style={{marginTop:14}}><Button secondary onPress={loadMoreMatches} loading={loadingMore}>3 tarif daha göster</Button></View>}
    </View>
  </ScrollView>
  <Modal visible={showInventoryModal} transparent animationType="fade" onRequestClose={()=>setShowInventoryModal(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tüm ürünler</Text><Pressable onPress={()=>setShowInventoryModal(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><ScrollView>{inventoryRows(items)}</ScrollView></View></View></Modal>
  <Modal visible={showMovementsModal} transparent animationType="fade" onRequestClose={()=>setShowMovementsModal(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tüm değişiklikler</Text><Pressable onPress={()=>setShowMovementsModal(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><ScrollView>{movements.map(m=><Text key={m.id} style={[s.body,{paddingVertical:10,borderTopWidth:1,borderTopColor:colors.line}]}>{movementLabel(m)}</Text>)}</ScrollView></View></View></Modal>
- <Modal visible={showRecipeInfo} transparent animationType="fade" onRequestClose={()=>setShowRecipeInfo(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tarifler nasıl bulunuyor?</Text><Pressable onPress={()=>setShowRecipeInfo(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><Text style={s.body}>Şu anda yapay zekâ ile internetten tarif aranmıyor. Uygulamadaki sabit tarif kataloğu kullanılıyor. Buzdolabındaki ürün adları tariflerin malzeme listeleriyle karşılaştırılıyor; ad ve birim eşleşen, miktarı yeterli malzemeler mevcut sayılıyor. Eksik veya miktarı yetmeyen malzemeler eksik listesine giriyor. Tarifler eşleşme oranına göre sıralanıyor. Stok, yalnızca “Kullanılanları stoktan düş” onayını verdiğinde azaltılıyor.</Text></View></View></Modal>
+ <Modal visible={showRecipeInfo} transparent animationType="fade" onRequestClose={()=>setShowRecipeInfo(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tarifler nasıl bulunuyor?</Text><Pressable onPress={()=>setShowRecipeInfo(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><Text style={s.body}>Tarifler PostgreSQL kataloğundan SQL ile bulunur. Buzdolabındaki ürün adları standart malzeme kataloğundaki alias kayıtlarıyla eşleştirilir. Seçtiğin yemek, tatlı veya içecek kategorisindeki tarifler; mevcut malzeme oranı, eksik malzeme sayısı ve miktar uyumluluğuna göre sıralanır. İlk üç tarif gösterilir; daha fazlasını istediğinde sonraki üç tarif getirilir. Eksik malzemeler tarif kartında ayrıca listelenir. Stok yalnızca “Kullanılanları stoktan düş” onayından sonra azaltılır.</Text></View></View></Modal>
  </AppShell>;
 }
