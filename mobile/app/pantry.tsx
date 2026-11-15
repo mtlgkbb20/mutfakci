@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
-import { useRouter } from "expo-router";
 import { api } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
@@ -9,7 +8,6 @@ type Movement = { id:string; pantryItemId:string; movementType:string; quantityD
 type Match = { recipeId:string; title:string; servings:number; coverage:number; available:{name:string;pantryItemId:string;required:number;unit:string;stock:number;stockUnit:string}[]; missing:{name:string;required:number;unit:string}[] };
 
 export default function PantryScreen(){
- const router=useRouter();
  const [items,setItems]=useState<PantryItem[]>([]);
  const [expiring,setExpiring]=useState<PantryItem[]>([]);
  const [matches,setMatches]=useState<Match[]>([]);
@@ -52,7 +50,7 @@ export default function PantryScreen(){
    }}]);
  };
  return <AppShell><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-   <Header title="Buzdolabım" subtitle="Evindeki malzemeleri takip et"/>
+   <Header title="Buzdolabı" subtitle="Evindeki malzemeleri takip et"/>
    <View style={s.card}>
     <Text style={s.eyebrow}>ENVANTER</Text>
     <View style={s.sectionRow}><Text style={s.heading}>{items.length} ürün</Text><Pressable onPress={()=>setShowForm(v=>!v)}><Text style={s.smallLink}>{showForm?"Kapat":editingId?"Düzenle":"+ Ürün ekle"}</Text></Pressable></View>
@@ -80,6 +78,5 @@ export default function PantryScreen(){
       <Button secondary onPress={()=>confirmUse(match)}>Kullanılanları stoktan düş</Button>
     </View>)}
    </View>
-   <Button secondary onPress={()=>router.back()}>Geri dön</Button>
  </ScrollView></AppShell>;
 }
