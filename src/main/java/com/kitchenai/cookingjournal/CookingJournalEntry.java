@@ -14,6 +14,7 @@ public class CookingJournalEntry {
   private UUID userId;
   private UUID cookingSessionId;
   private UUID recipeId;
+  @Column(columnDefinition = "TEXT", nullable = false)
   private String recipeTitle;
   @Column(columnDefinition = "TEXT", nullable = false)
   private String recipeSnapshotJson;
