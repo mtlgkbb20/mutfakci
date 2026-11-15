@@ -140,7 +140,7 @@ export default function CookingJournal() {
         body: JSON.stringify({ cookingSessionId: selectedSession, servings: servingCount, rating, notes }),
       });
       if (newPhoto) await uploadPhoto(created.id, newPhoto);
-      setSelectedSession(""); setNotes(""); setRating(5); setServings("2"); setNewPhoto(undefined);
+      setSelectedSession(""); setSelectedHistoryId(created.id); setNotes(""); setRating(5); setServings("2"); setNewPhoto(undefined);
       setNotice("Pişirme günlüğe kaydedildi.");
       await load();
     } catch (e: any) { setError(e.message || "Kayıt oluşturulamadı."); }
