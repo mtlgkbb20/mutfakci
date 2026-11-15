@@ -175,6 +175,8 @@ export default function CookingJournal() {
       await uploadPhoto(entry.id, asset);
       setDraftPhotos(current => { const next = { ...current }; delete next[entry.id]; return next; });
       await load();
+      const detail = await api(`/cooking-journal/${entry.id}`);
+      setSelectedHistoryDetail(detail);
       setNotice("Fotoğraf güncellendi.");
     } catch (e: any) { setError(e.message || "Fotoğraf yüklenemedi."); }
     finally { setSaving(false); }
