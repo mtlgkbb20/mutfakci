@@ -156,7 +156,7 @@ class ZeroWasteServiceTest {
     CookingSession requestedSession = new CookingSession(userId, null, "RECIPE", null);
     CookingSession journalSession = new CookingSession(userId, null, "RECIPE", null);
     CookingJournalEntry entry = new CookingJournalEntry(userId, journalSession.getId(), null,
-        "{}", null, null, null, null);
+        "Test recipe", "{}", null, null, null, null);
     when(sessions.findById(requestedSession.getId())).thenReturn(Optional.of(requestedSession));
     when(sessions.findById(journalSession.getId())).thenReturn(Optional.of(journalSession));
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
