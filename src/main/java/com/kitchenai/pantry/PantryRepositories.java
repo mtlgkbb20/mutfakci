@@ -11,6 +11,9 @@ interface PantryItemRepository extends JpaRepository<PantryItem, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select p from PantryItem p where p.id=:id and p.userId=:userId and p.archived=false")
   Optional<PantryItem> lockOwned(@Param("id") UUID id,@Param("userId") UUID userId);
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select p from PantryItem p where p.userId=:userId and p.normalizedName=:normalizedName and p.archived=false")
+  Optional<PantryItem> lockFirstByUserAndNormalizedName(@Param("userId") UUID userId,@Param("normalizedName") String normalizedName);
   List<PantryItem> findByUserIdAndArchivedFalseAndExpiryDateIsNotNullAndExpiryDateLessThanEqualOrderByExpiryDateAsc(UUID userId, java.time.LocalDate date);
   List<PantryItem> findByUserIdAndArchivedFalseAndExpiryDateIsNotNullAndExpiryDateBetweenOrderByExpiryDateAsc(UUID userId, java.time.LocalDate start, java.time.LocalDate end);
   Optional<PantryItem> findFirstByUserIdAndArchivedFalseAndNormalizedName(UUID userId,String normalizedName);
@@ -18,6 +21,7 @@ interface PantryItemRepository extends JpaRepository<PantryItem, UUID> {
 interface PantryMovementRepository extends JpaRepository<PantryMovement,UUID> {
   List<PantryMovement> findTop100ByUserIdAndPantryItemIdOrderByCreatedAtDesc(UUID userId,UUID itemId);
   List<PantryMovement> findTop100ByUserIdOrderByCreatedAtDesc(UUID userId);
+  Optional<PantryMovement> findFirstByUserIdAndOperationKey(UUID userId, String operationKey);
 }
 interface PantryOperationRepository extends JpaRepository<PantryOperation,UUID> {
   boolean existsByUserIdAndOperationKey(UUID userId,String operationKey);
