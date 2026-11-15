@@ -111,7 +111,7 @@ class CookingJournalServiceTest {
   @Test
   void updatesOnlyEditableFieldsAndKeepsSnapshotUntouched() {
     String snapshot = "{\"title\":\"Original title\"}";
-    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), null,
+    CookingJournalEntry entry = new CookingJournalEntry(userId, UUID.randomUUID(), null, "Original title",
         snapshot, 2, 3, "Old note", null);
     when(journal.findByIdAndUserId(entry.getId(), userId)).thenReturn(Optional.of(entry));
 
