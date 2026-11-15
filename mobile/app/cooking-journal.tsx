@@ -8,7 +8,7 @@ import { File as ExpoFile } from "expo-file-system";
 import { api, apiBaseURL } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
-type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string; recipeTitle?: string | null };
+type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string; desiredOutcome?: string | null; recipeTitle?: string | null };
 type Entry = {
   id: string;
   cookingSessionId: string;
@@ -63,7 +63,7 @@ export default function CookingJournal() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const sessionTitle = (session: Session) => session.recipeTitle?.trim() || "Serbest pişirme";
+  const sessionTitle = (session: Session) => session.recipeTitle?.trim() || session.desiredOutcome?.trim() || "Serbest pişirme";
 
   const load = useCallback(async () => {
     setLoading(true);
