@@ -68,7 +68,7 @@ export default function CookingJournal() {
   const recipeNames = useMemo(() => new Map(recipes.map(recipe => [recipe.id, recipe.title])), [recipes]);
   const sessionTitle = (session: Session) => {
     if (session.recipeId) return recipeNames.get(session.recipeId) || "Tarif adı yüklenemedi";
-    return session.sessionType === "FREE_COOKING" ? "Serbest pişirme" : "Tarif adı bulunamadı";
+    return "Serbest pişirme";
   };
 
   const load = useCallback(async () => {
