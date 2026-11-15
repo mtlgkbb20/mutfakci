@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -51,7 +52,7 @@ class PantryRecipeMatchPostgresTest {
     Instant now = Instant.now();
     jdbc.update(
         "INSERT INTO app_user(id,email,password_hash,display_name,created_at,updated_at) VALUES (?,?,?,?,?,?)",
-        userId, userId + "@integration.test", "test-hash", "Recipe Match Test", now, now);
+        userId, userId + "@integration.test", "test-hash", "Recipe Match Test", Timestamp.from(now), Timestamp.from(now));
 
     pantryItem(userId, "Tam yağlı süt", "tam yagli sut", new BigDecimal("1"), "l");
     pantryItem(userId, "Baldo pirinç", "baldo pirinc", new BigDecimal("50"), "g");
@@ -82,6 +83,6 @@ class PantryRecipeMatchPostgresTest {
           id,user_id,name,normalized_name,category,quantity,unit,archived,version,created_at,updated_at
         ) VALUES (?,?,?,?,?,?,?,FALSE,0,?,?)
         """,
-        UUID.randomUUID(), userId, name, normalizedName, "OTHER", quantity, unit, now, now);
+        UUID.randomUUID(), userId, name, normalizedName, "OTHER", quantity, unit, Timestamp.from(now), Timestamp.from(now));
   }
 }
