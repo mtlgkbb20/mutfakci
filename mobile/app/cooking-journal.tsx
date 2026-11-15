@@ -21,7 +21,8 @@ type Entry = {
   cookedAt: string;
   hasPhoto?: boolean;
 };
-type Variation = { id: string; title: string; servings: number; createdAt: string };
+type Variation = { id: string; title: string; description?: string | null; servings: number; createdAt: string };
+type PageResponse<T> = { content: T[]; page: number; size: number; totalElements: number; totalPages: number; hasNext: boolean };
 function snapshot(entry: Entry): any {
   try { return JSON.parse(entry.recipeSnapshot); } catch { return {}; }
 }
@@ -38,10 +39,18 @@ function dateLabel(value?: string) {
 export default function CookingJournal() {
   const router = useRouter();
   const [entries, setEntries] = useState<EntrySummary[]>([]);
+  const [entryTotal, setEntryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [journaledSessionIds, setJournaledSessionIds] = useState<string[]>([]);
   const [selectedHistoryDetail, setSelectedHistoryDetail] = useState<Entry | null>(null);
   const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [variations, setVariations] = useState<Variation[]>([]);
+  const [variationPage, setVariationPage] = useState(0);
+  const [variationHasMore, setVariationHasMore] = useState(false);
+  const [variationLoadingMore, setVariationLoadingMore] = useState(false);
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [picker, setPicker] = useState<"completed" | "history" | null>(null);
@@ -72,19 +81,26 @@ export default function CookingJournal() {
     setLoading(true);
     setError("");
     try {
-      const [journal, cookingSessions, savedVariations] = await Promise.all([
-        api("/cooking-journal"),
+      const [journal, cookingSessions, savedVariations, savedSessionIds] = await Promise.all([
+        api("/cooking-journal?page=0&size=20") as Promise<PageResponse<EntrySummary>>,
         api("/cooking-sessions"),
-        api("/cooking-journal/variations/summaries"),
+        api("/cooking-journal/variations/summaries?page=0&size=20") as Promise<PageResponse<Variation>>,
+        api("/cooking-journal/session-ids") as Promise<string[]>,
       ]);
-      setEntries(journal);
+      setEntries(journal.content);
+      setEntryTotal(journal.totalElements);
+      setHistoryPage(journal.page);
+      setHistoryHasMore(journal.hasNext);
       setSessions(cookingSessions);
-      setVariations(savedVariations);
-      setSelectedHistoryId(current => current && journal.some((entry: EntrySummary) => entry.id === current) ? current : "");
-      setSelectedHistoryDetail(current => current && journal.some((entry: EntrySummary) => entry.id === current.id) ? current : null);
+      setJournaledSessionIds(savedSessionIds);
+      setVariations(savedVariations.content);
+      setVariationPage(savedVariations.page);
+      setVariationHasMore(savedVariations.hasNext);
+      setSelectedHistoryId(current => current && journal.content.some(entry => entry.id === current) ? current : "");
+      setSelectedHistoryDetail(current => current && journal.content.some(entry => entry.id === current.id) ? current : null);
       setSelectedSession(current => cookingSessions.some((session: Session) =>
         session.id === current && session.status === "COMPLETED" &&
-        !journal.some((entry: Entry) => entry.cookingSessionId === session.id)) ? current : "");
+        !savedSessionIds.includes(session.id)) ? current : "");
     } catch (e: any) {
       setError(e.message || "Pişirme günlüğü yüklenemedi.");
     } finally { setLoading(false); }
@@ -220,6 +236,33 @@ export default function CookingJournal() {
     finally { setSaving(false); }
   };
 
+  const loadMoreHistory = async () => {
+    if (!historyHasMore || historyLoadingMore) return;
+    setHistoryLoadingMore(true);
+    try {
+      const next = await api(`/cooking-journal?page=${historyPage + 1}&size=20`) as PageResponse<EntrySummary>;
+      setEntries(current => [...current, ...next.content.filter(item => !current.some(existing => existing.id === item.id))]);
+      setHistoryPage(next.page);
+      setHistoryHasMore(next.hasNext);
+      setEntryTotal(next.totalElements);
+    } catch (e: any) {
+      setError(e.message || "Geçmiş kayıtlar yüklenemedi.");
+    } finally { setHistoryLoadingMore(false); }
+  };
+
+  const loadMoreVariations = async () => {
+    if (!variationHasMore || variationLoadingMore) return;
+    setVariationLoadingMore(true);
+    try {
+      const next = await api(`/cooking-journal/variations/summaries?page=${variationPage + 1}&size=20`) as PageResponse<Variation>;
+      setVariations(current => [...current, ...next.content.filter(item => !current.some(existing => existing.id === item.id))]);
+      setVariationPage(next.page);
+      setVariationHasMore(next.hasNext);
+    } catch (e: any) {
+      setError(e.message || "Kişisel varyasyonlar yüklenemedi.");
+    } finally { setVariationLoadingMore(false); }
+  };
+
   const selectHistory = async (entryId: string) => {
     if (selectedHistoryDetail?.id === entryId) {
       setSelectedHistoryId(entryId);
@@ -241,7 +284,7 @@ export default function CookingJournal() {
 
   const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
   const completedSessions = sessions.filter(item => item.status === "COMPLETED" &&
-    !entries.some(entry => entry.cookingSessionId === item.id));
+    !journaledSessionIds.includes(item.id));
   const selectedCompletedSession = completedSessions.find(item => item.id === selectedSession);
   const selectedHistory = selectedHistoryDetail?.id === selectedHistoryId ? selectedHistoryDetail : undefined;
   const pickerItems = picker === "completed" ? completedSessions : entries;
@@ -332,7 +375,7 @@ export default function CookingJournal() {
             <View style={{ flex: 1 }}>
               <Text style={s.eyebrow}>KİŞİSEL ARŞİVİN</Text>
               <Text style={s.heading}>Geçmiş denemeler</Text>
-              <Text style={s.recipeMeta}>{entries.length} kayıtlı pişirme</Text>
+              <Text style={s.recipeMeta}>{entryTotal} kayıtlı pişirme</Text>
             </View>
             <Pressable onPress={load}><Text style={s.smallLink}>Yenile</Text></Pressable>
           </View>
@@ -360,6 +403,12 @@ export default function CookingJournal() {
                   <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14 }}>
                     <Text style={s.eyebrow}>{dateLabel(entry.cookedAt)}</Text>
                     <Text style={s.heading}>{recipeTitle(entry)}</Text>
+                    {typeof snapshot(entry).description === "string" && snapshot(entry).description.trim() ? (
+                      <View style={{ marginTop: 8, padding: 12, borderRadius: 10, backgroundColor: colors.sand }}>
+                        <Text style={s.eyebrow}>TARİF AÇIKLAMASI</Text>
+                        <Text style={s.body}>{snapshot(entry).description}</Text>
+                      </View>
+                    ) : null}
                     <Text style={s.recipeMeta}>{entry.servings ?? "—"} porsiyon · {attemptCount} kayıtlı deneme · {entry.rating ? `${entry.rating}/5 yıldız` : "Puanlanmadı"}</Text>
                     {entry.hasPhoto && token ? (
                       <Image source={{ uri: `${apiBaseURL}/cooking-journal/${entry.id}/photo`, headers: { Authorization: `Bearer ${token}` } }}
@@ -411,9 +460,11 @@ export default function CookingJournal() {
             {variations.map(variation => (
               <View key={variation.id} style={s.card}>
                 <Text style={s.heading}>{variation.title}</Text>
+                {variation.description?.trim() ? <Text style={s.body}>{variation.description}</Text> : null}
                 <Text style={s.recipeMeta}>{variation.servings} porsiyon · {dateLabel(variation.createdAt)}</Text>
               </View>
             ))}
+            {variationHasMore ? <Button secondary onPress={loadMoreVariations} loading={variationLoadingMore}>Daha fazla varyasyon yükle</Button> : null}
           </>
         ) : null}
         {notice ? <Text style={{ color: colors.green, marginBottom: 10 }}>{notice}</Text> : null}
@@ -477,6 +528,9 @@ export default function CookingJournal() {
                 );
               })}
               {filteredPickerItems.length === 0 ? <Text style={s.body}>Aramana uygun kayıt bulunamadı.</Text> : null}
+              {picker === "history" && historyHasMore ? (
+                <Button secondary onPress={loadMoreHistory} loading={historyLoadingMore}>Daha fazla geçmiş kaydı yükle</Button>
+              ) : null}
             </ScrollView>
           </View>
         </View>
