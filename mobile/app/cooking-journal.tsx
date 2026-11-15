@@ -459,7 +459,7 @@ export default function CookingJournal() {
                 const isCompleted = picker === "completed";
                 const id = item.id;
                 const title = isCompleted ? sessionTitle(item as Session) : (item as EntrySummary).title;
-                const date = isCompleted ? dateLabel((item as Session).startedAt) : dateLabel((item as Entry).cookedAt);
+                const date = isCompleted ? dateLabel((item as Session).startedAt) : dateLabel((item as EntrySummary).cookedAt);
                 const selected = isCompleted ? selectedSession === id : selectedHistoryId === id;
                 return (
                   <Pressable key={id} onPress={() => {
