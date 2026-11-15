@@ -56,7 +56,8 @@ public class CookingJournalService {
 
     try {
       RecipeSnapshot snapshot = recipe == null
-          ? new RecipeSnapshot("Tarifsiz pişirme", null, null, request.servings(), null, null, null, null)
+          ? new RecipeSnapshot(session.getDesiredOutcome() == null || session.getDesiredOutcome().isBlank()
+              ? "Serbest pişirme" : session.getDesiredOutcome(), null, null, request.servings(), null, null, null, null)
           : new RecipeSnapshot(recipe.getTitle(), recipe.getDescription(), recipe.getProductType(),
               request.servings() == null ? recipe.getServings() : request.servings(),
               recipe.getPreparationTime(), recipe.getCookingTime(),
@@ -73,7 +74,7 @@ public class CookingJournalService {
 
   @Transactional(readOnly = true)
   public List<CookingJournalEntry> list(UUID userId) {
-    return journal.findTop100ByUserIdOrderByCookedAtDesc(userId);
+    return journal.findByUserIdOrderByCookedAtDesc(userId);
   }
 
   @Transactional(readOnly = true)

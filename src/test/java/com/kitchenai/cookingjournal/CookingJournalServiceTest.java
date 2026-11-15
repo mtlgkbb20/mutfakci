@@ -60,6 +60,21 @@ class CookingJournalServiceTest {
   }
 
   @Test
+  void snapshotsDishNameFromSessionWhenNoRecipeIdExists() throws Exception {
+    CookingSession session = new CookingSession(userId, null, "RECOVERY", "Nohutlu Bulgur Pilavı");
+    session.complete();
+    when(sessions.findById(session.getId())).thenReturn(Optional.of(session));
+    when(journal.findByUserIdAndCookingSessionId(userId, session.getId())).thenReturn(Optional.empty());
+
+    CookingJournalEntry entry = service.create(userId,
+        new CookingJournalService.CreateRequest(session.getId(), 2, null, null));
+    var snapshot = new ObjectMapper().readTree(entry.getRecipeSnapshotJson());
+
+    assertNull(entry.getRecipeId());
+    assertEquals("Nohutlu Bulgur Pilavı", snapshot.get("title").asText());
+  }
+
+  @Test
   void rejectsActiveSession() {
     CookingSession session = new CookingSession(userId, null, "RECOVERY", null);
     when(sessions.findById(session.getId())).thenReturn(Optional.of(session));

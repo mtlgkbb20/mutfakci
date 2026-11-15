@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -68,6 +70,9 @@ public class RecipeController {
       @Min(1) @Max(30) Integer servings) {}
 
   public record SessionRequest(UUID recipeId, String desiredOutcome) {}
+
+  public record SessionView(
+      UUID id, UUID recipeId, String status, String sessionType, java.time.Instant startedAt, String desiredOutcome, String recipeTitle) {}
 
   @PostMapping("/recipes/generate")
   public RecipeView generate(
@@ -227,8 +232,20 @@ public class RecipeController {
   }
 
   @GetMapping("/cooking-sessions")
-  public List<CookingSession> allSessions(@AuthenticationPrincipal UUID userId) {
-    return sessions.findTop10ByUserIdOrderByStartedAtDesc(userId);
+  public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
+    List<CookingSession> userSessions = sessions.findByUserIdOrderByStartedAtDesc(userId);
+    List<UUID> recipeIds = userSessions.stream()
+        .map(CookingSession::getRecipeId)
+        .filter(Objects::nonNull)
+        .distinct()
+        .toList();
+    Map<UUID, String> recipeTitles = recipes.findAllById(recipeIds).stream()
+        .collect(Collectors.toMap(Recipe::getId, Recipe::getTitle));
+    return userSessions.stream()
+        .map(session -> new SessionView(
+            session.getId(), session.getRecipeId(), session.getStatus(), session.getSessionType(),
+            session.getStartedAt(), session.getDesiredOutcome(), recipeTitles.get(session.getRecipeId())))
+        .toList();
   }
 
   @GetMapping("/cooking-sessions/{id}")
