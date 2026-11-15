@@ -1,5 +1,7 @@
 package com.kitchenai.cookingjournal;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -32,10 +34,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class CookingJournalController {
   private final CookingJournalService service;
   private final JournalMediaStorage media;
+  private final ObjectMapper mapper;
 
-  public CookingJournalController(CookingJournalService service, JournalMediaStorage media) {
+  public CookingJournalController(CookingJournalService service, JournalMediaStorage media, ObjectMapper mapper) {
     this.service = service;
     this.media = media;
+    this.mapper = mapper;
   }
 
   public record CreateRequest(
@@ -51,6 +55,9 @@ public class CookingJournalController {
 
   public record VariationRequest(@NotBlank String title, String description,
       @Min(1) @Max(30) Integer servings, String ingredientsJson, String stagesJson) {}
+
+  public record EntrySummary(UUID id, UUID cookingSessionId, UUID recipeId, String title,
+      Integer servings, Integer rating, Instant cookedAt, boolean hasPhoto) {}
 
   public record EntryView(UUID id, UUID cookingSessionId, UUID recipeId, String recipeSnapshot,
       Integer servings, Integer rating, String notes, Instant cookedAt, Instant createdAt,
@@ -84,9 +91,18 @@ public class CookingJournalController {
   }
 
   @GetMapping
-  public List<EntryView> list(@AuthenticationPrincipal UUID userId) {
-    return service.list(userId).stream()
-        .map(entry -> EntryView.from(entry, service.hasPhoto(userId, entry.getId()))).toList();
+  public List<EntrySummary> list(@AuthenticationPrincipal UUID userId) {
+    return service.list(userId).stream().map(entry -> {
+      boolean hasPhoto = service.hasPhoto(userId, entry.getId());
+      String title = "Tarif adı bulunamadı";
+      try {
+        JsonNode snapshot = mapper.readTree(entry.getRecipeSnapshotJson());
+        String snapshotTitle = snapshot.path("title").asText("").trim();
+        if (!snapshotTitle.isEmpty()) title = snapshotTitle;
+      } catch (Exception ignored) { }
+      return new EntrySummary(entry.getId(), entry.getCookingSessionId(), entry.getRecipeId(),
+          title, entry.getServings(), entry.getRating(), entry.getCookedAt(), hasPhoto);
+    }).toList();
   }
 
   @GetMapping("/{entryId}")
