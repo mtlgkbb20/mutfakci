@@ -1,6 +1,5 @@
 package com.kitchenai.cookingjournal;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -37,12 +36,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class CookingJournalController {
   private final CookingJournalService service;
   private final JournalMediaStorage media;
-  private final ObjectMapper mapper;
 
-  public CookingJournalController(CookingJournalService service, JournalMediaStorage media, ObjectMapper mapper) {
+  public CookingJournalController(CookingJournalService service, JournalMediaStorage media) {
     this.service = service;
     this.media = media;
-    this.mapper = mapper;
   }
 
   public record CreateRequest(
