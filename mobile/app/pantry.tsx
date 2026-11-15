@@ -59,6 +59,7 @@ export default function PantryScreen(){
  const edit=(item:PantryItem)=>{setEditingId(item.id);setName(item.name);setQuantity(String(item.quantity));setUnit(item.unit);setCategory(item.category==="OTHER"?"":item.category);setExpiry(item.expiryDate||"");setShowInventoryModal(false);setShowForm(true);};
  const remove=(item:PantryItem)=>Alert.alert("Ürünü kaldır",item.name+" buzdolabından kaldırılsın mı?",[{text:"Vazgeç",style:"cancel"},{text:"Kaldır",style:"destructive",onPress:async()=>{try{await api("/pantry/items/"+item.id,{method:"DELETE"});await refresh();}catch(e:any){Alert.alert("İşlem başarısız",e.message);}}}]);
  const loadMatches=async()=>{
+   if(loadingMatches||loadingMore)return;
    setLoadingMatches(true);
    try{
      const result:MatchPage=await api("/pantry/recipe-matches?category="+recipeCategory+"&page=0");
@@ -66,7 +67,7 @@ export default function PantryScreen(){
    }catch(e:any){Alert.alert("Tarifler getirilemedi",e.message);}finally{setLoadingMatches(false);}
  };
  const loadMoreMatches=async()=>{
-   if(!hasMoreMatches||loadingMore)return;
+   if(!hasMoreMatches||loadingMore||loadingMatches)return;
    const nextPage=matchPage+1;setLoadingMore(true);
    try{
      const result:MatchPage=await api("/pantry/recipe-matches?category="+recipeCategory+"&page="+nextPage);
@@ -74,7 +75,7 @@ export default function PantryScreen(){
    }catch(e:any){Alert.alert("Diğer tarifler getirilemedi",e.message);}finally{setLoadingMore(false);}
  };
  const selectRecipeCategory=(next:RecipeCategory)=>{
-   if(next===recipeCategory)return;
+   if(next===recipeCategory||loadingMatches||loadingMore)return;
    setRecipeCategory(next);setMatches([]);setShowMatches(false);setHasMoreMatches(false);setMatchPage(0);
  };
  const confirmUse=(match:Match)=>{
@@ -113,12 +114,12 @@ export default function PantryScreen(){
     <Text style={s.heading}>Tarif önerileri</Text>
     <Text style={[s.body,{marginTop:6}]}>Önce görmek istediğin tarif türünü seç.</Text>
     <View style={{flexDirection:"row",gap:8,marginTop:12}}>
-      {recipeCategories.map(option=><Pressable key={option.value} onPress={()=>selectRecipeCategory(option.value)} style={{flex:1,paddingVertical:12,paddingHorizontal:5,borderRadius:14,borderWidth:recipeCategory===option.value?2:1,borderColor:recipeCategory===option.value?colors.orange:colors.line,backgroundColor:recipeCategory===option.value?"#fff7ed":colors.white,alignItems:"center"}}>
+      {recipeCategories.map(option=><Pressable key={option.value} onPress={()=>selectRecipeCategory(option.value)} disabled={loadingMatches||loadingMore} style={{flex:1,paddingVertical:12,paddingHorizontal:5,borderRadius:14,borderWidth:recipeCategory===option.value?2:1,borderColor:recipeCategory===option.value?colors.orange:colors.line,backgroundColor:recipeCategory===option.value?"#fff7ed":colors.white,alignItems:"center"}}>
         <Text style={{fontSize:20}}>{option.emoji}</Text>
         <Text style={{fontWeight:"700",fontSize:13,color:colors.ink,marginTop:4}}>{option.label}</Text>
       </Pressable>)}
     </View>
-    <View style={{marginTop:12}}><Button onPress={loadMatches} loading={loadingMatches}>İlk 3 tarifi bul</Button></View>
+    <View style={{marginTop:12}}><Button onPress={loadMatches} loading={loadingMatches||loadingMore}>İlk 3 tarifi bul</Button></View>
     <Pressable onPress={()=>setShowRecipeInfo(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tarifler nasıl bulunuyor?</Text></Pressable>
     {showMatches&&matches.length===0&&<Text style={[s.body,{marginTop:12}]}>Bu kategoride şu an eşleşen tarif bulunamadı.</Text>}
     {showMatches&&matches.map(match=><View key={match.recipeId} style={{borderTopWidth:1,borderTopColor:colors.line,marginTop:14,paddingTop:14}}>
