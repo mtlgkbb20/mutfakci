@@ -171,6 +171,11 @@ public class CookingJournalController {
             request.servings(), request.ingredientsJson(), request.stagesJson())));
   }
 
+  @GetMapping("/variations/summaries")
+  public List<VariationSummaryView> listVariationSummaries(@AuthenticationPrincipal UUID userId) {
+    return service.listVariations(userId).stream().map(VariationSummaryView::from).toList();
+  }
+
   @GetMapping("/variations")
   public List<VariationView> listVariations(@AuthenticationPrincipal UUID userId) {
     return service.listVariations(userId).stream().map(VariationView::from).toList();
