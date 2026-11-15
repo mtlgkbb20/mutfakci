@@ -42,3 +42,8 @@ All cases are initially NOT RUN. Record evidence before changing a status.
 | CJ-030 | Select one historical attempt | Create multiple journal entries; open “Deneme seç” | A searchable selection modal lists attempts; selecting one shows only that attempt's editable details | NOT RUN |
 | CJ-031 | Filter historical attempts | Search historical attempts by recipe title | Only matching attempts are shown and the selected attempt remains unambiguous | NOT RUN |
 | CJ-032 | Empty selection states | Open journal with no active sessions, no completed sessions, or no historical entries | Clear empty-state messages appear; no misleading “Tarifsiz pişirme” heading is shown | NOT RUN |
+| CJ-033 | Lightweight journal list | Inspect `GET /cooking-journal` response with entries containing large recipe snapshots | Response contains only summary fields; recipeSnapshot and notes are absent | NOT RUN |
+| CJ-034 | Fetch selected journal detail | Select a historical attempt in the mobile picker | Exactly the selected entry is fetched via `GET /cooking-journal/{entryId}`; full snapshot and notes appear only after selection | NOT RUN |
+| CJ-035 | Cache selected detail | Select an entry, close/reopen picker without changing selection | Detail is not fetched again while cached in screen state | NOT RUN |
+| CJ-036 | Lightweight variation list | Inspect `GET /cooking-journal/variations/summaries` | Response contains only ID, title, servings, and createdAt; ingredients/stages are absent | NOT RUN |
+| CJ-037 | Session picker payload | Inspect `GET /cooking-sessions` | Response contains session metadata and recipe title only; recipe ingredients/stages are not loaded | NOT RUN |
