@@ -34,7 +34,8 @@ All endpoints require authentication.
 | GET | `/api/v1/cooking-journal/{entryId}/photo` | Read private photo |
 | DELETE | `/api/v1/cooking-journal/{entryId}/photo` | Delete photo |
 | POST | `/api/v1/cooking-journal/{entryId}/variations` | Create a separate recipe variation |
-| GET | `/api/v1/cooking-journal/variations/summaries` | Lightweight list of own variations |\n| GET | `/api/v1/cooking-journal/variations` | Full list of own variations (non-picker clients) |
+| GET | `/api/v1/cooking-journal/variations/summaries` | Lightweight list of own variations |
+| GET | `/api/v1/cooking-journal/variations` | Full list of own variations (non-picker clients) |
 | GET | `/api/v1/cooking-journal/variations/{variationId}` | Read own variation |
 
 ### Create journal payload
@@ -68,7 +69,13 @@ All fields are optional. Null means “leave unchanged”; an empty notes string
 
 The variation is stored in its own table and never overwrites the source `recipe` row. Ingredient and stage overrides must be valid JSON arrays.
 
-## Lazy loading\n- The journal screen initially loads only summary data for journal entries and personal variations. Recipe snapshots, notes, and full variation payloads are not part of the picker/list response.\n- Selecting a historical journal entry triggers `GET /cooking-journal/{entryId}`; the selected detail is held in client state and reused until another entry is selected.\n- Session list responses contain only session metadata and recipe titles; recipe ingredients/stages are not loaded for the session picker.\n- Journal photos remain separately fetched from the protected photo endpoint only when the selected entry has a photo.\n\n## Media security
+## Lazy loading
+- The journal screen initially loads only summary data for journal entries and personal variations. Recipe snapshots, notes, and full variation payloads are not part of the picker/list response.
+- Selecting a historical journal entry triggers `GET /cooking-journal/{entryId}`; the selected detail is held in client state and reused until another entry is selected.
+- Session list responses contain only session metadata and recipe titles; recipe ingredients/stages are not loaded for the session picker.
+- Journal photos remain separately fetched from the protected photo endpoint only when the selected entry has a photo.
+
+## Media security
 - Only JPEG and PNG uploads are accepted; max 10 MB, minimum 160 px per dimension, maximum 20 MP.
 - Images are decoded and re-encoded to strip embedded metadata.
 - Files are stored under an owner-specific directory with restrictive POSIX permissions where supported.
