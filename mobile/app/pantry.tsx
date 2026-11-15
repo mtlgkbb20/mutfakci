@@ -33,6 +33,7 @@ export default function PantryScreen(){
  const [showForm,setShowForm]=useState(false);
  const [showMatches,setShowMatches]=useState(false);
  const [showInventoryModal,setShowInventoryModal]=useState(false);
+ const [selectedInventoryItem,setSelectedInventoryItem]=useState<PantryItem|null>(null);
  const [showMovementsModal,setShowMovementsModal]=useState(false);
  const [showRecipeInfo,setShowRecipeInfo]=useState(false);
  const [editingId,setEditingId]=useState<string|null>(null);
@@ -85,12 +86,34 @@ export default function PantryScreen(){
      catch(e:any){Alert.alert("Stok güncellenemedi",e.message);}
    }}]);
  };
- const movementLabel=(m:Movement)=>{const itemName=items.find(i=>i.id===m.pantryItemId)?.name||"Ürün";const prefix=m.movementType==="CONSUME"?"−":"+";const unitLabel=m.unit==="piece"?"adet":m.unit;return prefix+Math.abs(m.quantityDelta)+" "+unitLabel+" · "+itemName+" · "+new Date(m.createdAt).toLocaleDateString("tr-TR");};
- const inventoryRows=(list:PantryItem[],showRemove=true)=>list.map(item=><View key={item.id} style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:12}}><Pressable style={{flex:1}} onPress={()=>edit(item)}><Text style={{fontSize:16,fontWeight:"700",color:colors.ink}}>{item.name}</Text></Pressable>{showRemove&&<Pressable onPress={()=>remove(item)}><Text style={{color:"#b42318",fontWeight:"700"}}>Kaldır</Text></Pressable>}</View>);
+ const movementRows=(list:Movement[])=>list.map(m=>{
+   const itemName=items.find(i=>i.id===m.pantryItemId)?.name||"Ürün";
+   const isIncrease=Number(m.quantityDelta)>=0;
+   const unitLabel=m.unit==="piece"?"adet":m.unit;
+   return <View key={m.id} style={{paddingVertical:9,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:9}}>
+     <View style={{width:30,height:30,borderRadius:15,backgroundColor:isIncrease?"#e8f5ec":"#fdecec",alignItems:"center",justifyContent:"center"}}>
+       <Text style={{fontSize:18,fontWeight:"800",color:isIncrease?"#16803c":"#c62828"}}>{isIncrease?"↑":"↓"}</Text>
+     </View>
+     <View style={{flex:1}}>
+       <Text style={{fontSize:14,fontWeight:"700",color:colors.ink}}>{itemName}</Text>
+       <Text style={s.recipeMeta}>{new Date(m.createdAt).toLocaleDateString("tr-TR")}</Text>
+     </View>
+     <Text style={{fontSize:14,fontWeight:"800",color:isIncrease?"#16803c":"#c62828"}}>{Math.abs(m.quantityDelta)} {unitLabel}</Text>
+   </View>;
+ });
+ const inventoryRows=(list:PantryItem[])=>list.map(item=><Pressable key={item.id} onPress={()=>{setSelectedInventoryItem(item);setShowInventoryModal(false);}} style={{paddingVertical:13,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:12}}>
+   <Text numberOfLines={1} style={{flex:1,fontSize:15,fontWeight:"700",color:colors.ink}}>{item.name}</Text>
+   <Text style={{fontSize:14,fontWeight:"700",color:colors.muted}}>{item.quantity} {item.unit==="piece"?"adet":item.unit}</Text>
+   <Text style={{fontSize:20,color:colors.muted}}>›</Text>
+ </Pressable>);
+ const inventorySummary=items.slice(0,3).map(item=>item.name).join(" · ")+(items.length>3?" · "+(items.length-3)+" ürün daha":"");
+ const openEditFromDetail=()=>{if(selectedInventoryItem){const item=selectedInventoryItem;setSelectedInventoryItem(null);edit(item);}};
+
  return <AppShell><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
    <Header title="Buzdolabım" subtitle="Evindeki malzemeleri takip et"/>
    <View style={s.card}>
     <Text style={s.eyebrow}>ENVANTER</Text>
+    <Text style={[s.body,{marginTop:5,marginBottom:10}]}>Buzdolabındaki ürünlerini ve kalan miktarlarını buradan takip edebilirsin.</Text>
     <View style={s.sectionRow}><Text style={s.heading}>{items.length} ürün</Text><Pressable onPress={()=>{setEditingId(null);setName("");setQuantity("");setUnit("");setCategory("");setExpiry("");setShowForm(v=>!v);}}><Text style={s.smallLink}>{showForm?"Kapat":"+ Ürün ekle"}</Text></Pressable></View>
     {showForm&&<View>
       <Field value={name} onChangeText={setName} placeholder="Ürün adı"/>
@@ -99,15 +122,15 @@ export default function PantryScreen(){
       <Field value={expiry} onChangeText={setExpiry} placeholder="Son kullanma tarihi (YYYY-AA-GG) — isteğe bağlı"/>
       <Button onPress={add} loading={loading}>{editingId?"Değişiklikleri kaydet":"Ekle"}</Button>
     </View>}
-    {items.length===0?<Text style={s.body}>Buzdolabın henüz boş. İlk ürününü ekleyerek başla.</Text>:inventoryRows(items.slice(0,3),false)}
-    {items.length>3&&<Pressable onPress={()=>setShowInventoryModal(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tüm ürünleri gör ({items.length})</Text></Pressable>}
+    {items.length===0?<Text style={s.body}>Buzdolabın henüz boş. İlk ürününü ekleyerek başla.</Text>:<Text style={[s.body,{lineHeight:22}]}>{inventorySummary}</Text>}
+    {items.length>0&&<Pressable onPress={()=>setShowInventoryModal(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tüm ürünleri gör ({items.length})</Text></Pressable>}
    </View>
    <View style={s.card}><Text style={s.eyebrow}>ÖNCE BUNLARI KULLAN</Text><Text style={s.heading}>Son kullanma tarihi yaklaşanlar</Text>
     {expiring.length===0?<Text style={[s.body,{marginTop:8}]}>7 gün içinde tarihi dolacak ürün yok.</Text>:expiring.slice(0,3).map(item=><Text key={item.id} style={[s.body,{marginTop:8}]}>{item.expired?"⚠️":"⏳"} {item.name} — {item.expiryDate}</Text>)}
     {expiring.length>3&&<Text style={[s.recipeMeta,{marginTop:8}]}>{expiring.length-3} ürün daha</Text>}
    </View>
    <View style={s.card}><Text style={s.eyebrow}>STOK HAREKETLERİ</Text><View style={s.sectionRow}><Text style={s.heading}>Son değişiklikler</Text>{movements.length>3&&<Pressable onPress={()=>setShowMovementsModal(true)}><Text style={s.smallLink}>Tümünü gör</Text></Pressable>}</View>
-    {movements.length===0?<Text style={[s.body,{marginTop:8}]}>Henüz stok hareketi yok.</Text>:movements.slice(0,3).map(m=><Text key={m.id} style={[s.body,{marginTop:7}]}>{movementLabel(m)}</Text>)}
+    {movements.length===0?<Text style={[s.body,{marginTop:8}]}>Henüz stok hareketi yok.</Text>:movementRows(movements.slice(0,3))}
    </View>
    <View style={s.card}>
     <Text style={s.eyebrow}>ELİNDEKİLERLE NE PİŞİRİRSİN?</Text>
@@ -133,7 +156,8 @@ export default function PantryScreen(){
    </View>
  </ScrollView>
  <Modal visible={showInventoryModal} transparent animationType="fade" onRequestClose={()=>setShowInventoryModal(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tüm ürünler</Text><Pressable onPress={()=>setShowInventoryModal(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><ScrollView>{inventoryRows(items)}</ScrollView></View></View></Modal>
- <Modal visible={showMovementsModal} transparent animationType="fade" onRequestClose={()=>setShowMovementsModal(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tüm değişiklikler</Text><Pressable onPress={()=>setShowMovementsModal(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><ScrollView>{movements.map(m=><Text key={m.id} style={[s.body,{paddingVertical:10,borderTopWidth:1,borderTopColor:colors.line}]}>{movementLabel(m)}</Text>)}</ScrollView></View></View></Modal>
+ <Modal visible={selectedInventoryItem!==null} transparent animationType="fade" onRequestClose={()=>setSelectedInventoryItem(null)}><View style={modalBackdrop}><View style={modalCard}>{selectedInventoryItem&&<><View style={s.sectionRow}><Text style={s.heading}>{selectedInventoryItem.name}</Text><Pressable onPress={()=>setSelectedInventoryItem(null)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><View style={{paddingVertical:16,borderTopWidth:1,borderTopColor:colors.line,marginTop:12}}><Text style={s.eyebrow}>KALAN MİKTAR</Text><Text style={{fontSize:25,fontWeight:"800",color:colors.ink,marginTop:5}}>{selectedInventoryItem.quantity} {selectedInventoryItem.unit==="piece"?"adet":selectedInventoryItem.unit}</Text></View><View style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line}}><Text style={s.recipeMeta}>Kategori</Text><Text style={[s.body,{marginTop:4}]}>{selectedInventoryItem.category&&selectedInventoryItem.category!=="OTHER"?selectedInventoryItem.category:"Belirtilmemiş"}</Text></View><View style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line}}><Text style={s.recipeMeta}>Son kullanma tarihi</Text><Text style={[s.body,{marginTop:4}]}>{selectedInventoryItem.expiryDate||"Belirtilmemiş"}</Text>{selectedInventoryItem.expired&&<Text style={{color:"#b42318",fontWeight:"700",marginTop:4}}>Son kullanma tarihi geçmiş</Text>}{!selectedInventoryItem.expired&&selectedInventoryItem.expiringSoon&&<Text style={{color:"#b7791f",fontWeight:"700",marginTop:4}}>Son kullanma tarihi yaklaşıyor</Text>}</View><View style={{flexDirection:"row",gap:10,marginTop:12}}><View style={{flex:1}}><Button onPress={openEditFromDetail}>Düzenle</Button></View><View style={{flex:1}}><Button secondary onPress={()=>{const item=selectedInventoryItem;setSelectedInventoryItem(null);remove(item);}}>Ürünü kaldır</Button></View></View></>}</View></View></Modal>
+ <Modal visible={showMovementsModal} transparent animationType="fade" onRequestClose={()=>setShowMovementsModal(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tüm değişiklikler</Text><Pressable onPress={()=>setShowMovementsModal(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><ScrollView>{movementRows(movements)}</ScrollView></View></View></Modal>
  <Modal visible={showRecipeInfo} transparent animationType="fade" onRequestClose={()=>setShowRecipeInfo(false)}><View style={modalBackdrop}><View style={modalCard}><View style={s.sectionRow}><Text style={s.heading}>Tarifler nasıl bulunuyor?</Text><Pressable onPress={()=>setShowRecipeInfo(false)}><Text style={s.smallLink}>Kapat</Text></Pressable></View><Text style={s.body}>Tarifler PostgreSQL kataloğundan SQL ile bulunur. Buzdolabındaki ürün adları standart malzeme kataloğundaki alias kayıtlarıyla eşleştirilir. Seçtiğin yemek, tatlı veya içecek kategorisindeki tarifler; mevcut malzeme oranı, eksik malzeme sayısı ve miktar uyumluluğuna göre sıralanır. İlk üç tarif gösterilir; daha fazlasını istediğinde sonraki üç tarif getirilir. Eksik malzemeler tarif kartında ayrıca listelenir. Stok yalnızca “Kullanılanları stoktan düş” onayından sonra azaltılır.</Text></View></View></Modal>
  </AppShell>;
 }
