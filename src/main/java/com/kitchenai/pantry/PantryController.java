@@ -88,11 +88,11 @@ public class PantryController {
   }
   private PantryItem owned(UUID id,UUID user){return items.findByIdAndUserIdAndArchivedFalse(id,user).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Pantry item not found"));}
   private ItemView view(PantryItem p){LocalDate today=LocalDate.now();boolean expired=p.getExpiryDate()!=null&&p.getExpiryDate().isBefore(today);boolean soon=p.getExpiryDate()!=null&&!expired&&!p.getExpiryDate().isAfter(today.plusDays(7));return new ItemView(p.getId(),p.getName(),p.getCategory(),p.getQuantity(),p.getUnit(),p.getExpiryDate(),expired,soon,p.getVersion());}
-  private static String normalize(String v){return Normalizer.normalize(v.trim().toLowerCase(Locale.ROOT),Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^a-z0-9 ]","").replaceAll("\\s+"," ");}
-  private static String category(String c){return c==null||c.isBlank()?"OTHER":c.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]","_");}
-  private static String unit(String u){String x=u.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+"," ");if(x.isBlank()||x.length()>20)throw bad("Geçersiz birim.");if(x.equals("pcs")||x.equals("adet"))return "piece";if(Set.of("g","kg","ml","l","piece","su bardağı","bardak","yemek kaşığı","çorba kaşığı","çay kaşığı","tatlı kaşığı","dilim","paket","diş","demet","tutam","dal","baş","avuç").contains(x))return x;throw bad("Desteklenmeyen birim: "+x);}
+  private static String normalize(String v){String lowered=v.trim().toLowerCase(Locale.ROOT).replace('ı','i');return Normalizer.normalize(lowered,Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^a-z0-9 ]","").replaceAll("\\s+"," ");}
+  private static String category(String c){return c==null?"":c.trim();}
+  private static String unit(String u){String x=u.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+"," ");if(x.isBlank()||x.length()>20)throw bad("Geçersiz birim.");return x;}
   private static boolean compatible(String a,String b){return dimension(a).equals(dimension(b));}
-  private static String dimension(String u){if(u.equals("g")||u.equals("kg"))return "MASS";if(u.equals("ml")||u.equals("l"))return "VOLUME";if(u.equals("piece"))return "COUNT";return "CUSTOM:"+u;}
+  private static String dimension(String u){if(u.equals("g")||u.equals("kg"))return "MASS";if(u.equals("ml")||u.equals("l"))return "VOLUME";if(Set.of("piece","adet","pcs").contains(u))return "COUNT";return "CUSTOM:"+u;}
   private static BigDecimal convert(BigDecimal q,String from,String to){if(!compatible(from,to))return BigDecimal.valueOf(-1);if(from.equals(to))return q; if(from.equals("kg")&&to.equals("g"))return q.multiply(BigDecimal.valueOf(1000));if(from.equals("g")&&to.equals("kg"))return q.divide(BigDecimal.valueOf(1000),3,RoundingMode.HALF_UP);if(from.equals("l")&&to.equals("ml"))return q.multiply(BigDecimal.valueOf(1000));if(from.equals("ml")&&to.equals("l"))return q.divide(BigDecimal.valueOf(1000),3,RoundingMode.HALF_UP);return q;}
   private static ApiException bad(String message){return new ApiException(HttpStatus.BAD_REQUEST,message);}
 }
