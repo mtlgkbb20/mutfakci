@@ -64,6 +64,10 @@ export default function TabsLayout() {
         options={{ title: "Geçmiş", tabBarIcon: () => null }}
       />
       <Tabs.Screen
+        name="pantry"
+        options={{ title: "Buzdolabı", tabBarIcon: () => null }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{ title: "Profil", tabBarIcon: () => null }}
       />
