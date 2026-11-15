@@ -464,7 +464,7 @@ export default function CookingJournal() {
                 return (
                   <Pressable key={id} onPress={() => {
                     if (isCompleted) setSelectedSession(id);
-                    else setSelectedHistoryId(id);
+                    else void selectHistory(id);
                     setPicker(null);
                   }} style={{
                     backgroundColor: selected ? colors.sand : colors.white,
