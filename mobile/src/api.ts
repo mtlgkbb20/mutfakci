@@ -6,6 +6,13 @@ export const apiBaseURL =
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8080/api/v1";
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function api(path: string, options: RequestInit = {}, timeoutMs = 15000) {
   const token = await AsyncStorage.getItem("token");
   const headers = new Headers(options.headers);
@@ -33,7 +40,7 @@ export async function api(path: string, options: RequestInit = {}, timeoutMs = 1
         error: data.error,
         errorId: data.errorId,
       });
-      throw new Error(data.error || `API error (${response.status})`);
+      throw new ApiError(data.error || `API error (${response.status})`, response.status);
     }
     return data;
   } catch (error: any) {
