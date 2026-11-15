@@ -1,7 +1,5 @@
 package com.kitchenai.cookingjournal;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -9,7 +7,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import org.springframework.data.domain.Page;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,12 +36,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class CookingJournalController {
   private final CookingJournalService service;
   private final JournalMediaStorage media;
-  private final ObjectMapper mapper;
 
-  public CookingJournalController(CookingJournalService service, JournalMediaStorage media, ObjectMapper mapper) {
+  public CookingJournalController(CookingJournalService service, JournalMediaStorage media) {
     this.service = service;
     this.media = media;
-    this.mapper = mapper;
   }
 
   public record CreateRequest(
@@ -59,6 +59,15 @@ public class CookingJournalController {
   public record EntrySummary(UUID id, UUID cookingSessionId, UUID recipeId, String title,
       Integer servings, Integer rating, Instant cookedAt, boolean hasPhoto) {}
 
+  public record PageResponse<T>(List<T> content, int page, int size, long totalElements,
+      int totalPages, boolean hasNext) {
+    static <S, T> PageResponse<T> from(Page<S> page, Function<S, T> mapper) {
+      return new PageResponse<>(page.getContent().stream().map(mapper).toList(),
+          page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(),
+          page.hasNext());
+    }
+  }
+
   public record EntryView(UUID id, UUID cookingSessionId, UUID recipeId, String recipeSnapshot,
       Integer servings, Integer rating, String notes, Instant cookedAt, Instant createdAt,
       Instant updatedAt, boolean hasPhoto) {
@@ -69,9 +78,11 @@ public class CookingJournalController {
     }
   }
 
-  public record VariationSummaryView(UUID id, String title, int servings, Instant createdAt) {
-    static VariationSummaryView from(RecipeVariation variation) {
-      return new VariationSummaryView(variation.getId(), variation.getTitle(), variation.getServings(), variation.getCreatedAt());
+  public record VariationSummaryView(UUID id, String title, String description,
+      int servings, Instant createdAt) {
+    static VariationSummaryView from(RecipeVariationSummaryProjection variation) {
+      return new VariationSummaryView(variation.getId(), variation.getTitle(),
+          variation.getDescription(), variation.getServings(), variation.getCreatedAt());
     }
   }
 
@@ -97,18 +108,20 @@ public class CookingJournalController {
   }
 
   @GetMapping
-  public List<EntrySummary> list(@AuthenticationPrincipal UUID userId) {
-    return service.list(userId).stream().map(entry -> {
-      boolean hasPhoto = service.hasPhoto(userId, entry.getId());
-      String title = "Tarif adı bulunamadı";
-      try {
-        JsonNode snapshot = mapper.readTree(entry.getRecipeSnapshotJson());
-        String snapshotTitle = snapshot.path("title").asText("").trim();
-        if (!snapshotTitle.isEmpty()) title = snapshotTitle;
-      } catch (Exception ignored) { }
-      return new EntrySummary(entry.getId(), entry.getCookingSessionId(), entry.getRecipeId(),
-          title, entry.getServings(), entry.getRating(), entry.getCookedAt(), hasPhoto);
-    }).toList();
+  public PageResponse<EntrySummary> list(@AuthenticationPrincipal UUID userId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    Page<CookingJournalSummaryProjection> result = service.list(userId, page, size);
+    Set<UUID> photoIds = service.findPhotoEntryIds(userId,
+        result.getContent().stream().map(CookingJournalSummaryProjection::getId).toList());
+    return PageResponse.from(result, entry -> new EntrySummary(entry.getId(),
+        entry.getCookingSessionId(), entry.getRecipeId(), entry.getRecipeTitle(),
+        entry.getServings(), entry.getRating(), entry.getCookedAt(), photoIds.contains(entry.getId())));
+  }
+
+  @GetMapping("/session-ids")
+  public List<UUID> journaledSessionIds(@AuthenticationPrincipal UUID userId) {
+    return service.listJournaledSessionIds(userId);
   }
 
   @GetMapping("/{entryId}")
@@ -118,8 +131,10 @@ public class CookingJournalController {
 
   @GetMapping("/recipes/{recipeId}/attempts")
   public List<EntryView> attempts(@PathVariable UUID recipeId, @AuthenticationPrincipal UUID userId) {
-    return service.attempts(userId, recipeId).stream()
-        .map(entry -> EntryView.from(entry, service.hasPhoto(userId, entry.getId()))).toList();
+    List<CookingJournalEntry> entries = service.attempts(userId, recipeId);
+    Set<UUID> photoIds = service.findPhotoEntryIds(userId,
+        entries.stream().map(CookingJournalEntry::getId).toList());
+    return entries.stream().map(entry -> EntryView.from(entry, photoIds.contains(entry.getId()))).toList();
   }
 
   @PatchMapping("/{entryId}")
@@ -172,8 +187,11 @@ public class CookingJournalController {
   }
 
   @GetMapping("/variations/summaries")
-  public List<VariationSummaryView> listVariationSummaries(@AuthenticationPrincipal UUID userId) {
-    return service.listVariations(userId).stream().map(VariationSummaryView::from).toList();
+  public PageResponse<VariationSummaryView> listVariationSummaries(@AuthenticationPrincipal UUID userId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    Page<RecipeVariationSummaryProjection> result = service.listVariationSummaries(userId, page, size);
+    return PageResponse.from(result, VariationSummaryView::from);
   }
 
   @GetMapping("/variations")
