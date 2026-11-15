@@ -10,7 +10,11 @@ import com.kitchenai.recipe.Recipe;
 import com.kitchenai.recipe.RecipeRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +68,7 @@ public class CookingJournalService {
               recipe.getIngredientsJson(), recipe.getStagesJson());
       String snapshotJson = mapper.writeValueAsString(snapshot);
       return journal.save(new CookingJournalEntry(
-          userId, session.getId(), recipe == null ? null : recipe.getId(), snapshotJson,
+          userId, session.getId(), recipe == null ? null : recipe.getId(), snapshot.title(), snapshotJson,
           snapshot.servings(), request.rating(), normalizeNotes(request.notes()),
           session.getCompletedAt() == null ? Instant.now() : session.getCompletedAt()));
     } catch (JsonProcessingException exception) {
@@ -73,8 +77,21 @@ public class CookingJournalService {
   }
 
   @Transactional(readOnly = true)
-  public List<CookingJournalEntry> list(UUID userId) {
-    return journal.findByUserIdOrderByCookedAtDesc(userId);
+  public Page<CookingJournalSummaryProjection> list(UUID userId, int page, int size) {
+    return journal.findByUserIdOrderByCookedAtDesc(userId,
+        PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 50),
+            Sort.by(Sort.Direction.DESC, "cookedAt").and(Sort.by(Sort.Direction.DESC, "id"))));
+  }
+
+  @Transactional(readOnly = true)
+  public Set<UUID> findPhotoEntryIds(UUID userId, List<UUID> entryIds) {
+    if (entryIds.isEmpty()) return Set.of();
+    return media.findJournalEntryIdsWithPhotos(userId, entryIds);
+  }
+
+  @Transactional(readOnly = true)
+  public List<UUID> listJournaledSessionIds(UUID userId) {
+    return journal.findCookingSessionIdByUserId(userId);
   }
 
   @Transactional(readOnly = true)
@@ -175,6 +192,13 @@ public class CookingJournalService {
     } catch (JsonProcessingException exception) {
       throw new ApiException(HttpStatus.BAD_REQUEST, "The original recipe snapshot is invalid");
     }
+  }
+
+  @Transactional(readOnly = true)
+  public Page<RecipeVariationSummaryProjection> listVariationSummaries(UUID userId, int page, int size) {
+    return variations.findByUserIdOrderByCreatedAtDesc(userId,
+        PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 50),
+            Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
   }
 
   @Transactional(readOnly = true)
