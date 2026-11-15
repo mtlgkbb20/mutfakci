@@ -113,7 +113,7 @@ export default function PantryScreen(){
     <Text style={s.heading}>Tarif önerileri</Text>
     <Text style={[s.body,{marginTop:6}]}>Önce görmek istediğin tarif türünü seç.</Text>
     <View style={{flexDirection:"row",gap:8,marginTop:12}}>
-      {recipeCategories.map(option=><Pressable key={option.value} onPress={()=>selectRecipeCategory(option.value)} style={{flex:1,paddingVertical:12,paddingHorizontal:5,borderRadius:14,borderWidth:recipeCategory===option.value?2:1,borderColor:recipeCategory===option.value?colors.primary:colors.line,backgroundColor:recipeCategory===option.value?"#fff7ed":colors.white,alignItems:"center"}}>
+      {recipeCategories.map(option=><Pressable key={option.value} onPress={()=>selectRecipeCategory(option.value)} style={{flex:1,paddingVertical:12,paddingHorizontal:5,borderRadius:14,borderWidth:recipeCategory===option.value?2:1,borderColor:recipeCategory===option.value?colors.orange:colors.line,backgroundColor:recipeCategory===option.value?"#fff7ed":colors.white,alignItems:"center"}}>
         <Text style={{fontSize:20}}>{option.emoji}</Text>
         <Text style={{fontWeight:"700",fontSize:13,color:colors.ink,marginTop:4}}>{option.label}</Text>
       </Pressable>)}
