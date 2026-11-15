@@ -161,7 +161,8 @@ export default function CookingJournal() {
           rating: draftRatings[entry.id] ?? entry.rating,
         }),
       });
-      setSelectedHistoryDetail(updated);\n      setEntries(current => current.map(item => item.id === entry.id ? { ...item, servings: updated.servings, rating: updated.rating } : item));
+      setSelectedHistoryDetail(updated);
+      setEntries(current => current.map(item => item.id === entry.id ? { ...item, servings: updated.servings, rating: updated.rating } : item));
       setNotice("Pişirme kaydı güncellendi.");
     } catch (e: any) { setError(e.message || "Kayıt güncellenemedi."); }
     finally { setSaving(false); }
@@ -217,7 +218,26 @@ export default function CookingJournal() {
     finally { setSaving(false); }
   };
 
-  const selectHistory = async (entryId: string) => {\n    setSelectedHistoryId(entryId);\n    setSelectedHistoryDetail(null);\n    setHistoryDetailLoading(true);\n    setPicker(null);\n    setError("");\n    try {\n      const detail = await api(`/cooking-journal/${entryId}`);\n      setSelectedHistoryDetail(detail);\n    } catch (e: any) {\n      setError(e.message || "Pişirme detayı yüklenemedi.");\n    } finally { setHistoryDetailLoading(false); }\n  };\n\n  const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
+  const selectHistory = async (entryId: string) => {
+    if (selectedHistoryDetail?.id === entryId) {
+      setSelectedHistoryId(entryId);
+      setPicker(null);
+      return;
+    }
+    setSelectedHistoryId(entryId);
+    setSelectedHistoryDetail(null);
+    setHistoryDetailLoading(true);
+    setPicker(null);
+    setError("");
+    try {
+      const detail = await api(`/cooking-journal/${entryId}`);
+      setSelectedHistoryDetail(detail);
+    } catch (e: any) {
+      setError(e.message || "Pişirme detayı yüklenemedi.");
+    } finally { setHistoryDetailLoading(false); }
+  };
+
+  const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
   const completedSessions = sessions.filter(item => item.status === "COMPLETED" &&
     !entries.some(entry => entry.cookingSessionId === item.id));
   const selectedCompletedSession = completedSessions.find(item => item.id === selectedSession);
@@ -316,7 +336,8 @@ export default function CookingJournal() {
           </View>
           {loading ? <ActivityIndicator color={colors.orange} /> : null}
           {!loading && entries.length === 0 ? <Text style={s.body}>Henüz pişirme kaydı yok.</Text> : null}
-          {historyDetailLoading ? <ActivityIndicator color={colors.orange} /> : null}\n          {entries.length > 0 ? (
+          {historyDetailLoading ? <ActivityIndicator color={colors.orange} /> : null}
+          {entries.length > 0 ? (
             <>
               <Pressable onPress={() => openPicker("history")} style={{
                 borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14,
