@@ -1,7 +1,10 @@
-import { Stack } from "expo-router";
+import { Pressable, Text } from "react-native";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 export default function Layout() {
+  const router = useRouter();
+
   return (
     <>
       <StatusBar style="dark" />
@@ -9,8 +12,36 @@ export default function Layout() {
         screenOptions={{
           headerShown: true,
           headerTitle: "",
-          headerBackButtonDisplayMode: "minimal",
-          headerBackTitle: "Geri",
+          headerLeft: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Geri dön"
+              hitSlop={10}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/dashboard");
+                }
+              }}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#c55a36",
+                  fontSize: 27,
+                  fontWeight: "500",
+                }}
+              >
+                ←
+              </Text>
+            </Pressable>
+          ),
           headerTintColor: "#c55a36",
           headerStyle: { backgroundColor: "#fbf8f3" },
           headerShadowVisible: false,
