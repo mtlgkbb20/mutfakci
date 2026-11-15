@@ -55,7 +55,7 @@ export default function PantryScreen(){
    }}]);
  };
  const movementLabel=(m:Movement)=>{const itemName=items.find(i=>i.id===m.pantryItemId)?.name||"Ürün";const prefix=m.movementType==="CONSUME"?"−":"+";const unitLabel=m.unit==="piece"?"adet":m.unit;return prefix+Math.abs(m.quantityDelta)+" "+unitLabel+" · "+itemName+" · "+new Date(m.createdAt).toLocaleDateString("tr-TR");};
- const inventoryRows=(list:PantryItem[])=>list.map(item=><View key={item.id} style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:12}}><Pressable style={{flex:1}} onPress={()=>edit(item)}><Text style={{fontSize:16,fontWeight:"700",color:colors.ink}}>{item.name}</Text></Pressable><Pressable onPress={()=>remove(item)}><Text style={{color:"#b42318",fontWeight:"700"}}>Kaldır</Text></Pressable></View>);
+ const inventoryRows=(list:PantryItem[],showRemove=true)=>list.map(item=><View key={item.id} style={{paddingVertical:12,borderTopWidth:1,borderTopColor:colors.line,flexDirection:"row",alignItems:"center",gap:12}}><Pressable style={{flex:1}} onPress={()=>edit(item)}><Text style={{fontSize:16,fontWeight:"700",color:colors.ink}}>{item.name}</Text></Pressable>{showRemove&&<Pressable onPress={()=>remove(item)}><Text style={{color:"#b42318",fontWeight:"700"}}>Kaldır</Text></Pressable>}</View>);
  return <AppShell><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
    <Header title="Buzdolabım" subtitle="Evindeki malzemeleri takip et"/>
    <View style={s.card}>
@@ -68,7 +68,7 @@ export default function PantryScreen(){
       <Field value={expiry} onChangeText={setExpiry} placeholder="Son kullanma tarihi (YYYY-AA-GG) — isteğe bağlı"/>
       <Button onPress={add} loading={loading}>{editingId?"Değişiklikleri kaydet":"Ekle"}</Button>
     </View>}
-    {items.length===0?<Text style={s.body}>Buzdolabın henüz boş. İlk ürününü ekleyerek başla.</Text>:inventoryRows(items.slice(0,3))}
+    {items.length===0?<Text style={s.body}>Buzdolabın henüz boş. İlk ürününü ekleyerek başla.</Text>:inventoryRows(items.slice(0,3),false)}
     {items.length>3&&<Pressable onPress={()=>setShowInventoryModal(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tüm ürünleri gör ({items.length})</Text></Pressable>}
    </View>
    <View style={s.card}><Text style={s.eyebrow}>ÖNCE BUNLARI KULLAN</Text><Text style={s.heading}>Son kullanma tarihi yaklaşanlar</Text>
