@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.kitchenai.recipe.RecipeCatalogService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
@@ -15,13 +15,16 @@ class PantryControllerTest {
   private PantryItemRepository items;
   private PantryMovementRepository movements;
   private PantryOperationRepository operations;
-  private RecipeCatalogService catalog;
+  private PantryRecipeMatchRepository recipeMatches;
   private PantryController controller;
   private final UUID userId=UUID.randomUUID();
 
   @BeforeEach void setUp(){
-    items=mock(PantryItemRepository.class); movements=mock(PantryMovementRepository.class); operations=mock(PantryOperationRepository.class); catalog=mock(RecipeCatalogService.class);
-    controller=new PantryController(items,movements,operations,catalog);
+    items=mock(PantryItemRepository.class);
+    movements=mock(PantryMovementRepository.class);
+    operations=mock(PantryOperationRepository.class);
+    recipeMatches=mock(PantryRecipeMatchRepository.class);
+    controller=new PantryController(items,movements,operations,recipeMatches,new ObjectMapper());
     when(items.save(any(PantryItem.class))).thenAnswer(inv->inv.getArgument(0));
     when(movements.save(any(PantryMovement.class))).thenAnswer(inv->inv.getArgument(0));
   }
@@ -46,6 +49,31 @@ class PantryControllerTest {
     assertEquals(2,result.size());
     assertTrue(result.get(0).expired());
     assertTrue(result.get(1).expiringSoon());
+  }
+
+  @Test void recipeDiscoveryReturnsOnlyThreeAndSignalsMoreResults(){
+    PantryRecipeMatchProjection row=mock(PantryRecipeMatchProjection.class);
+    when(row.getRecipeId()).thenReturn("sutlac");
+    when(row.getTitle()).thenReturn("Sütlaç");
+    when(row.getServings()).thenReturn(4);
+    when(row.getCoverage()).thenReturn(0.75d);
+    when(row.getAvailableJson()).thenReturn("[{\\"name\\":\\"Süt\\"}]");
+    when(row.getMissingJson()).thenReturn("[{\\"name\\":\\"Pirinç\\"}]");
+    when(recipeMatches.findMatches(userId,"DESSERT",4,0)).thenReturn(List.of(row,row,row,row));
+
+    var result=controller.recipeMatches("DESSERT",0,userId);
+
+    assertEquals("DESSERT",result.category());
+    assertEquals(3,result.size());
+    assertTrue(result.hasMore());
+    assertEquals("Sütlaç",result.recipes().get(0).title());
+    assertEquals(1,result.recipes().get(0).available().size());
+    verify(recipeMatches).findMatches(userId,"DESSERT",4,0);
+  }
+
+  @Test void recipeDiscoveryRejectsUnknownCategory(){
+    assertThrows(RuntimeException.class,()->controller.recipeMatches("BREAKFAST",0,userId));
+    verifyNoInteractions(recipeMatches);
   }
 
   @Test void duplicateConsumptionOperationDoesNotLockOrDeductAgain(){
