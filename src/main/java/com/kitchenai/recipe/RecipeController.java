@@ -234,7 +234,7 @@ public class RecipeController {
   @GetMapping("/cooking-sessions")
   public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
     List<CookingSessionSummaryProjection> userSessions =
-        sessions.findSummaryByUserIdOrderByStartedAtDesc(userId);
+        sessions.findSessionSummariesByUserId(userId);
     List<UUID> recipeIds = userSessions.stream().map(CookingSessionSummaryProjection::getRecipeId)
         .filter(java.util.Objects::nonNull).distinct().toList();
     Map<UUID, String> recipeTitles = recipeIds.isEmpty() ? Map.of()
