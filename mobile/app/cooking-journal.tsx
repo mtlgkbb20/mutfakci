@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -8,7 +8,8 @@ import { File as ExpoFile } from "expo-file-system";
 import { api, apiBaseURL } from "../src/api";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
-type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string };
+type Session = { id: string; recipeId?: string | null; status: string; startedAt?: string; sessionType?: string };
+type Recipe = { id: string; title: string };
 type Entry = {
   id: string;
   cookingSessionId: string;
@@ -24,7 +25,10 @@ type Variation = { id: string; title: string; sourceRecipeId: string; servings: 
 function snapshot(entry: Entry): any {
   try { return JSON.parse(entry.recipeSnapshot); } catch { return {}; }
 }
-function recipeTitle(entry: Entry) { return snapshot(entry).title || "Tarifsiz pişirme"; }
+function recipeTitle(entry: Entry) {
+  const title = snapshot(entry).title;
+  return typeof title === "string" && title.trim() ? title : "Tarif adı bulunamadı";
+}
 function dateLabel(value?: string) {
   if (!value) return "Tarih yok";
   const date = new Date(value);
@@ -35,8 +39,13 @@ export default function CookingJournal() {
   const router = useRouter();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [variations, setVariations] = useState<Variation[]>([]);
   const [selectedSession, setSelectedSession] = useState("");
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
+  const [picker, setPicker] = useState<"completed" | "history" | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [sessionsModalVisible, setSessionsModalVisible] = useState(false);
   const [notes, setNotes] = useState("");
   const [rating, setRating] = useState<number | undefined>(5);
   const [servings, setServings] = useState("2");
@@ -56,18 +65,30 @@ export default function CookingJournal() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const recipeNames = useMemo(() => new Map(recipes.map(recipe => [recipe.id, recipe.title])), [recipes]);
+  const sessionTitle = (session: Session) => {
+    if (session.recipeId) return recipeNames.get(session.recipeId) || "Tarif adı yüklenemedi";
+    return session.sessionType === "FREE_COOKING" ? "Serbest pişirme" : "Tarif adı bulunamadı";
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [journal, cookingSessions, savedVariations] = await Promise.all([
+      const [journal, cookingSessions, savedVariations, savedRecipes] = await Promise.all([
         api("/cooking-journal"),
         api("/cooking-sessions"),
         api("/cooking-journal/variations"),
+        api("/recipes"),
       ]);
       setEntries(journal);
       setSessions(cookingSessions);
       setVariations(savedVariations);
+      setRecipes(savedRecipes);
+      setSelectedHistoryId(current => current || journal[0]?.id || "");
+      setSelectedSession(current => cookingSessions.some((session: Session) =>
+        session.id === current && session.status === "COMPLETED" &&
+        !journal.some((entry: Entry) => entry.cookingSessionId === session.id)) ? current : "");
     } catch (e: any) {
       setError(e.message || "Pişirme günlüğü yüklenemedi.");
     } finally { setLoading(false); }
@@ -106,14 +127,16 @@ export default function CookingJournal() {
     try {
       await api(`/cooking-sessions/${sessionId}/complete`, { method: "POST" });
       setSelectedSession(sessionId);
-      setNotice("Pişirme tamamlandı. Şimdi günlüğe kaydedebilirsin.");
+      setSessionsModalVisible(false);
+      setNotice("Pişirme tamamlandı. Günlüğe kaydetmek için aşağıdan seçebilirsin.");
       await load();
+      setSelectedSession(sessionId);
     } catch (e: any) { setError(e.message || "Pişirme tamamlanamadı."); }
     finally { setSaving(false); }
   };
 
   const save = async () => {
-    if (!selectedSession) { setError("Önce tamamlanmış bir pişirme oturumu seç."); return; }
+    if (!selectedSession) { setError("Önce tamamlanmış bir pişirme seç."); return; }
     const servingCount = Number(servings);
     if (!Number.isInteger(servingCount) || servingCount < 1 || servingCount > 30) {
       setError("Porsiyon 1 ile 30 arasında olmalı."); return;
@@ -199,93 +222,151 @@ export default function CookingJournal() {
   const pendingSessions = sessions.filter(item => item.status === "ACTIVE");
   const completedSessions = sessions.filter(item => item.status === "COMPLETED" &&
     !entries.some(entry => entry.cookingSessionId === item.id));
+  const selectedCompletedSession = completedSessions.find(item => item.id === selectedSession);
+  const selectedHistory = entries.find(entry => entry.id === selectedHistoryId);
+  const pickerItems = picker === "completed" ? completedSessions : entries;
+  const filteredPickerItems = pickerItems.filter(item => {
+    const title = picker === "completed"
+      ? sessionTitle(item as Session)
+      : recipeTitle(item as Entry);
+    return title.toLocaleLowerCase("tr-TR").includes(pickerQuery.toLocaleLowerCase("tr-TR"));
+  });
+
+  const openPicker = (type: "completed" | "history") => {
+    setPickerQuery("");
+    setPicker(type);
+  };
 
   return (
     <AppShell>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         <Header title="Pişirme Günlüğüm" subtitle="Denemelerini kaydet, gelişimini takip et" />
+
         <View style={s.card}>
           <Text style={s.eyebrow}>PİŞİRMEYİ TAMAMLA</Text>
-          <Text style={s.heading}>Devam eden oturumların</Text>
+          <View style={s.sectionRow}>
+            <Text style={s.heading}>Devam eden oturumlar</Text>
+            <Text style={s.recipeMeta}>{pendingSessions.length} oturum</Text>
+          </View>
           {pendingSessions.length === 0 ? (
             <Text style={[s.recipeMeta, { marginTop: 8 }]}>Devam eden pişirme oturumu yok.</Text>
-          ) : pendingSessions.map(session => (
-            <View key={session.id} style={{ borderTopWidth: 1, borderTopColor: colors.line, marginTop: 10, paddingTop: 10 }}>
-              <Text style={s.body}>{session.recipeId ? "Tarifli pişirme" : "Tarifsiz pişirme"} · {dateLabel(session.startedAt)}</Text>
-              <Button secondary onPress={() => completeSession(session.id)} loading={saving}>Pişirmeyi tamamladım</Button>
-            </View>
-          ))}
+          ) : (
+            <>
+              {pendingSessions.slice(0, 3).map(session => (
+                <View key={session.id} style={{ borderTopWidth: 1, borderTopColor: colors.line, marginTop: 10, paddingTop: 10 }}>
+                  <Text style={s.body}>{sessionTitle(session)}</Text>
+                  <Text style={s.recipeMeta}>{dateLabel(session.startedAt)}</Text>
+                </View>
+              ))}
+              {pendingSessions.length > 3 ? (
+                <Text style={[s.recipeMeta, { marginTop: 8 }]}>+ {pendingSessions.length - 3} more</Text>
+              ) : null}
+              <Button secondary onPress={() => setSessionsModalVisible(true)}>Tüm oturumları gör</Button>
+            </>
+          )}
         </View>
 
         <View style={s.card}>
           <Text style={s.eyebrow}>YENİ KAYIT</Text>
           <Text style={s.heading}>Tamamladığın pişirmeyi kaydet</Text>
-          <Text style={[s.body, { marginTop: 6 }]}>Her oturum günlüğe yalnızca bir kez eklenebilir.</Text>
+          <Text style={[s.body, { marginTop: 6 }]}>Tamamlanan oturumlarından birini seç; yalnızca seçtiğin pişirmenin detayları burada düzenlenir.</Text>
           {completedSessions.length === 0 ? (
             <Text style={[s.recipeMeta, { marginTop: 12 }]}>Kaydedilmeyi bekleyen tamamlanmış oturum yok.</Text>
-          ) : completedSessions.map(session => (
-            <Pressable key={session.id} onPress={() => setSelectedSession(session.id)}
-              style={{ borderWidth: 1, borderColor: selectedSession === session.id ? colors.orange : colors.line,
-                backgroundColor: selectedSession === session.id ? colors.sand : colors.white,
-                borderRadius: 12, padding: 12, marginTop: 8 }}>
-              <Text style={s.body}>{session.recipeId ? "Tarifli pişirme" : "Tarifsiz pişirme"} · {dateLabel(session.startedAt)}</Text>
-              <Text style={s.recipeMeta}>{selectedSession === session.id ? "Seçildi" : "Günlüğe eklemek için seç"}</Text>
+          ) : (
+            <Pressable onPress={() => openPicker("completed")} style={{
+              borderWidth: 1, borderColor: selectedSession ? colors.orange : colors.line,
+              backgroundColor: selectedSession ? colors.sand : colors.white,
+              borderRadius: 12, padding: 14, marginTop: 12,
+              flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={s.eyebrow}>PİŞİRME SEÇ</Text>
+                <Text style={s.body}>{selectedCompletedSession ? sessionTitle(selectedCompletedSession) : "Kaydedilecek pişirmeyi seç"}</Text>
+                {selectedCompletedSession ? <Text style={s.recipeMeta}>{dateLabel(selectedCompletedSession.startedAt)}</Text> : null}
+              </View>
+              <Text style={{ color: colors.orange, fontWeight: "800" }}>⌄</Text>
             </Pressable>
-          ))}
-          <Field value={servings} onChangeText={setServings} keyboardType="number-pad" placeholder="Porsiyon" />
-          <Text style={[s.eyebrow, { marginTop: 14 }]}>PUANIN</Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {[1,2,3,4,5].map(value => (
-              <Pressable key={value} onPress={() => setRating(value)}
-                style={{ padding: 10, borderRadius: 10, backgroundColor: rating === value ? colors.orange : colors.sand }}>
-                <Text style={{ color: rating === value ? colors.white : colors.ink, fontWeight: "800" }}>{value} ★</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Field value={notes} onChangeText={setNotes} multiline placeholder="Notların: Neyi farklı yaptın? Sonuç nasıldı?" />
-          <Button secondary onPress={() => choosePhoto()}>Fotoğraf seç (isteğe bağlı)</Button>
-          {newPhoto ? <Image source={{ uri: newPhoto.uri }} style={{ height: 180, borderRadius: 14, marginTop: 10 }} resizeMode="cover" /> : null}
-          <Button onPress={save} loading={saving}>Günlüğe kaydet</Button>
-        </View>
-
-        <View style={s.sectionRow}>
-          <Text style={s.heading}>Geçmiş denemeler</Text>
-          <Pressable onPress={load}><Text style={s.smallLink}>Yenile</Text></Pressable>
-        </View>
-        {loading ? <ActivityIndicator color={colors.orange} /> : null}
-        {!loading && entries.length === 0 ? <View style={s.card}><Text style={s.body}>Henüz pişirme kaydı yok.</Text></View> : null}
-        {entries.map(entry => {
-          const attemptCount = entry.recipeId ? entries.filter(item => item.recipeId === entry.recipeId).length : 1;
-          const draftPhoto = draftPhotos[entry.id];
-          return (
-            <View key={entry.id} style={s.card}>
-              <Text style={s.eyebrow}>{dateLabel(entry.cookedAt)}</Text>
-              <Text style={s.heading}>{recipeTitle(entry)}</Text>
-              <Text style={s.recipeMeta}>{entry.servings ?? "—"} porsiyon · {attemptCount} kayıtlı deneme · {entry.rating ? `${entry.rating}/5 yıldız` : "Puanlanmadı"}</Text>
-              {entry.hasPhoto && token ? (
-                <Image source={{ uri: `${apiBaseURL}/cooking-journal/${entry.id}/photo`, headers: { Authorization: `Bearer ${token}` } }}
-                  style={{ height: 190, borderRadius: 14, marginTop: 12 }} resizeMode="cover" />
-              ) : null}
-              {draftPhoto ? <Image source={{ uri: draftPhoto.uri }} style={{ height: 180, borderRadius: 14, marginTop: 10 }} resizeMode="cover" /> : null}
-              <Button secondary onPress={() => choosePhoto(entry.id)}>Fotoğraf ekle / değiştir</Button>
-              {draftPhoto ? <Button onPress={() => savePhoto(entry)} loading={saving}>Fotoğrafı kaydet</Button> : null}
-              <Text style={[s.eyebrow, { marginTop: 14 }]}>PUAN</Text>
+          )}
+          {selectedCompletedSession ? (
+            <>
+              <Field value={servings} onChangeText={setServings} keyboardType="number-pad" placeholder="Porsiyon" />
+              <Text style={[s.eyebrow, { marginTop: 14 }]}>PUANIN</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {[1,2,3,4,5].map(value => (
-                  <Pressable key={value} onPress={() => setDraftRatings(current => ({ ...current, [entry.id]: value }))}
-                    style={{ padding: 8, borderRadius: 9, backgroundColor: (draftRatings[entry.id] ?? entry.rating) === value ? colors.orange : colors.sand }}>
-                    <Text style={{ color: (draftRatings[entry.id] ?? entry.rating) === value ? colors.white : colors.ink }}>{value}★</Text>
+                  <Pressable key={value} onPress={() => setRating(value)}
+                    style={{ padding: 10, borderRadius: 10, backgroundColor: rating === value ? colors.orange : colors.sand }}>
+                    <Text style={{ color: rating === value ? colors.white : colors.ink, fontWeight: "800" }}>{value} ★</Text>
                   </Pressable>
                 ))}
               </View>
-              <Field value={draftNotes[entry.id] ?? entry.notes ?? ""}
-                onChangeText={value => setDraftNotes(current => ({ ...current, [entry.id]: value }))}
-                multiline placeholder="Bu denemeyle ilgili notun" />
-              <Button secondary onPress={() => updateEntry(entry)} loading={saving}>Puanı ve notu güncelle</Button>
-              {entry.recipeId ? <Button secondary onPress={() => openVariation(entry)}>Bu denemeden varyasyon oluştur</Button> : null}
+              <Field value={notes} onChangeText={setNotes} multiline placeholder="Notların: Neyi farklı yaptın? Sonuç nasıldı?" />
+              <Button secondary onPress={() => choosePhoto()}>Fotoğraf seç (isteğe bağlı)</Button>
+              {newPhoto ? <Image source={{ uri: newPhoto.uri }} style={{ height: 180, borderRadius: 14, marginTop: 10 }} resizeMode="cover" /> : null}
+              <Button onPress={save} loading={saving}>Günlüğe kaydet</Button>
+            </>
+          ) : null}
+        </View>
+
+        <View style={s.card}>
+          <View style={s.sectionRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.eyebrow}>KİŞİSEL ARŞİVİN</Text>
+              <Text style={s.heading}>Geçmiş denemeler</Text>
+              <Text style={s.recipeMeta}>{entries.length} kayıtlı pişirme</Text>
             </View>
-          );
-        })}
+            <Pressable onPress={load}><Text style={s.smallLink}>Yenile</Text></Pressable>
+          </View>
+          {loading ? <ActivityIndicator color={colors.orange} /> : null}
+          {!loading && entries.length === 0 ? <Text style={s.body}>Henüz pişirme kaydı yok.</Text> : null}
+          {entries.length > 0 ? (
+            <>
+              <Pressable onPress={() => openPicker("history")} style={{
+                borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14,
+                flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={s.eyebrow}>DENEME SEÇ</Text>
+                  <Text style={s.body}>{selectedHistory ? recipeTitle(selectedHistory) : "Geçmiş denemelerden birini seç"}</Text>
+                  {selectedHistory ? <Text style={s.recipeMeta}>{dateLabel(selectedHistory.cookedAt)}</Text> : null}
+                </View>
+                <Text style={{ color: colors.orange, fontWeight: "800" }}>⌄</Text>
+              </Pressable>
+              {selectedHistory ? (() => {
+                const entry = selectedHistory;
+                const attemptCount = entry.recipeId ? entries.filter(item => item.recipeId === entry.recipeId).length : 1;
+                const draftPhoto = draftPhotos[entry.id];
+                return (
+                  <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14 }}>
+                    <Text style={s.eyebrow}>{dateLabel(entry.cookedAt)}</Text>
+                    <Text style={s.heading}>{recipeTitle(entry)}</Text>
+                    <Text style={s.recipeMeta}>{entry.servings ?? "—"} porsiyon · {attemptCount} kayıtlı deneme · {entry.rating ? `${entry.rating}/5 yıldız` : "Puanlanmadı"}</Text>
+                    {entry.hasPhoto && token ? (
+                      <Image source={{ uri: `${apiBaseURL}/cooking-journal/${entry.id}/photo`, headers: { Authorization: `Bearer ${token}` } }}
+                        style={{ height: 190, borderRadius: 14, marginTop: 12 }} resizeMode="cover" />
+                    ) : null}
+                    {draftPhoto ? <Image source={{ uri: draftPhoto.uri }} style={{ height: 180, borderRadius: 14, marginTop: 10 }} resizeMode="cover" /> : null}
+                    <Button secondary onPress={() => choosePhoto(entry.id)}>Fotoğraf ekle / değiştir</Button>
+                    {draftPhoto ? <Button onPress={() => savePhoto(entry)} loading={saving}>Fotoğrafı kaydet</Button> : null}
+                    <Text style={[s.eyebrow, { marginTop: 14 }]}>PUAN</Text>
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      {[1,2,3,4,5].map(value => (
+                        <Pressable key={value} onPress={() => setDraftRatings(current => ({ ...current, [entry.id]: value }))}
+                          style={{ padding: 8, borderRadius: 9, backgroundColor: (draftRatings[entry.id] ?? entry.rating) === value ? colors.orange : colors.sand }}>
+                          <Text style={{ color: (draftRatings[entry.id] ?? entry.rating) === value ? colors.white : colors.ink }}>{value}★</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Field value={draftNotes[entry.id] ?? entry.notes ?? ""}
+                      onChangeText={value => setDraftNotes(current => ({ ...current, [entry.id]: value }))}
+                      multiline placeholder="Bu denemeyle ilgili notun" />
+                    <Button secondary onPress={() => updateEntry(entry)} loading={saving}>Puanı ve notu güncelle</Button>
+                    {entry.recipeId ? <Button secondary onPress={() => openVariation(entry)}>Bu denemeden varyasyon oluştur</Button> : null}
+                  </View>
+                );
+              })() : null}
+            </>
+          ) : null}
+        </View>
 
         {variationEntry ? (
           <View style={s.card}>
@@ -318,6 +399,67 @@ export default function CookingJournal() {
         {error ? <Text style={s.error}>{error}</Text> : null}
         <Button secondary onPress={() => router.back()}>Geri dön</Button>
       </ScrollView>
+
+      <Modal visible={sessionsModalVisible} transparent animationType="slide" onRequestClose={() => setSessionsModalVisible(false)}>
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,24,20,0.45)" }}>
+          <View style={{ maxHeight: "82%", backgroundColor: colors.cream, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
+            <View style={s.sectionRow}>
+              <View>
+                <Text style={s.eyebrow}>DEVAM EDENLER</Text>
+                <Text style={s.heading}>Oturumlarını yönet</Text>
+                <Text style={s.recipeMeta}>{pendingSessions.length} devam eden oturum</Text>
+              </View>
+              <Pressable onPress={() => setSessionsModalVisible(false)}><Text style={s.smallLink}>Kapat</Text></Pressable>
+            </View>
+            <ScrollView>
+              {pendingSessions.map(session => (
+                <View key={session.id} style={{ backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+                  <Text style={s.body}>{sessionTitle(session)}</Text>
+                  <Text style={s.recipeMeta}>{dateLabel(session.startedAt)}</Text>
+                  <Button onPress={() => completeSession(session.id)} loading={saving}>Tamamlandı olarak işaretle</Button>
+                </View>
+              ))}
+              {pendingSessions.length === 0 ? <Text style={s.body}>Devam eden oturum kalmadı.</Text> : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={picker !== null} transparent animationType="slide" onRequestClose={() => setPicker(null)}>
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(30,24,20,0.45)" }}>
+          <View style={{ maxHeight: "82%", backgroundColor: colors.cream, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
+            <View style={s.sectionRow}>
+              <Text style={s.heading}>{picker === "completed" ? "Pişirme seç" : "Geçmiş deneme seç"}</Text>
+              <Pressable onPress={() => setPicker(null)}><Text style={s.smallLink}>Kapat</Text></Pressable>
+            </View>
+            <Field value={pickerQuery} onChangeText={setPickerQuery} placeholder="Tarif adıyla ara" />
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ marginTop: 12 }}>
+              {filteredPickerItems.map(item => {
+                const isCompleted = picker === "completed";
+                const id = item.id;
+                const title = isCompleted ? sessionTitle(item as Session) : recipeTitle(item as Entry);
+                const date = isCompleted ? dateLabel((item as Session).startedAt) : dateLabel((item as Entry).cookedAt);
+                const selected = isCompleted ? selectedSession === id : selectedHistoryId === id;
+                return (
+                  <Pressable key={id} onPress={() => {
+                    if (isCompleted) setSelectedSession(id);
+                    else setSelectedHistoryId(id);
+                    setPicker(null);
+                  }} style={{
+                    backgroundColor: selected ? colors.sand : colors.white,
+                    borderWidth: 1, borderColor: selected ? colors.orange : colors.line,
+                    borderRadius: 12, padding: 14, marginBottom: 8,
+                  }}>
+                    <Text style={s.body}>{title}</Text>
+                    <Text style={s.recipeMeta}>{date}{selected ? " · Seçili" : ""}</Text>
+                  </Pressable>
+                );
+              })}
+              {filteredPickerItems.length === 0 ? <Text style={s.body}>Aramana uygun kayıt bulunamadı.</Text> : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </AppShell>
   );
 }
