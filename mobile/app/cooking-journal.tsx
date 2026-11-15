@@ -21,7 +21,7 @@ type Entry = {
   cookedAt: string;
   hasPhoto?: boolean;
 };
-type Variation = { id: string; title: string; sourceRecipeId: string; servings: number; createdAt: string };
+type Variation = { id: string; title: string; servings: number; createdAt: string };
 function snapshot(entry: Entry): any {
   try { return JSON.parse(entry.recipeSnapshot); } catch { return {}; }
 }
@@ -75,7 +75,7 @@ export default function CookingJournal() {
       const [journal, cookingSessions, savedVariations] = await Promise.all([
         api("/cooking-journal"),
         api("/cooking-sessions"),
-        api("/cooking-journal/variations"),
+        api("/cooking-journal/variations/summaries"),
       ]);
       setEntries(journal);
       setSessions(cookingSessions);
