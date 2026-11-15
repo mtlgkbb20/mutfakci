@@ -52,3 +52,34 @@ jobs:
         run: npm ci
       - name: Type-check Expo app
         run: npx tsc --noEmit
+
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: kitchenai
+          POSTGRES_USER: kitchenai
+          POSTGRES_PASSWORD: kitchenai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kitchenai -d kitchenai"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run Flyway and PostgreSQL recipe discovery integration test
+        env:
+          RUN_POSTGRES_INTEGRATION: "true"
+          DATABASE_URL: jdbc:postgresql://localhost:5432/kitchenai
+          DATABASE_USERNAME: kitchenai
+          DATABASE_PASSWORD: kitchenai
+        run: mvn --batch-mode -Dtest=PantryRecipeMatchPostgresTest test

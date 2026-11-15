@@ -1,7 +1,8 @@
 package com.kitchenai.pantry;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kitchenai.common.ApiException;
-import com.kitchenai.recipe.RecipeCatalogService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.*;
@@ -16,11 +17,22 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/pantry")
 public class PantryController {
+  private static final int MATCH_PAGE_SIZE = 3;
+  private static final int MATCH_FETCH_SIZE = MATCH_PAGE_SIZE + 1;
+  private static final Set<String> MATCH_CATEGORIES = Set.of("MEAL", "DESSERT", "DRINK");
+
   private final PantryItemRepository items;
   private final PantryMovementRepository movements;
   private final PantryOperationRepository operations;
-  private final RecipeCatalogService catalog;
-  public PantryController(PantryItemRepository items,PantryMovementRepository movements,PantryOperationRepository operations,RecipeCatalogService catalog){this.items=items;this.movements=movements;this.operations=operations;this.catalog=catalog;}
+  private final PantryRecipeMatchRepository recipeMatches;
+  private final ObjectMapper objectMapper;
+
+  public PantryController(PantryItemRepository items, PantryMovementRepository movements,
+      PantryOperationRepository operations, PantryRecipeMatchRepository recipeMatches,
+      ObjectMapper objectMapper) {
+    this.items=items; this.movements=movements; this.operations=operations;
+    this.recipeMatches=recipeMatches; this.objectMapper=objectMapper;
+  }
 
   public record ItemRequest(@NotBlank @Size(max=160) String name,@NotNull @DecimalMin("0.001") @Digits(integer=9,fraction=3) BigDecimal quantity,@NotBlank String unit,String category,LocalDate expiryDate) {}
   public record ItemView(UUID id,String name,String category,BigDecimal quantity,String unit,LocalDate expiryDate,boolean expired,boolean expiringSoon,long version) {}
@@ -28,6 +40,7 @@ public class PantryController {
   public record ConsumptionLine(@NotNull UUID pantryItemId,@NotNull @DecimalMin("0.001") BigDecimal quantity,@NotBlank String unit) {}
   public record ConsumeRequest(@NotBlank @Size(max=100) String operationKey,@NotEmpty List<@Valid ConsumptionLine> items) {}
   public record MatchView(String recipeId,String title,int servings,double coverage,List<Map<String,Object>> available,List<Map<String,Object>> missing) {}
+  public record MatchPage(String category,int page,int size,boolean hasMore,List<MatchView> recipes) {}
 
   @GetMapping("/items") public List<ItemView> list(@AuthenticationPrincipal UUID userId){return items.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId).stream().map(this::view).toList();}
   @PostMapping("/items") @Transactional public ItemView create(@Valid @RequestBody ItemRequest r,@AuthenticationPrincipal UUID userId){
@@ -51,19 +64,42 @@ public class PantryController {
     LocalDate today=LocalDate.now(); List<PantryItem> result=new ArrayList<>(items.findByUserIdAndArchivedFalseAndExpiryDateIsNotNullAndExpiryDateLessThanEqualOrderByExpiryDateAsc(userId,today.plusDays(withinDays)));
     return result.stream().map(this::view).toList();
   }
-  @PostMapping("/recipe-matches") public List<MatchView> matches(@AuthenticationPrincipal UUID userId){
-    List<PantryItem> stock=items.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId);
-    return catalog.all().stream().map(recipe->{
-      List<Map<String,Object>> available=new ArrayList<>(),missing=new ArrayList<>(); int total=recipe.ingredients().size(),matched=0;
-      for(var ingredient:recipe.ingredients()){
-        String key=normalize(ingredient.name()); String requiredUnit=unit(ingredient.unit()); Optional<PantryItem> found=stock.stream().filter(p->p.getNormalizedName().equals(key)).findFirst();
-        if(found.isPresent() && compatible(found.get().getUnit(),requiredUnit) && found.get().getQuantity().compareTo(convert(BigDecimal.valueOf(ingredient.quantity()),requiredUnit,found.get().getUnit()))>=0){
-          matched++; available.add(Map.of("name",ingredient.name(),"pantryItemId",found.get().getId(),"required",ingredient.quantity(),"unit",ingredient.unit(),"stock",found.get().getQuantity(),"stockUnit",found.get().getUnit()));
-        } else missing.add(Map.of("name",ingredient.name(),"required",ingredient.quantity(),"unit",ingredient.unit()));
-      }
-      return new MatchView(recipe.id(),recipe.title(),recipe.defaultServings(),total==0?0:(double)matched/total,available,missing);
-    }).sorted(Comparator.comparingDouble(MatchView::coverage).reversed()).limit(20).toList();
+
+  @GetMapping("/recipe-matches")
+  public MatchPage recipeMatches(@RequestParam(defaultValue="MEAL") String category,
+      @RequestParam(defaultValue="0") @Min(0) @Max(1000) int page,
+      @AuthenticationPrincipal UUID userId) {
+    return findRecipeMatches(category, page, userId);
   }
+
+  /** Backward-compatible entry point for older mobile builds. */
+  @PostMapping("/recipe-matches")
+  public List<MatchView> legacyRecipeMatches(@AuthenticationPrincipal UUID userId) {
+    return findRecipeMatches("MEAL", 0, userId).recipes();
+  }
+
+  private MatchPage findRecipeMatches(String category, int page, UUID userId) {
+    if (page < 0 || page > 1000) throw bad("Sayfa numarası 0 ile 1000 arasında olmalıdır.");
+    String normalizedCategory=category==null?"":category.trim().toUpperCase(Locale.ROOT);
+    if(!MATCH_CATEGORIES.contains(normalizedCategory)) throw bad("Kategori MEAL, DESSERT veya DRINK olmalıdır.");
+    int offset=Math.multiplyExact(page,MATCH_PAGE_SIZE);
+    List<PantryRecipeMatchProjection> rows=recipeMatches.findMatches(userId,normalizedCategory,MATCH_FETCH_SIZE,offset);
+    boolean hasMore=rows.size()>MATCH_PAGE_SIZE;
+    List<MatchView> result=rows.stream().limit(MATCH_PAGE_SIZE).map(this::toMatchView).toList();
+    return new MatchPage(normalizedCategory,page,MATCH_PAGE_SIZE,hasMore,result);
+  }
+
+  private MatchView toMatchView(PantryRecipeMatchProjection row) {
+    try {
+      List<Map<String,Object>> available=objectMapper.readValue(row.getAvailableJson(),new TypeReference<List<Map<String,Object>>>() {});
+      List<Map<String,Object>> missing=objectMapper.readValue(row.getMissingJson(),new TypeReference<List<Map<String,Object>>>() {});
+      return new MatchView(row.getRecipeId(),row.getTitle(),row.getServings(),
+          row.getCoverage()==null?0d:row.getCoverage(),available,missing);
+    } catch(Exception e) {
+      throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,"Recipe match result could not be read");
+    }
+  }
+
   @PostMapping("/recipe-consumptions") @Transactional public Map<String,Object> consume(@Valid @RequestBody ConsumeRequest r,@AuthenticationPrincipal UUID userId){
     if(operations.existsByUserIdAndOperationKey(userId,r.operationKey())) return Map.of("status","ALREADY_APPLIED","operationKey",r.operationKey());
     Map<UUID,PantryItem> locked=new LinkedHashMap<>();
