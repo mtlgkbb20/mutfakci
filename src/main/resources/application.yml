@@ -9,7 +9,9 @@ spring:
   profiles:
     default: runware
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}
+    # Supabase is PostgreSQL: keep JPA/Flyway and prefer a JDBC URL with TLS enabled.
+    # The Supabase URL must be a JDBC URL; credentials remain separate environment secrets.
+    url: ${SUPABASE_DB_JDBC_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}}
     username: ${DATABASE_USERNAME:kitchenai}
     password: ${DATABASE_PASSWORD:kitchenai}
   jpa:
