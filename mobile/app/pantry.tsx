@@ -126,7 +126,18 @@ export default function PantryScreen(){
     {items.length>0&&<Pressable onPress={()=>setShowInventoryModal(true)} style={{paddingTop:12}}><Text style={s.smallLink}>Tüm ürünleri gör ({items.length})</Text></Pressable>}
    </View>
    <View style={s.card}><Text style={s.eyebrow}>ÖNCE BUNLARI KULLAN</Text><Text style={s.heading}>Son kullanma tarihi yaklaşanlar</Text>
-    {expiring.length===0?<Text style={[s.body,{marginTop:8}]}>7 gün içinde tarihi dolacak ürün yok.</Text>:expiring.slice(0,3).map(item=><Text key={item.id} style={[s.body,{marginTop:8}]}>{item.expired?"⚠️":"⏳"} {item.name} — {item.expiryDate}</Text>)}
+    {expiring.length===0?<Text style={[s.body,{marginTop:8}]}>7 gün içinde tarihi dolacak ürün yok.</Text>:expiring.slice(0,3).map(item=><View key={item.id} style={{flexDirection:"row",alignItems:"center",gap:10,paddingVertical:9,borderTopWidth:1,borderTopColor:colors.line}}>
+      <View style={{width:28,height:28,borderRadius:14,backgroundColor:item.expired?"#fdecec":"#fff4d6",alignItems:"center",justifyContent:"center"}}>
+       <Text style={{fontSize:17,fontWeight:"900",color:item.expired?"#c62828":"#b7791f"}}>{item.expired?"!":"⌛"}</Text>
+      </View>
+      <View style={{flex:1}}>
+       <Text style={{fontSize:14,fontWeight:"700",color:colors.ink}}>{item.name}</Text>
+       <Text style={{fontSize:12,fontWeight:"600",color:item.expired?"#c62828":"#b7791f",marginTop:2}}>{item.expired?"Son kullanma tarihi geçti":"Son kullanma tarihi yaklaşıyor"} · {item.expiryDate}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={item.name+" ürününü sil"} hitSlop={8} onPress={()=>remove(item)} style={{width:34,height:34,borderRadius:10,backgroundColor:"#fdecec",alignItems:"center",justifyContent:"center"}}>
+       <Text style={{fontSize:17,color:"#c62828"}}>🗑</Text>
+      </Pressable>
+    </View>)}
     {expiring.length>3&&<Text style={[s.recipeMeta,{marginTop:8}]}>{expiring.length-3} ürün daha</Text>}
    </View>
    <View style={s.card}><Text style={s.eyebrow}>STOK HAREKETLERİ</Text><View style={s.sectionRow}><Text style={s.heading}>Son değişiklikler</Text>{movements.length>3&&<Pressable onPress={()=>setShowMovementsModal(true)}><Text style={s.smallLink}>Tümünü gör</Text></Pressable>}</View>
