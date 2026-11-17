@@ -106,13 +106,13 @@ jobs:
         run: npm ci
       - name: Install Expo web and browser test dependencies
         run: |
-          npm install --no-save --package-lock=false react-native-web@~0.21.0 @expo/metro-runtime playwright
+          npm install --no-save --package-lock=false react-native-web@~0.21.0 @expo/metro-runtime playwright serve
           npx playwright install --with-deps chromium
       - name: Export Expo web app
         run: npx expo export --platform web --output-dir dist
       - name: Serve exported app
         run: |
-          npx http-server dist -p 4173 -c-1 > /tmp/kitchenai-web.log 2>&1 &
+          npx serve -s dist -l 4173 > /tmp/kitchenai-web.log 2>&1 &
           for i in $(seq 1 60); do
             if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
             sleep 2
