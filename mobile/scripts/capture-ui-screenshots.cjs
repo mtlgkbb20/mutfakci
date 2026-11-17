@@ -36,8 +36,8 @@ const path = require("node:path");
   });
 
   const base = "http://127.0.0.1:4173";
-  await page.goto(base + "/dashboard", { waitUntil: "networkidle" });
-  await page.getByText("Nereden başlayalım?").waitFor({ timeout: 30000 });
+  await page.goto(base + "/", { waitUntil: "networkidle" });
+  await page.getByText("Nereden başlayalım?").waitFor({ timeout: 30000 }).catch(async error => { console.error("Dashboard route:", page.url()); console.error("Rendered body:", (await page.locator("body").innerText()).slice(0, 3000)); throw error; });
   await page.screenshot({ path: path.join(output, "01-dashboard.png"), fullPage: true });
 
   await page.getByText("Tarif öner", { exact: true }).first().click();
