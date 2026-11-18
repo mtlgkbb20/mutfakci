@@ -54,7 +54,7 @@ public class MealPlanService {
     List<CatalogRecipe> candidates = eligibleRecipes(request.maxPreparationMinutes(), restrictions, userId, request.servings());
     if (candidates.isEmpty()) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-          "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
+          "Evdeki mevcut malzemelerle ve süre koşuluyla hazırlanabilecek doğrulanmış tarif bulunamadı.");
     }
 
     String slotsJson;
@@ -67,8 +67,7 @@ public class MealPlanService {
     }
 
     MealPlan plan = plans.save(new MealPlan(userId, request.weekStart(), request.servings(),
-        slotsJson, request.maxPreparationMinutes(), request.weeklyBudget(),
-        request.currency() == null ? "TRY" : request.currency(), restrictionsJson,
+        slotsJson, request.maxPreparationMinutes(), null, "TRY", restrictionsJson,
         request.goal(), request.notes()));
 
     return populateEntries(plan, request, slots, candidates);
@@ -85,8 +84,7 @@ public class MealPlanService {
           "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
     }
     CreateRequest request = new CreateRequest(plan.getWeekStart(), plan.getServings(), slots,
-        plan.getMaxPreparationMinutes(), plan.getWeeklyBudget(), plan.getCurrency(),
-        restrictions, plan.getGoal(), plan.getNotes());
+        plan.getMaxPreparationMinutes(), restrictions, plan.getGoal(), plan.getNotes());
     List<MealPlanEntry> current = entries.findByPlanIdOrderByMealDateAscMealSlotAsc(planId);
     entries.deleteAllInBatch(current);
     plan.touch();
@@ -162,6 +160,13 @@ public class MealPlanService {
     List<String> restrictions = readRestrictions(plan);
     if (!matchesRestrictions(replacement, restrictions)) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Tarif belirtilen beslenme kısıtlarıyla uyumlu değil.");
+    }
+    List<PantryItem> currentStock = pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId).stream()
+        .filter(item -> item.getQuantity().signum() > 0)
+        .filter(item -> item.getExpiryDate() == null || !item.getExpiryDate().isBefore(LocalDate.now()))
+        .toList();
+    if (!fullyCoveredByPantry(replacement, currentStock, request.servings())) {
+      throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Tarifin tüm malzemeleri evde yeterli miktarda bulunmuyor.");
     }
     entry.replace(replacement.id(), request.servings(), request.note());
     entries.save(entry);
@@ -275,6 +280,7 @@ public class MealPlanService {
     return catalog.all().stream()
         .filter(recipe -> recipe.estimatedTotalMinutes() <= maxMinutes)
         .filter(recipe -> matchesRestrictions(recipe, restrictions))
+        .filter(recipe -> fullyCoveredByPantry(recipe, stock, servings))
         .sorted(Comparator
             .comparingInt((CatalogRecipe recipe) -> -pantryMatchCount(recipe, stock, servings))
             .thenComparingInt(CatalogRecipe::estimatedTotalMinutes)
@@ -282,6 +288,25 @@ public class MealPlanService {
         .toList();
   }
 
+  private boolean fullyCoveredByPantry(CatalogRecipe recipe, List<PantryItem> stock, int servings) {
+    if (stock.isEmpty()) return false;
+    for (var ingredient : recipe.ingredients()) {
+      BigDecimal required = toCanonical(
+          BigDecimal.valueOf(ingredient.quantity())
+              .multiply(BigDecimal.valueOf(servings))
+              .divide(BigDecimal.valueOf(recipe.defaultServings()), 6, RoundingMode.HALF_UP),
+          ingredient.unit());
+      String name = normalize(ingredient.name());
+      String unit = canonicalUnit(ingredient.unit());
+      BigDecimal available = stock.stream()
+          .filter(item -> normalize(item.getName()).equals(name))
+          .filter(item -> canonicalUnit(item.getUnit()).equals(unit))
+          .map(item -> toCanonical(item.getQuantity(), item.getUnit()))
+          .reduce(BigDecimal.ZERO, BigDecimal::add);
+      if (available.compareTo(required) < 0) return false;
+    }
+    return true;
+  }
   private int pantryMatchCount(CatalogRecipe recipe, List<PantryItem> stock, int servings) {
     int matched = 0;
     for (var ingredient : recipe.ingredients()) {
@@ -316,8 +341,6 @@ public class MealPlanService {
     for (String restriction : restrictions) {
       String key = normalize(restriction);
       Set<String> excluded = switch (key) {
-        case "vegan" -> Set.of("yumurta", "sut", "tereyagi", "peynir", "yogurt", "bal", "et", "tavuk", "balik", "krema");
-        case "vegetarian", "vejetaryen" -> Set.of("et", "tavuk", "balik", "kiyma", "sucuk", "salam");
         case "glutensiz", "gluten free", "glutenfree" -> Set.of("un", "bugday", "arpa", "cavdar", "irmik", "bulgur", "makarna", "ekmek");
         case "laktozsuz", "lactose free", "lactosefree" -> Set.of("sut", "tereyagi", "peynir", "yogurt", "krema", "labne");
         default -> Set.of(key);
@@ -341,15 +364,12 @@ public class MealPlanService {
       throw new ApiException(HttpStatus.BAD_REQUEST, "Geçersiz öğün türü.");
     }
     Set<String> supportedRestrictions = Set.of(
-        "vegan", "vegetarian", "vejetaryen", "glutensiz", "gluten free", "glutenfree", "laktozsuz", "lactose free", "lactosefree");
+        "glutensiz", "gluten free", "glutenfree", "laktozsuz", "lactose free", "lactosefree");
     if (request.dietaryRestrictions() != null && request.dietaryRestrictions().stream()
         .filter(Objects::nonNull).map(MealPlanService::normalize)
         .anyMatch(value -> !supportedRestrictions.contains(value))) {
       throw new ApiException(HttpStatus.BAD_REQUEST,
-          "Şu an yalnızca vegan, vejetaryen, glutensiz ve laktozsuz kısıtları doğrulanabiliyor.");
-    }
-    if (request.currency() != null && !request.currency().matches("[A-Z]{3}")) {
-      throw new ApiException(HttpStatus.BAD_REQUEST, "Para birimi ISO 4217 formatında olmalıdır.");
+          "Şu an yalnızca glutensiz ve laktozsuz kısıtları doğrulanabiliyor.");
     }
   }
 
@@ -365,7 +385,6 @@ public class MealPlanService {
 
   private PlanView view(MealPlan plan, List<MealPlanEntry> planEntries, List<String> extraWarnings) {
     List<String> warnings = new ArrayList<>(extraWarnings);
-    if (plan.getWeeklyBudget() != null) warnings.add("BÜTÇE_DOĞRULANAMADI: Tarif kataloğunda güvenilir maliyet verisi bulunmuyor.");
     long distinctRecipes = planEntries.stream().map(MealPlanEntry::getRecipeCatalogId).distinct().count();
     if (distinctRecipes < planEntries.size()) warnings.add("KATALOG ÇEŞİTLİLİĞİ SINIRLI: Bazı tarifler hafta içinde tekrar ediyor.");
     List<EntryView> entryViews = planEntries.stream().map(entry -> {
@@ -375,7 +394,7 @@ public class MealPlanService {
     }).toList();
     return new PlanView(plan.getId(), plan.getWeekStart(), plan.getServings(),
         readStringList(plan.getMealSlots()), plan.getMaxPreparationMinutes(),
-        plan.getWeeklyBudget(), plan.getCurrency(), readRestrictions(plan), plan.getGoal(),
+        readRestrictions(plan), plan.getGoal(),
         plan.getNotes(), entryViews, warnings, plan.getCreatedAt(), plan.getUpdatedAt());
   }
 
