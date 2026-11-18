@@ -278,6 +278,23 @@ class MealPlanServiceTest {
     assertFalse(result.warnings().stream().anyMatch(w -> w.startsWith("AI_SEÇİMİ_KULLANILAMADI")));
   }
 
+
+  @Test
+  void rejectsRecipeWhenPantryQuantityIsInsufficientForRequestedServings() {
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(
+        new PantryItem(userId, "Un", "un", "GRAINS", new BigDecimal("50"), "g", null)));
+    assertThrows(RuntimeException.class, () -> service.create(request(List.of("LUNCH")), userId));
+    verify(plans, never()).save(any());
+  }
+
+  @Test
+  void excludesExpiredPantryItemsFromRecipeEligibility() {
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(
+        new PantryItem(userId, "Un", "un", "GRAINS", new BigDecimal("500"), "g", LocalDate.now().minusDays(1))));
+    assertThrows(RuntimeException.class, () -> service.create(request(List.of("LUNCH")), userId));
+    verify(plans, never()).save(any());
+  }
+
   private MealPlanContracts.CreateRequest request(List<String> slots) {
     return new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2, slots,
         60, List.of(), "Dengeli beslenme", null);
