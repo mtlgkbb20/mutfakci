@@ -40,7 +40,8 @@ class MealPlanServiceTest {
     service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
     when(plans.save(any(MealPlan.class))).thenAnswer(inv -> inv.getArgument(0));
     when(entries.save(any(MealPlanEntry.class))).thenAnswer(inv -> inv.getArgument(0));
-    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of());
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(
+        new PantryItem(userId, "Un", "un", "GRAINS", new BigDecimal("500"), "g", null)));
     when(entries.findByPlanIdOrderByMealDateAscMealSlotAsc(any())).thenReturn(new ArrayList<>());
     when(aiSelector.select(any(), any(), any())).thenReturn(Optional.empty());
   }
@@ -67,7 +68,7 @@ class MealPlanServiceTest {
   @Test
   void rejectsNonMondayWeekStart() {
     var request = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 10), 2,
-        List.of("LUNCH"), 60, null, "TRY", List.of(), null, null);
+        List.of("LUNCH"), 60, List.of(), null, null);
     assertThrows(RuntimeException.class, () -> service.create(request, userId));
     verify(plans, never()).save(any());
   }
@@ -186,7 +187,7 @@ class MealPlanServiceTest {
   }
 
   @Test
-  void rejectsVeganBreakfastWhenAllBreakfastCandidatesContainEgg() {
+  void excludesRecipesWhoseIngredientsAreNotFullyCoveredByPantry() {
     CatalogRecipe eggBreakfast = new CatalogRecipe(1, "egg-breakfast", "Yumurtalı Kahvaltı", List.of(),
         "tr-TR", "BREAKFAST", List.of(), 2, 15,
         List.of(new Ingredient("Yumurta", 2, "adet", "")), List.of(), "Egg dish");
@@ -194,17 +195,17 @@ class MealPlanServiceTest {
       @Override public List<CatalogRecipe> all() { return List.of(eggBreakfast); }
     };
     service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
-    var veganBreakfast = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
-        List.of("BREAKFAST"), 60, null, "TRY", List.of("vegan"), null, null);
+    var breakfastRequest = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
+        List.of("BREAKFAST"), 60, List.of(), null, null);
 
-    assertThrows(RuntimeException.class, () -> service.create(veganBreakfast, userId));
+    assertThrows(RuntimeException.class, () -> service.create(breakfastRequest, userId));
     verify(plans, never()).save(any());
   }
 
   @Test
   void rejectsUnsupportedDietaryRestrictionInsteadOfPretendingItIsVerified() {
     var request = new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2,
-        List.of("LUNCH"), 60, null, "TRY", List.of("fıstık alerjisi"), null, null);
+        List.of("LUNCH"), 60, List.of("fıstık alerjisi"), null, null);
     assertThrows(RuntimeException.class, () -> service.create(request, userId));
     verify(plans, never()).save(any());
   }
@@ -238,6 +239,9 @@ class MealPlanServiceTest {
       @Override public List<CatalogRecipe> all() { return List.of(carrotCake, alternative); }
     };
     service = new MealPlanService(plans, entries, pantry, catalog, new ObjectMapper(), aiSelector);
+    when(pantry.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId)).thenReturn(List.of(
+        new PantryItem(userId, "Un", "un", "GRAINS", new BigDecimal("500"), "g", null),
+        new PantryItem(userId, "Pirinç", "pirinc", "GRAINS", new BigDecimal("500"), "g", null)));
     Map<String, String> repetitive = new HashMap<>();
     for (int day = 0; day < 7; day++) repetitive.put(day + ":LUNCH", "carrot-cake");
     when(aiSelector.select(any(), any(), any())).thenReturn(Optional.of(repetitive));
@@ -276,6 +280,6 @@ class MealPlanServiceTest {
 
   private MealPlanContracts.CreateRequest request(List<String> slots) {
     return new MealPlanContracts.CreateRequest(LocalDate.of(2026, 11, 9), 2, slots,
-        60, new BigDecimal("5000"), "TRY", List.of(), "Dengeli beslenme", null);
+        60, List.of(), "Dengeli beslenme", null);
   }
 }
