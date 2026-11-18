@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../src/ui";
 
-const tabIcons: Record<string, string> = { dashboard: "⌂", history: "◷", pantry: "▤", profile: "◎" };
+const tabIcons: Record<string, string> = { dashboard: "⌂", leaderboard: "🏆", events: "🎉", history: "◷", pantry: "▤", profile: "◎" };
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const [ready, setReady] = useState(false);
@@ -29,6 +29,8 @@ export default function TabsLayout() {
     tabBarHideOnKeyboard: true,
   })}>
     <Tabs.Screen name="dashboard" options={{ title: "Ana sayfa" }} />
+    <Tabs.Screen name="leaderboard" options={{ title: "Sıralama" }} />
+    <Tabs.Screen name="events" options={{ title: "Etkinlikler" }} />
     <Tabs.Screen name="history" options={{ title: "Geçmiş" }} />
     <Tabs.Screen name="pantry" options={{ title: "Buzdolabım" }} />
     <Tabs.Screen name="profile" options={{ title: "Profil" }} />

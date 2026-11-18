@@ -55,7 +55,7 @@ public class ShoppingListService {
     }
 
     List<ShoppingListCalculator.IngredientInput> ingredients = new ArrayList<>();
-    List<StockLine> pantryStock;
+    List<StockLine> pantryStock = List.of();
     List<RecipeSuggestionView> suggestions = new ArrayList<>();
     String recommendationsJson = "[]";
     String sourceType;
