@@ -7,15 +7,15 @@
 
 ## 1. Goal and acceptance criteria
 
-Create and persist a seven-day meal plan based on user goals, schedule, budget, servings, dietary preferences, preparation-time limits, and Smart Pantry stock.
+Create and persist a seven-day meal plan based on ingredients and quantities currently available in Smart Pantry, requested servings, and preparation-time limits.
 
 The implementation must satisfy the Notion acceptance criteria:
 
 - A user can create and save a weekly plan.
 - A plan can be edited; replacing one meal preserves every other entry.
-- Servings and dietary preferences affect recipe selection and quantities.
-- A consolidated, deduplicated shopping list can be generated from the whole plan.
-- Existing pantry ingredients are prioritized and excluded from the shopping list to the extent that they cover the required amount.
+- Servings affect ingredient quantity checks and recipe quantities.
+- Recipes are eligible only when every required ingredient is available in sufficient quantity in active, unexpired pantry stock.
+- Pantry stock is read-only during planning; no stock is consumed automatically.
 
 Nutrition values are out of scope unless a trusted nutrition source is available. No AI-estimated calories/macros will be presented as verified facts.
 
@@ -64,8 +64,8 @@ Introduce two tables/entities:
 
 **MealPlan**
 - UUID ID and authenticated owner UUID.
-- Week start date (Monday), plan status, currency, optional weekly budget.
-- Requested servings, daily meal slots, max preparation minutes, dietary preferences, user goal/notes.
+- Week start date (Monday) and plan status.
+- Requested servings, daily meal slots, max preparation minutes, optional user goal/notes.
 - Created/updated timestamps and optimistic version.
 
 **MealPlanEntry**
@@ -93,7 +93,7 @@ Before persistence, validate:
 - Recipe estimated time does not exceed the requested limit.
 - Requested servings are within the existing recipe serving constraints (1–30).
 - Repetition is penalized; exact repeated recipes are avoided unless the catalog is too small to fill the requested slots.
-- Budget is only a hard constraint when recipe cost metadata exists. The current catalog has no price data, so the API must mark budget validation as unavailable rather than inventing prices or claiming the budget is met.
+- Every ingredient must be covered by active, unexpired pantry stock in a compatible unit and sufficient quantity. No prices or budget estimates are calculated.
 
 The current catalog has no reliable cost or dietary-tag schema. This is an explicit limitation, not something the AI may fill with fabricated facts.
 
@@ -123,9 +123,9 @@ All routes are under `/api/v1/meal-plans` and use the existing JWT-authenticated
 | PATCH | `/{planId}/entries/{entryId}` | Replace one meal only |
 | GET | `/{planId}/recipes` | List alternatives allowed by the saved plan constraints |\n| POST | `/{planId}/regenerate` | Replace all entries in the saved week |\n| GET | `/{planId}/shopping-list` | Generate consolidated shopping list |
 
-Creation request fields: `weekStart`, `servings`, `mealSlots`, `maxPreparationMinutes`, optional `weeklyBudget` + `currency`, `dietaryRestrictions`, `goal`, and `notes`.
+Creation request fields: `weekStart`, `servings`, `mealSlots`, `maxPreparationMinutes`, optional supported exclusions (gluten-free/lactose-free), `goal`, and `notes`. Budget is not accepted.
 
-The planner response includes the selected recipe IDs, dates/slots, serving counts, validation warnings, and whether budget validation was possible. The shopping list returns grouped ingredient lines with required, pantry-covered, and to-buy amounts.
+The planner response includes the selected recipe IDs, dates/slots, serving counts, and validation warnings. The separate shopping-list endpoint remains available.
 
 ## 5. Failure and security behavior
 
@@ -150,8 +150,8 @@ The planner response includes the selected recipe IDs, dates/slots, serving coun
 ## 7. Known MVP limitations
 
 - Catalog is currently very small; plan completeness and variety are limited by the number of suitable curated recipes.
-- No trusted recipe-cost dataset exists, so budget can be captured but cannot yet be truthfully enforced.
-- Catalog recipes currently do not carry structured allergen/dietary metadata. Only explicit, safely checkable ingredient exclusions can be enforced; broad claims such as gluten-free or vegan must not be inferred from names.
+- Budget estimation and price data are out of scope.
+- Broad dietary and allergen guarantees are out of scope. Recipe eligibility is based on pantry coverage, requested servings, and preparation time.
 - Nutrition values are not calculated or displayed.
 - Pantry matching remains conservative and name-based; semantic ingredient substitution is intentionally excluded.
 - The AI selection provider must be constrained to candidate IDs. A deterministic fallback is required so the feature remains testable without live provider credentials.
@@ -180,14 +180,14 @@ Initial backend and mobile implementation is now present on this branch:
 
 Implementation caveats:
 - The current catalog contains very few recipes, so a valid plan may repeat the same recipe and returns a diversity warning.
-- The current implementation can reject some explicit dietary restrictions based on ingredient-name checks, but it cannot prove broad allergen safety or handle semantic synonyms. The catalog needs structured dietary/allergen metadata before stronger guarantees can be made.
-- Budget is collected and echoed but not enforced because there is no trusted price data.
+- Optional gluten-free/lactose-free exclusions use ingredient-name checks and cannot prove broad allergen safety.
+- Budget is not collected, calculated, or enforced.
 - No nutrition values are generated or displayed.
 
 
 ### Supported dietary restriction inputs
 
-The first implementation accepts only `vegan`, `vegetarian`/`vejetaryen`, `glutensiz`/`gluten free`, and `laktozsuz`/`lactose free`. Other restriction strings are rejected instead of being silently treated as verified. Ingredient-name matching is still not an allergen guarantee.
+Vegan and vegetarian selection filters are not part of the current MVP. Pantry coverage uses conservative exact-name and compatible-unit matching.
 
 
 Pantry-aware selection now ranks eligible catalog recipes by ingredients for which the user's unexpired pantry stock fully covers the planned serving quantity. The shopping list also excludes expired pantry stock from its coverage calculation. Matching remains exact-name and exact/canonical-unit based; no semantic substitutions are made.
@@ -197,3 +197,11 @@ The curated catalog was expanded with breakfast, soup, main-course, and salad re
 
 
 The backend also validates recipe repetition in AI output. For each requested slot, the model cannot allocate more than an even-share ceiling to one recipe when multiple suitable alternatives exist; an overly repetitive selection is discarded and the deterministic selector is used.
+
+
+## Current product scope (2026-11-18)
+
+- Weekly planning uses only active, unexpired pantry stock. Every ingredient on a candidate recipe must be available in sufficient quantity for the requested servings; partial matches do not qualify.
+- Budget, price estimation, vegan, and vegetarian controls are removed from the weekly planner.
+- Existing database columns are retained for migration compatibility; new plans do not populate budget values. Optional gluten-free/lactose-free exclusions remain available; vegan and vegetarian filters are removed.
+- Pantry is not deducted when generating or regenerating a plan.

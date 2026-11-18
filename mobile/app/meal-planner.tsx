@@ -61,7 +61,6 @@ export default function MealPlannerScreen() {
   const [weekStart, setWeekStart] = useState(currentMonday());
   const [servings, setServings] = useState("2");
   const [maxMinutes, setMaxMinutes] = useState("60");
-  const [budget, setBudget] = useState("");
   const [goal, setGoal] = useState("");
   const [restrictions, setRestrictions] = useState("");
   const [slots, setSlots] = useState(["BREAKFAST", "LUNCH", "DINNER"]);
@@ -114,8 +113,6 @@ export default function MealPlannerScreen() {
           servings: servingCount,
           mealSlots: slots,
           maxPreparationMinutes: preparationLimit,
-          weeklyBudget: budget.trim() ? Number(budget) : null,
-          currency: "TRY",
           dietaryRestrictions: restrictions.split(",").map((value) => value.trim()).filter(Boolean),
           goal: goal.trim() || null,
         }),
@@ -196,15 +193,14 @@ export default function MealPlannerScreen() {
 
         <View style={s.card}>
           <Text style={s.eyebrow}>PLANINI OLUŞTUR</Text>
-          <Text style={s.heading}>Bu hafta nasıl beslenmek istiyorsun?</Text>
+          <Text style={s.heading}>Evindeki malzemelerle bu haftayı planlayalım</Text>
           <Field value={weekStart} onChangeText={setWeekStart} placeholder="Hafta başlangıcı (YYYY-AA-GG)" />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Field value={servings} onChangeText={setServings} keyboardType="number-pad" placeholder="Kişi sayısı" style={{ flex: 1 }} />
             <Field value={maxMinutes} onChangeText={setMaxMinutes} keyboardType="number-pad" placeholder="Maks. dakika" style={{ flex: 1 }} />
           </View>
-          <Field value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="Haftalık bütçe (TL, isteğe bağlı)" />
           <Field value={goal} onChangeText={setGoal} placeholder="Hedef (örn. pratik ve dengeli öğünler)" />
-          <Field value={restrictions} onChangeText={setRestrictions} placeholder="Vegan, vejetaryen, glutensiz, laktozsuz" />
+          <Field value={restrictions} onChangeText={setRestrictions} placeholder="Glutensiz, laktozsuz (isteğe bağlı)" />
           <Text style={[s.recipeMeta, { marginTop: 12 }]}>Planlanacak öğünler</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
             {Object.entries(slotLabels).map(([slot, label]) => {
