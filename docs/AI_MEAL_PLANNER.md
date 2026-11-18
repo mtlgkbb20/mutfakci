@@ -64,7 +64,7 @@ Introduce two tables/entities:
 
 **MealPlan**
 - UUID ID and authenticated owner UUID.
-- Week start date (Monday), plan status, currency, optional weekly budget.
+- Week start date (Monday) and plan status.
 - Requested servings, daily meal slots, max preparation minutes, optional user goal/notes.
 - Created/updated timestamps and optimistic version.
 
