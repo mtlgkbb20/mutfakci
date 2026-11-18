@@ -292,7 +292,7 @@ export default function History() {
             <Text style={s.heading}>Bu aralıkta kayıt bulunamadı</Text>
             <Text style={[s.body, { marginTop: 6 }]}>Farklı bir tarih aralığı deneyebilirsin.</Text>
           </View>
-        ) : null}
+        ) : undefined}
         ListFooterComponent={
           recoveryHasMore || recipeHasMore ? (
             <Button onPress={loadMore} loading={loadingMore}>Daha fazla kayıt yükle</Button>
