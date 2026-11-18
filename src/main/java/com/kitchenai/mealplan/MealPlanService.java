@@ -81,7 +81,7 @@ public class MealPlanService {
     List<CatalogRecipe> candidates = eligibleRecipes(plan.getMaxPreparationMinutes(), restrictions, userId, plan.getServings());
     if (candidates.isEmpty()) {
       throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-          "Katalogda süre ve beslenme kısıtlarına uyan doğrulanmış tarif bulunamadı.");
+          "Evdeki mevcut malzemelerle ve süre koşuluyla hazırlanabilecek doğrulanmış tarif bulunamadı.");
     }
     CreateRequest request = new CreateRequest(plan.getWeekStart(), plan.getServings(), slots,
         plan.getMaxPreparationMinutes(), restrictions, plan.getGoal(), plan.getNotes());
