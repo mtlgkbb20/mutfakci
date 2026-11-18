@@ -18,7 +18,10 @@ public class User {
   @Column(nullable = false)
   private String displayName;
 
-  @Column(name = "is_admin", nullable = false)\n  private boolean admin;\n\n  private Instant createdAt;
+  @Column(name = "is_admin", nullable = false)
+  private boolean admin;
+
+  private Instant createdAt;
   private Instant updatedAt;
 
   public User() {}
@@ -46,5 +49,9 @@ public class User {
 
   public String getDisplayName() {
     return displayName;
+  }
+
+  public boolean isAdmin() {
+    return admin;
   }
 }

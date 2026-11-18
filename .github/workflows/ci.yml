@@ -1,0 +1,136 @@
+name: Build and test
+
+on:
+  pull_request:
+    branches: [main, 'feature/**']
+  push:
+    branches: [main, 'feature/**']
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run backend tests
+        run: mvn --batch-mode test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check Expo app
+        run: npx tsc --noEmit
+
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: kitchenai
+          POSTGRES_USER: kitchenai
+          POSTGRES_PASSWORD: kitchenai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kitchenai -d kitchenai"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run Flyway and PostgreSQL recipe discovery integration test
+        env:
+          RUN_POSTGRES_INTEGRATION: "true"
+          DATABASE_URL: jdbc:postgresql://localhost:5432/kitchenai
+          DATABASE_USERNAME: kitchenai
+          DATABASE_PASSWORD: kitchenai
+        run: mvn --batch-mode -Dtest=PantryRecipeMatchPostgresTest test
+
+  ui-screenshots:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/mobile-ui-refresh'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/mobile-ui-refresh
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install app dependencies
+        run: npm ci
+      - name: Install Expo web and browser test dependencies
+        run: |
+          npm install --no-save --package-lock=false react-native-web@~0.21.0 @expo/metro-runtime playwright serve
+          npx playwright install --with-deps chromium
+      - name: Export Expo web app
+        run: npx expo export --platform web --output-dir dist
+      - name: Serve exported app
+        run: |
+          npx serve -s dist -l 4173 > /tmp/kitchenai-web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/kitchenai-web.log
+          exit 1
+      - name: Capture updated screens
+        run: node scripts/capture-ui-screenshots.cjs
+      - name: Publish screenshots to the feature branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add screenshots/ui-refresh
+          if git diff --cached --quiet; then
+            echo "No screenshot changes to publish"
+            exit 0
+          fi
+          git commit -m "docs(mobile): add UI refresh screenshots"
+          git push origin HEAD:feature/mobile-ui-refresh

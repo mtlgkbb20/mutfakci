@@ -2,14 +2,16 @@ server:
   port: ${PORT:8080}
   address: ${SERVER_ADDRESS:0.0.0.0}
 spring:
-  # Load the project-root .env automatically when running locally.
+  # Loads the repository-root .env for local development. Deployment environments
+  # should inject the same variables through their secret/configuration manager.
   config:
     import: optional:file:.env[.properties]
-  # Runware is the default provider; explicit SPRING_PROFILES_ACTIVE can override it.
   profiles:
     default: runware
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}
+    # Supabase PostgreSQL takes precedence; DATABASE_URL remains the local/legacy fallback.
+    # Use a Supabase JDBC URL with sslmode=require. Keep credentials in separate variables.
+    url: ${SUPABASE_DB_JDBC_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/kitchenai}}
     username: ${DATABASE_USERNAME:kitchenai}
     password: ${DATABASE_PASSWORD:kitchenai}
   jpa:
@@ -23,6 +25,7 @@ spring:
       max-file-size: ${MAX_IMAGE_SIZE:10MB}
       max-request-size: ${MAX_IMAGE_REQUEST_SIZE:40MB}
 jwt:
+  # The fallback is for local development only. Always provide a strong secret outside local dev.
   secret: ${JWT_SECRET:change-me-in-development-to-a-long-secret-key}
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 app:
@@ -37,8 +40,7 @@ app:
       normalizer-model: ${RUNWARE_NORMALIZER_MODEL:google:gemini@3.1-flash-lite}
 
   payments:
-    provider: ${PAYMENT_PROVIDER:paytr}
+    provider: ${PAYMENT_PROVIDER:iyzico}
     callback-url: ${PAYMENT_CALLBACK_URL:}
   membership:
     clock-zone: Europe/Istanbul
-

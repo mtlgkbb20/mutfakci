@@ -54,6 +54,12 @@ public class GamificationService {
     result.put("weeklyXp", weekXp);
     result.put("rank", rank);
     result.put("level", level);
+    result.put("currentLevelMinXp", currentFloor);
+    result.put("nextLevelMinXp", nextFloor);
+    result.put("xpIntoLevel", total - currentFloor);
+    result.put("xpToNextLevel", Math.max(0, nextFloor - total));
+    result.put("progressRatio", nextFloor <= currentFloor ? 1.0
+        : Math.min(1.0, Math.max(0.0, (double) (total - currentFloor) / (nextFloor - currentFloor))));
     result.put("levelProgressXp", total - currentFloor);
     result.put("nextLevelXp", nextFloor - currentFloor);
     result.put("weekStart", week.start());

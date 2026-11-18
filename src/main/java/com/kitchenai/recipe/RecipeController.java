@@ -7,6 +7,7 @@ import com.kitchenai.ai.RecipeReviewService;
 import com.kitchenai.common.ApiException;
 import com.kitchenai.cooking.CookingSession;
 import com.kitchenai.cooking.CookingSessionRepository;
+import com.kitchenai.cooking.CookingSessionSummaryProjection;
 import com.kitchenai.gamification.GamificationService;
 import com.kitchenai.membership.EntitlementService;
 import jakarta.validation.Valid;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -38,10 +40,10 @@ public class RecipeController {
   private final RecipeGenerationService ai;
   private final ObjectMapper json;
   private final GamificationService gamification;
+  private final EntitlementService entitlements;
   private final RecipeCatalogService catalog;
   private final RecipeGenerationRepository generations;
   private final RecipeReviewService reviewer;
-  private final EntitlementService entitlements;
 
   public RecipeController(
       RecipeRepository recipes,
@@ -72,6 +74,9 @@ public class RecipeController {
       @Min(1) @Max(30) Integer servings) {}
 
   public record SessionRequest(UUID recipeId, String desiredOutcome) {}
+
+  public record SessionView(
+      UUID id, UUID recipeId, String status, String sessionType, java.time.Instant startedAt, String desiredOutcome, String recipeTitle) {}
 
   @PostMapping("/recipes/generate")
   public RecipeView generate(
@@ -166,8 +171,11 @@ public class RecipeController {
 
   private void releaseQuota(EntitlementService.QuotaReservation reservation) {
     if (reservation != null) {
-      try { entitlements.release(reservation); }
-      catch (Exception releaseError) { log.error("Could not release failed recipe quota reservation userId={}", reservation.userId(), releaseError); }
+      try {
+        entitlements.release(reservation);
+      } catch (Exception releaseError) {
+        log.error("Could not release failed recipe quota reservation userId={}", reservation.userId(), releaseError);
+      }
     }
   }
 
@@ -248,8 +256,19 @@ public class RecipeController {
   }
 
   @GetMapping("/cooking-sessions")
-  public List<CookingSession> allSessions(@AuthenticationPrincipal UUID userId) {
-    return sessions.findTop10ByUserIdOrderByStartedAtDesc(userId);
+  public List<SessionView> allSessions(@AuthenticationPrincipal UUID userId) {
+    List<CookingSessionSummaryProjection> userSessions =
+        sessions.findSessionSummariesByUserId(userId);
+    List<UUID> recipeIds = userSessions.stream().map(CookingSessionSummaryProjection::getRecipeId)
+        .filter(java.util.Objects::nonNull).distinct().toList();
+    Map<UUID, String> recipeTitles = recipeIds.isEmpty() ? Map.of()
+        : recipes.findByIdIn(recipeIds).stream()
+            .collect(Collectors.toMap(RecipeTitleProjection::getId, RecipeTitleProjection::getTitle));
+    return userSessions.stream()
+        .map(session -> new SessionView(session.getId(), session.getRecipeId(), session.getStatus(),
+            session.getSessionType(), session.getStartedAt(), session.getDesiredOutcome(),
+            recipeTitles.get(session.getRecipeId())))
+        .toList();
   }
 
   @GetMapping("/cooking-sessions/{id}")

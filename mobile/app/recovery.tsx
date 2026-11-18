@@ -8,11 +8,13 @@ import { api } from "../src/api";
 import { Button, Field, Screen, s, colors } from "../src/ui";
 
 const categories = [
-  ["TOO_HARD","Çok sert"],["TOO_SOFT","Çok yumuşak"],["TOO_STICKY","Yapışkan"],
-  ["NOT_RISING","Kabarmıyor"],["NOT_HOLDING_SHAPE","Şeklini korumuyor"],
-  ["SPLITTING","Kesiliyor"],["CURDLED","Kesildi"],["OVERCOOKED","Fazla pişti"],
-  ["UNDERCOOKED","Az pişti"],["OTHER","Diğer"],
+  ["TOO_HARD","Çok sert"],["TOO_SOFT","Çok yumuşak"],["TOO_STICKY","Elime çok yapışıyor"],
+  ["NOT_RISING","Yeterince kabarmadı"],["NOT_HOLDING_SHAPE","Şekil almıyor"],
+  ["SPLITTING","Dağılıyor / kapanmıyor"],["CURDLED","Kesildi"],["OVERCOOKED","Fazla pişti"],
+  ["UNDERCOOKED","Az pişti"],["OTHER","Başka bir sorun"],
 ] as const;
+
+type ProblemCategory = typeof categories[number][0];
 
 type RecoveryResult = {
   status: string;
@@ -31,9 +33,8 @@ export default function Recovery() {
   const { sessionId: initial } = useLocalSearchParams<{ sessionId?: string }>();
   const [sessionId, setSessionId] = useState(initial);
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset>();
-  const [outcome, setOutcome] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
+  const [recipeName, setRecipeName] = useState("");
+  const [selectedProblems, setSelectedProblems] = useState<ProblemCategory[]>([]);
   const [statusText, setStatusText] = useState("");
   const [result, setResult] = useState<RecoveryResult>();
   const [loading, setLoading] = useState(false);
@@ -41,9 +42,7 @@ export default function Recovery() {
   const [followUpMode, setFollowUpMode] = useState(false);
   const [awaitingFollowUp, setAwaitingFollowUp] = useState(false);
   const [fallbackMode, setFallbackMode] = useState(false);
-  const [fallbackRecipeName, setFallbackRecipeName] = useState("");
-  const [fallbackProblem, setFallbackProblem] = useState("");
-  const [fallbackAdvice, setFallbackAdvice] = useState<{advice?:string;caution?:string;message?:string;status?:string}>();
+  const [fallbackAdvice, setFallbackAdvice] = useState<{advice?:string;caution?:string;message?:string;status?:string;recipeName?:string}>();
 
   const choose = async (camera = false) => {
     const permission = camera
@@ -61,10 +60,32 @@ export default function Recovery() {
     if (sessionId) return sessionId;
     const session = await api("/cooking-sessions", {
       method: "POST",
-      body: JSON.stringify({ desiredOutcome: outcome || null }),
+      body: JSON.stringify({}),
     });
     setSessionId(session.id);
     return session.id as string;
+  };
+
+  const toggleProblem = (key: ProblemCategory) => {
+    setSelectedProblems(current =>
+      current.includes(key) ? current.filter(item => item !== key) : [...current, key]
+    );
+  };
+
+  const selectedProblemLabels = () => categories
+    .filter(([key]) => selectedProblems.includes(key))
+    .map(([, label]) => label);
+
+  const validateRequiredFields = () => {
+    if (!recipeName.trim()) {
+      setError("Tarifin adını yazmalısın.");
+      return false;
+    }
+    if (selectedProblems.length === 0) {
+      setError("Yaşadığın sorunlardan en az birini seçmelisin.");
+      return false;
+    }
+    return true;
   };
 
   // iOS cihazlar HEIC/HEIF üretebilir. Backend'e her zaman gerçek JPEG
@@ -86,17 +107,15 @@ export default function Recovery() {
   };
 
   const submitTextFallback = async () => {
-    if (!fallbackRecipeName.trim() || !fallbackProblem.trim()) {
-      setError("Tarifin adı ve yaşadığın sorun zorunlu."); return;
-    }
+    if (!validateRequiredFields()) return;
     setLoading(true); setError("");
     try {
       const id = await ensureSession();
       const response = await api(`/cooking-sessions/${id}/recovery-attempts/text-fallback`, {
         method: "POST",
         body: JSON.stringify({
-          recipeName: fallbackRecipeName.trim(),
-          problemDescription: fallbackProblem.trim(),
+          recipeName: recipeName.trim(),
+          problemDescription: selectedProblemLabels().join(", "),
         }),
       }, 90000);
       setFallbackAdvice(response);
@@ -106,15 +125,18 @@ export default function Recovery() {
   };
 
   const submitInitial = async () => {
+    if (!validateRequiredFields()) return;
     if (!image) { setError("Bir fotoğraf seçmelisin."); return; }
     setLoading(true); setError("");
     try {
       const id = await ensureSession();
       const form = new FormData();
       await photoPart(form);
-      if (category) form.append("problemCategory", category);
-      if (description.trim()) form.append("problemDescription", description.trim());
-      if (outcome.trim()) form.append("desiredOutcome", outcome.trim());
+      form.append("recipeName", recipeName.trim());
+      // Backend tek bir kategori alanı saklıyor; seçilen tüm sorunlar
+      // problemDescription içinde korunurken ilk kategori de indeksleniyor.
+      form.append("problemCategory", selectedProblems[0]);
+      form.append("problemDescription", selectedProblemLabels().join(", "));
       const response = await api(`/cooking-sessions/${id}/recovery-attempts`, {
         method: "POST", body: form,
       }, 90000);
@@ -183,6 +205,38 @@ export default function Recovery() {
   const isReady = result?.status === "READY_TO_CONTINUE";
   const isRemake = result?.status === "REMAKE_COMPONENT";
 
+  const problemFields = (
+    <>
+      <Field
+        placeholder="Tarifin adı (zorunlu)"
+        value={recipeName}
+        onChangeText={setRecipeName}
+      />
+      <Text style={[s.eyebrow, { marginTop: 12, marginBottom: 8 }]}>YAŞADIĞIN SORUNLAR (EN AZ BİRİ ZORUNLU)</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
+        {categories.map(([key, label]) => {
+          const selected = selectedProblems.includes(key);
+          return (
+            <Pressable key={key} onPress={() => toggleProblem(key)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 6,
+                paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12,
+                borderWidth: 1, borderColor: selected ? colors.orange : colors.peach,
+                backgroundColor: selected ? colors.orange : colors.peach,
+              }}>
+              <Text style={{ color: selected ? colors.white : colors.ink, fontWeight: "900" }}>
+                {selected ? "☑" : "□"}
+              </Text>
+              <Text style={{ color: selected ? colors.white : colors.ink, fontWeight: "700" }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
+  );
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={s.scroll}>
@@ -191,7 +245,7 @@ export default function Recovery() {
         <Text style={[s.body, { marginVertical: 10 }]}>
           {followUpMode
             ? "Düzeltmeyi uyguladıktan sonra yeni bir fotoğraf çek ve değişimi kısaca anlat."
-            : "Net bir fotoğraf yükle. Sorunu ve istediğin sonucu belirtmek isteğe bağlı."}
+            : "Tarifin adını yaz, yaşadığın sorunları işaretle ve yemeğinin net bir fotoğrafını yükle."}
         </Text>
         <Text style={[s.recipeMeta, { marginBottom: 10 }]}>
           Fotoğraf tek başına gıda güvenliğini veya iç sıcaklığı kanıtlamaz. Şüpheli yiyeceğin tadına bakma.
@@ -205,18 +259,7 @@ export default function Recovery() {
 
         {!followUpMode && !result && (
           <>
-            <Text style={[s.eyebrow, { marginTop: 18 }]}>SORUN (İSTEĞE BAĞLI)</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-              {categories.map(([key, label]) => (
-                <Pressable key={key} onPress={() => setCategory(category === key ? "" : key)}
-                  style={{ paddingHorizontal: 11, paddingVertical: 8, borderRadius: 18,
-                    backgroundColor: category === key ? colors.orange : colors.peach }}>
-                  <Text style={{ color: category === key ? colors.white : colors.ink, fontWeight: "700" }}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Field placeholder="Sorunu biraz anlat (isteğe bağlı)" value={description} onChangeText={setDescription} multiline />
-            <Field placeholder="İstediğin sonuç (isteğe bağlı)" value={outcome} onChangeText={setOutcome} />
+            {problemFields}
             <Button onPress={submitInitial} loading={loading}>Fotoğrafı değerlendir</Button>
           </>
         )}
@@ -232,16 +275,15 @@ export default function Recovery() {
           <View style={[s.card, { marginTop: 18 }]}>
             <Text style={s.eyebrow}>FOTOĞRAFSIZ YARDIM</Text>
             <Text style={s.heading}>Sorunu tarif ederek devam et</Text>
-            <Text style={s.body}>Görsel analiz kullanılamadığında yalnızca yazdığın bilgilere göre öneri alabilirsin.</Text>
-            <Field placeholder="Tarifin adı (zorunlu)" value={fallbackRecipeName} onChangeText={setFallbackRecipeName} />
-            <Field placeholder="Sorun yaşadığın yer (zorunlu): Karamel çok katı oldu" value={fallbackProblem} onChangeText={setFallbackProblem} multiline />
+            <Text style={s.body}>Görsel analiz kullanılamadığında seçtiğin sorunlara göre metin önerisi alabilirsin.</Text>
+            {problemFields}
             <Button onPress={submitTextFallback} loading={loading}>Metinle öneri al</Button>
           </View>
         )}
         {fallbackAdvice && (
           <View style={[s.card, { marginTop: 18 }]}>
             <Text style={s.eyebrow}>METİN TABANLI ÖNERİ</Text>
-            <Text style={s.heading}>{fallbackAdvice.recipeName}</Text>
+            <Text style={s.heading}>{fallbackAdvice.recipeName || recipeName}</Text>
             {fallbackAdvice.advice ? <Text style={s.body}>{fallbackAdvice.advice}</Text> : null}
             {fallbackAdvice.caution ? <Text style={s.recipeMeta}>{fallbackAdvice.caution}</Text> : null}
             {fallbackAdvice.message ? <Text style={s.body}>{fallbackAdvice.message}</Text> : null}

@@ -1,10 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
-const baseURL =
+export const apiBaseURL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   "http://localhost:8080/api/v1";
+
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 export async function api(path: string, options: RequestInit = {}, timeoutMs = 15000) {
   const token = await AsyncStorage.getItem("token");
@@ -16,7 +23,7 @@ export async function api(path: string, options: RequestInit = {}, timeoutMs = 1
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const url = `${baseURL}${path}`;
+  const url = `${apiBaseURL}${path}`;
   console.log("[KitchenAI API] request", options.method || "GET", url);
   try {
     const response = await fetch(url, {
@@ -33,7 +40,7 @@ export async function api(path: string, options: RequestInit = {}, timeoutMs = 1
         error: data.error,
         errorId: data.errorId,
       });
-      throw new Error(data.error || `API error (${response.status})`);
+      throw new ApiError(data.error || `API error (${response.status})`, response.status);
     }
     return data;
   } catch (error: any) {

@@ -36,7 +36,24 @@ public class RecipeCatalogService {
       int estimatedTotalMinutes,
       List<Ingredient> ingredients,
       List<Step> steps,
-      String description) {}
+      String description,
+      List<ByProductRule> byProducts) {
+    public CatalogRecipe(int schemaVersion, String id, String title, List<String> aliases,
+        String locale, String category, List<String> searchTerms, int defaultServings,
+        int estimatedTotalMinutes, List<Ingredient> ingredients, List<Step> steps,
+        String description) {
+      this(schemaVersion, id, title, aliases, locale, category, searchTerms, defaultServings,
+          estimatedTotalMinutes, ingredients, steps, description, List.of());
+    }
+  }
+
+  /**
+   * Versioned deterministic relationship between a recipe input and a potential remainder.
+   * derivedQuantity = scaled source ingredient quantity * numerator / denominator.
+   */
+  public record ByProductRule(String sourceIngredientName, String sourceUnit,
+      String byProductName, String byProductUnit, int numerator, int denominator,
+      String ruleVersion) {}
 
   private final List<CatalogRecipe> recipes;
 
@@ -90,6 +107,8 @@ public class RecipeCatalogService {
         candidates.size() > 1 && candidates.get(0).score() > candidates.get(1).score();
     return singleMatch || clearWinner ? Optional.of(candidates.get(0).recipe()) : Optional.empty();
   }
+
+  public List<CatalogRecipe> all() { return recipes; }
 
   private record Candidate(CatalogRecipe recipe, double score) {}
 }

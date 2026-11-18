@@ -1,10 +1,10 @@
-# Payment Provider Decision: PayTR
+# Payment Provider Decision: iyzico current, PayTR future option
 
-**Status:** Selected for the first payment integration  
+**Status:** Historical PayTR evaluation; superseded by the current iyzico decision  
 **Branch:** `feature/membership-plans`  
-**Decision:** Use PayTR for Cooker monthly/yearly subscriptions. Keep the membership domain provider-neutral.
+**Current decision (2026-11-18):** iyzico is the active provider target because PayTR onboarding requires additional website/business information. Keep PayTR as a swappable future adapter. Live checkout remains disabled until iyzico subscription and callback handling are implemented and verified.
 
-## Why PayTR
+## Historical PayTR evaluation (not the active provider)
 
 - PayTR's subscription product supports recurring collection and card tokenization.
 - Its published commercial model does not require a fixed subscription-platform monthly fee; the merchant commission is quoted according to business profile and transaction volume.
@@ -98,8 +98,8 @@ Until those prerequisites are complete, use the fake provider in tests and keep 
 Implemented on `feature/membership-plans`:
 
 - Shared `PaymentProvider` contract with provider code, recurring capability, checkout creation, and callback verification operations.
-- PayTR adapter selected by `PAYMENT_PROVIDER=paytr`; PayTR callback HMAC verification uses the official iFrame/direct callback formula.
-- Iyzico adapter selection point via `PAYMENT_PROVIDER=iyzico`; this adapter is currently a disabled integration stub, not a live iyzico implementation.
+- PayTR adapter retained as an optional future provider selected only by explicit configuration; PayTR callback HMAC verification uses the official iFrame/direct callback formula.
+- Iyzico is the active integration target via `PAYMENT_PROVIDER=iyzico`; its current adapter remains a disabled integration stub, not a live iyzico implementation.
 - Free membership backfill and per-account quota usage storage.
 - Server-side quota reservation before AI generation and release on generation failure.
 - Existing completed AI recipe generations are counted in the initial Free lifetime usage backfill.

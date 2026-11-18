@@ -28,6 +28,8 @@ public class CookingSession {
   public String getSessionType(){return sessionType;}
   public String getDesiredOutcome(){return desiredOutcome;}
   public int getCurrentStage(){return currentStage;}
+  public Instant getStartedAt(){return startedAt;}
+  public Instant getCompletedAt(){return completedAt;}
   public void complete(){status="COMPLETED";completedAt=Instant.now();}
   public void abandon(){status="ABANDONED";completedAt=Instant.now();}
 }

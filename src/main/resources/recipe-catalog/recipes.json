@@ -3,10 +3,19 @@
     "schemaVersion": 1,
     "id": "carrot-cinnamon-cake",
     "title": "Havuçlu Tarçınlı Kek",
-    "aliases": ["havuçlu kek", "tarçınlı havuç keki", "carrot cinnamon cake"],
+    "aliases": [
+      "havuçlu kek",
+      "tarçınlı havuç keki",
+      "carrot cinnamon cake"
+    ],
     "locale": "tr-TR",
     "category": "CAKE",
-    "searchTerms": ["havuç", "tarçın", "ceviz", "kek"],
+    "searchTerms": [
+      "havuç",
+      "tarçın",
+      "ceviz",
+      "kek"
+    ],
     "defaultServings": 8,
     "estimatedTotalMinutes": 55,
     "description": "Havuç ve tarçın aromalı, yumuşak ev keki.",
@@ -23,7 +32,12 @@
         "unit": "su bardağı",
         "preparation": "Elenmiş"
       },
-      { "name": "Yumurta", "quantity": 3, "unit": "adet", "preparation": "" },
+      {
+        "name": "Yumurta",
+        "quantity": 3,
+        "unit": "adet",
+        "preparation": ""
+      },
       {
         "name": "Tarçın",
         "quantity": 1,
@@ -47,6 +61,664 @@
         "completionCue": "Ortaya batırılan kürdan temiz çıkmalı.",
         "temperature": 175,
         "durationSeconds": 2400
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "menemen",
+    "title": "Menemen",
+    "aliases": [
+      "sade menemen",
+      "domatesli biberli yumurta"
+    ],
+    "locale": "tr-TR",
+    "category": "BREAKFAST",
+    "searchTerms": [
+      "yumurta",
+      "domates",
+      "biber",
+      "kahvaltı"
+    ],
+    "defaultServings": 2,
+    "estimatedTotalMinutes": 20,
+    "description": "Domates ve biberle hazırlanan pratik kahvaltılık.",
+    "ingredients": [
+      {
+        "name": "Yumurta",
+        "quantity": 4,
+        "unit": "adet",
+        "preparation": "Çırpılmış"
+      },
+      {
+        "name": "Domates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Yeşil biber",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "İnce doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "tutam",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Biberleri sotele",
+        "instruction": "Zeytinyağını tavada ısıtıp biberleri yumuşayana kadar soteleyin.",
+        "completionCue": "Biberler hafif yumuşamış olmalı.",
+        "temperature": null,
+        "durationSeconds": 180
+      },
+      {
+        "order": 2,
+        "title": "Domatesi pişir",
+        "instruction": "Domatesleri ekleyip suyunu hafif çekene kadar pişirin.",
+        "completionCue": "Domatesler sos kıvamına gelmeli.",
+        "temperature": null,
+        "durationSeconds": 300
+      },
+      {
+        "order": 3,
+        "title": "Yumurtayı ekle",
+        "instruction": "Çırpılmış yumurtaları ekleyip kısık ateşte karıştırarak pişirin.",
+        "completionCue": "Yumurta tamamen set olmalı; fazla kurutmadan ocaktan alın.",
+        "temperature": null,
+        "durationSeconds": 180
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "patatesli-yumurta",
+    "title": "Patatesli Yumurta",
+    "aliases": [
+      "patatesli omlet",
+      "patates yumurta"
+    ],
+    "locale": "tr-TR",
+    "category": "BREAKFAST",
+    "searchTerms": [
+      "patates",
+      "yumurta",
+      "kahvaltı",
+      "omlet"
+    ],
+    "defaultServings": 2,
+    "estimatedTotalMinutes": 25,
+    "description": "Tavada kızarmış patates ve yumurtayla hazırlanan doyurucu kahvaltılık.",
+    "ingredients": [
+      {
+        "name": "Patates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Küçük küp doğranmış"
+      },
+      {
+        "name": "Yumurta",
+        "quantity": 3,
+        "unit": "adet",
+        "preparation": "Çırpılmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "tutam",
+        "preparation": ""
+      },
+      {
+        "name": "Karabiber",
+        "quantity": 1,
+        "unit": "tutam",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Patatesleri kızart",
+        "instruction": "Yağı tavada ısıtıp patatesleri orta ateşte ara sıra çevirerek pişirin.",
+        "completionCue": "Patatesler yumuşak ve kenarları altın rengi olmalı.",
+        "temperature": null,
+        "durationSeconds": 600
+      },
+      {
+        "order": 2,
+        "title": "Yumurtayı ekle",
+        "instruction": "Çırpılmış yumurtayı patateslerin üzerine dökün; tuz ve karabiber ekleyin.",
+        "completionCue": "Yumurta tamamen pişip toparlanmalı.",
+        "temperature": null,
+        "durationSeconds": 240
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "mercimek-corbasi",
+    "title": "Kırmızı Mercimek Çorbası",
+    "aliases": [
+      "mercimek çorbası",
+      "süzme mercimek"
+    ],
+    "locale": "tr-TR",
+    "category": "SOUP",
+    "searchTerms": [
+      "mercimek",
+      "çorba",
+      "havuç",
+      "patates"
+    ],
+    "defaultServings": 4,
+    "estimatedTotalMinutes": 40,
+    "description": "Kırmızı mercimek ve sebzelerle hazırlanan klasik çorba.",
+    "ingredients": [
+      {
+        "name": "Kırmızı mercimek",
+        "quantity": 1,
+        "unit": "su bardağı",
+        "preparation": "Yıkanmış"
+      },
+      {
+        "name": "Soğan",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Havuç",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Patates",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Su",
+        "quantity": 6,
+        "unit": "su bardağı",
+        "preparation": "Sıcak"
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Sebzeleri kavur",
+        "instruction": "Tencerede yağı ısıtıp soğan, havuç ve patatesi birkaç dakika kavurun.",
+        "completionCue": "Soğanlar şeffaflaşmaya başlamalı.",
+        "temperature": null,
+        "durationSeconds": 300
+      },
+      {
+        "order": 2,
+        "title": "Mercimeği ekle",
+        "instruction": "Yıkanmış mercimeği ve sıcak suyu ekleyin.",
+        "completionCue": "Mercimekler suya tamamen karışmalı.",
+        "temperature": null,
+        "durationSeconds": 60
+      },
+      {
+        "order": 3,
+        "title": "Çorbayı pişir",
+        "instruction": "Kısık-orta ateşte sebzeler ve mercimek yumuşayana kadar pişirin.",
+        "completionCue": "Mercimekler kolayca ezilmeli.",
+        "temperature": null,
+        "durationSeconds": 1500
+      },
+      {
+        "order": 4,
+        "title": "Pürüzsüzleştir",
+        "instruction": "Çorbayı blenderdan geçirin; kıvamı gerekirse sıcak suyla ayarlayın.",
+        "completionCue": "Çorba pürüzsüz ve akışkan olmalı.",
+        "temperature": null,
+        "durationSeconds": 180
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "tavuk-sote",
+    "title": "Tavuk Sote",
+    "aliases": [
+      "sebzeli tavuk sote",
+      "tavuklu sote"
+    ],
+    "locale": "tr-TR",
+    "category": "MAIN",
+    "searchTerms": [
+      "tavuk",
+      "biber",
+      "domates",
+      "ana yemek"
+    ],
+    "defaultServings": 4,
+    "estimatedTotalMinutes": 35,
+    "description": "Tavuk ve sebzelerle tek tavada hazırlanan pratik ana yemek.",
+    "ingredients": [
+      {
+        "name": "Tavuk göğsü",
+        "quantity": 500,
+        "unit": "g",
+        "preparation": "Kuşbaşı doğranmış"
+      },
+      {
+        "name": "Soğan",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Yarım ay doğranmış"
+      },
+      {
+        "name": "Yeşil biber",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Domates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Karabiber",
+        "quantity": 1,
+        "unit": "tutam",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Tavuğu mühürle",
+        "instruction": "Tavayı ısıtıp yağı ekleyin. Tavukları yüksek ateşte renk alana kadar soteleyin.",
+        "completionCue": "Tavuk yüzeyleri beyazlayıp hafif renk almalı.",
+        "temperature": null,
+        "durationSeconds": 360
+      },
+      {
+        "order": 2,
+        "title": "Sebzeleri ekle",
+        "instruction": "Soğan ve biberleri ekleyip yumuşayana kadar pişirin.",
+        "completionCue": "Sebzeler hafif yumuşamalı.",
+        "temperature": null,
+        "durationSeconds": 300
+      },
+      {
+        "order": 3,
+        "title": "Tam pişir",
+        "instruction": "Domates, tuz ve karabiberi ekleyip kapağı kapalı şekilde pişirin.",
+        "completionCue": "Tavuğun içi tamamen pişmeli; pembe bölüm kalmamalı.",
+        "temperature": null,
+        "durationSeconds": 600
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "sebzeli-makarna",
+    "title": "Sebzeli Makarna",
+    "aliases": [
+      "sebzeli makarna",
+      "kabaklı makarna"
+    ],
+    "locale": "tr-TR",
+    "category": "MAIN",
+    "searchTerms": [
+      "makarna",
+      "kabak",
+      "biber",
+      "domates",
+      "ana yemek"
+    ],
+    "defaultServings": 4,
+    "estimatedTotalMinutes": 30,
+    "description": "Kabak, biber ve domatesle hazırlanan renkli makarna.",
+    "ingredients": [
+      {
+        "name": "Makarna",
+        "quantity": 300,
+        "unit": "g",
+        "preparation": ""
+      },
+      {
+        "name": "Kabak",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Kırmızı biber",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Domates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Makarnayı haşla",
+        "instruction": "Makarnayı tuzlu kaynar suda paket süresine göre haşlayıp süzün.",
+        "completionCue": "Makarna diri kalmalı.",
+        "temperature": null,
+        "durationSeconds": 600
+      },
+      {
+        "order": 2,
+        "title": "Sebzeleri sotele",
+        "instruction": "Ayrı tavada yağı ısıtıp kabak ve biberi soteleyin; domatesi ekleyin.",
+        "completionCue": "Sebzeler yumuşamış, domates soslaşmış olmalı.",
+        "temperature": null,
+        "durationSeconds": 480
+      },
+      {
+        "order": 3,
+        "title": "Birleştir",
+        "instruction": "Makarnayı sebzeli tavaya alıp az haşlama suyuyla karıştırın.",
+        "completionCue": "Sos makarnaya eşit dağılmalı.",
+        "temperature": null,
+        "durationSeconds": 120
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "nohut-yemegi",
+    "title": "Nohut Yemeği",
+    "aliases": [
+      "etsiz nohut",
+      "sulu nohut"
+    ],
+    "locale": "tr-TR",
+    "category": "MAIN",
+    "searchTerms": [
+      "nohut",
+      "bakliyat",
+      "ana yemek"
+    ],
+    "defaultServings": 4,
+    "estimatedTotalMinutes": 55,
+    "description": "Haşlanmış nohutla hazırlanan ev usulü sulu yemek.",
+    "ingredients": [
+      {
+        "name": "Haşlanmış nohut",
+        "quantity": 2,
+        "unit": "su bardağı",
+        "preparation": "Süzülmüş"
+      },
+      {
+        "name": "Soğan",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Küp doğranmış"
+      },
+      {
+        "name": "Domates salçası",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Su",
+        "quantity": 3,
+        "unit": "su bardağı",
+        "preparation": "Sıcak"
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Soğanı kavur",
+        "instruction": "Tencerede yağı ısıtıp soğanı yumuşayana kadar kavurun.",
+        "completionCue": "Soğanlar şeffaflaşmalı.",
+        "temperature": null,
+        "durationSeconds": 240
+      },
+      {
+        "order": 2,
+        "title": "Salçayı aç",
+        "instruction": "Salçayı ekleyip kokusu çıkana kadar karıştırarak kavurun.",
+        "completionCue": "Salça yağla bütünleşmeli.",
+        "temperature": null,
+        "durationSeconds": 90
+      },
+      {
+        "order": 3,
+        "title": "Nohutu pişir",
+        "instruction": "Nohut ve sıcak suyu ekleyip kısık ateşte lezzetler birleşene kadar pişirin.",
+        "completionCue": "Nohutlar sıcak ve yumuşak olmalı; sos hafif koyulaşmalı.",
+        "temperature": null,
+        "durationSeconds": 1200
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "ton-balikli-salata",
+    "title": "Ton Balıklı Salata",
+    "aliases": [
+      "ton balıklı yeşil salata",
+      "ton balığı salatası"
+    ],
+    "locale": "tr-TR",
+    "category": "SALAD",
+    "searchTerms": [
+      "ton balığı",
+      "marul",
+      "salata",
+      "domates",
+      "salatalık"
+    ],
+    "defaultServings": 2,
+    "estimatedTotalMinutes": 15,
+    "description": "Ton balığı ve taze sebzelerle hazırlanan pratik salata.",
+    "ingredients": [
+      {
+        "name": "Ton balığı",
+        "quantity": 1,
+        "unit": "paket",
+        "preparation": "Süzülmüş"
+      },
+      {
+        "name": "Marul",
+        "quantity": 1,
+        "unit": "demet",
+        "preparation": "Yıkanmış ve doğranmış"
+      },
+      {
+        "name": "Domates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Salatalık",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 1,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Limon",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Suyu sıkılmış"
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Sebzeleri hazırla",
+        "instruction": "Marul, domates ve salatalığı yıkayıp doğrayın.",
+        "completionCue": "Sebzeler temiz ve eşit büyüklükte olmalı.",
+        "temperature": null,
+        "durationSeconds": 240
+      },
+      {
+        "order": 2,
+        "title": "Salatayı birleştir",
+        "instruction": "Ton balığını sebzelere ekleyin; zeytinyağı ve limon suyuyla harmanlayın.",
+        "completionCue": "Malzemeler sosla hafifçe kaplanmalı.",
+        "temperature": null,
+        "durationSeconds": 120
+      }
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "firinda-sebze",
+    "title": "Fırında Sebze",
+    "aliases": [
+      "fırın sebze",
+      "karışık fırın sebze"
+    ],
+    "locale": "tr-TR",
+    "category": "MAIN",
+    "searchTerms": [
+      "patates",
+      "kabak",
+      "havuç",
+      "sebze",
+      "ana yemek"
+    ],
+    "defaultServings": 4,
+    "estimatedTotalMinutes": 45,
+    "description": "Mevsim sebzeleriyle hazırlanan kolay fırın yemeği.",
+    "ingredients": [
+      {
+        "name": "Patates",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Elma dilim doğranmış"
+      },
+      {
+        "name": "Kabak",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Kalın doğranmış"
+      },
+      {
+        "name": "Havuç",
+        "quantity": 2,
+        "unit": "adet",
+        "preparation": "Dilimlenmiş"
+      },
+      {
+        "name": "Kırmızı biber",
+        "quantity": 1,
+        "unit": "adet",
+        "preparation": "Doğranmış"
+      },
+      {
+        "name": "Zeytinyağı",
+        "quantity": 2,
+        "unit": "yemek kaşığı",
+        "preparation": ""
+      },
+      {
+        "name": "Tuz",
+        "quantity": 1,
+        "unit": "çay kaşığı",
+        "preparation": ""
+      }
+    ],
+    "steps": [
+      {
+        "order": 1,
+        "title": "Sebzeleri çeşnilendir",
+        "instruction": "Doğranmış sebzeleri zeytinyağı ve tuzla harmanlayın.",
+        "completionCue": "Sebzelerin yüzeyi ince bir yağ tabakasıyla kaplanmalı.",
+        "temperature": null,
+        "durationSeconds": 120
+      },
+      {
+        "order": 2,
+        "title": "Fırında pişir",
+        "instruction": "Sebzeleri tepsiye tek kat yayın ve 200°C fırında pişirin.",
+        "completionCue": "Patatesler çatal kolayca girecek kadar yumuşamalı; kenarlar kızarmalı.",
+        "temperature": 200,
+        "durationSeconds": 1800
       }
     ]
   }
