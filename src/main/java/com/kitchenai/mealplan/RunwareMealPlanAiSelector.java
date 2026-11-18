@@ -50,20 +50,17 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           recipes, ingredients, nutrition facts, prices, or cooking instructions.
           Respect the preparation-time limit and dietary restrictions by choosing only from
           the pre-filtered candidates. Avoid repeating the same recipe when alternatives exist.
-          Candidate recipes are ordered by pantry stock coverage (best match first).
+          Every candidate has already been checked by the backend to ensure all required ingredient quantities are available in the user pantry. Do not select anything outside this list.
           Prefer earlier candidates when choosing, while avoiding unnecessary repetition.
           Consider the user's goal and notes when ranking candidates.
           Requested servings: %d
           Meal slots: %s
           Maximum preparation minutes: %d
-          Budget note: price data is unavailable; budget compliance cannot be verified. Do not invent prices or claim compliance.
-          Currency: %s
           Dietary restrictions: %s
           Goal: %s
           Notes: %s
           Candidate recipes: %s
           """.formatted(request.servings(), mealSlots, request.maxPreparationMinutes(),
-          request.currency() == null ? "TRY" : request.currency(),
           request.dietaryRestrictions(), request.goal(), request.notes(), candidateJson);
 
       Map<String, Object> body = new LinkedHashMap<>();
