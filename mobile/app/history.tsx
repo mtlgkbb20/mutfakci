@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   SectionList,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { api } from "../src/api";
 import { AppShell, Button, Header, s, colors } from "../src/ui";
 
@@ -61,16 +62,17 @@ function formatDate(value?: string) {
     day: "2-digit", month: "long", year: "numeric",
   });
 }
-function dateRangeQuery(from: string, to: string) {
-  if (!from && !to) return "";
-  const start = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T23:59:59.999`);
+function dateRangeQuery(from: Date | null, to: Date | null) {
+  if (!from || !to) return "";
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const endExclusive = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+  const end = new Date(endExclusive.getTime() - 1);
   return `&from=${encodeURIComponent(start.toISOString())}&to=${encodeURIComponent(end.toISOString())}`;
 }
-function validDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+function formatSelectedDate(value: Date | null) {
+  return value ? value.toLocaleDateString("tr-TR", {
+    day: "2-digit", month: "long", year: "numeric",
+  }) : "Tarih seç";
 }
 
 export default function History() {
@@ -85,17 +87,19 @@ export default function History() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
   const [recipeError, setRecipeError] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [appliedFrom, setAppliedFrom] = useState("");
-  const [appliedTo, setAppliedTo] = useState("");
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [appliedFrom, setAppliedFrom] = useState<Date | null>(null);
+  const [appliedTo, setAppliedTo] = useState<Date | null>(null);
+  const [datePickerTarget, setDatePickerTarget] = useState<"from" | "to" | null>(null);
+  const [draftDate, setDraftDate] = useState(new Date());
   const [filterError, setFilterError] = useState("");
   const [selectedRecovery, setSelectedRecovery] = useState<any | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
-  const loadHistory = useCallback(async (from: string, to: string) => {
+  const loadHistory = useCallback(async (from: Date | null, to: Date | null) => {
     setLoading(true);
     setRecoveryError("");
     setRecipeError("");
@@ -125,15 +129,17 @@ export default function History() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadHistory("", ""); }, [loadHistory]);
+  useEffect(() => { loadHistory(null, null); }, [loadHistory]);
 
   const applyDateFilter = async () => {
     setFilterError("");
-    if (!fromDate || !toDate || !validDate(fromDate) || !validDate(toDate)) {
-      setFilterError("Başlangıç ve bitiş tarihlerini YYYY-AA-GG biçiminde gir.");
+    if (!fromDate || !toDate) {
+      setFilterError("Başlangıç ve bitiş tarihlerini seç.");
       return;
     }
-    if (fromDate > toDate) {
+    const start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+    const end = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+    if (start.getTime() > end.getTime()) {
       setFilterError("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
       return;
     }
@@ -142,13 +148,24 @@ export default function History() {
     await loadHistory(fromDate, toDate);
   };
 
+  const openDatePicker = (target: "from" | "to") => {
+    setDraftDate((target === "from" ? fromDate : toDate) || new Date());
+    setDatePickerTarget(target);
+  };
+
+  const commitDateSelection = (date: Date) => {
+    if (datePickerTarget === "from") setFromDate(date);
+    if (datePickerTarget === "to") setToDate(date);
+    setDatePickerTarget(null);
+  };
+
   const clearDateFilter = async () => {
-    setFromDate("");
-    setToDate("");
-    setAppliedFrom("");
-    setAppliedTo("");
+    setFromDate(null);
+    setToDate(null);
+    setAppliedFrom(null);
+    setAppliedTo(null);
     setFilterError("");
-    await loadHistory("", "");
+    await loadHistory(null, null);
   };
 
   const loadMore = async () => {
@@ -257,29 +274,23 @@ export default function History() {
             <View style={s.card}>
               <Text style={s.eyebrow}>TARİHE GÖRE FİLTRELE</Text>
               <Text style={s.body}>Başlangıç ve bitiş tarihini seçerek o dönemdeki kayıtları getir.</Text>
-              <TextInput
-                value={fromDate}
-                onChangeText={setFromDate}
-                placeholder="Başlangıç · YYYY-AA-GG"
-                placeholderTextColor={colors.muted}
-                keyboardType="numbers-and-punctuation"
-                style={styles.dateInput}
-              />
-              <TextInput
-                value={toDate}
-                onChangeText={setToDate}
-                placeholder="Bitiş · YYYY-AA-GG"
-                placeholderTextColor={colors.muted}
-                keyboardType="numbers-and-punctuation"
-                style={styles.dateInput}
-              />
+              <View style={styles.dateRangeRow}>
+                <Pressable onPress={() => openDatePicker("from")} style={styles.dateButton}>
+                  <Text style={styles.dateButtonLabel}>BAŞLANGIÇ</Text>
+                  <Text style={styles.dateButtonValue}>📅  {formatSelectedDate(fromDate)}</Text>
+                </Pressable>
+                <Pressable onPress={() => openDatePicker("to")} style={styles.dateButton}>
+                  <Text style={styles.dateButtonLabel}>BİTİŞ</Text>
+                  <Text style={styles.dateButtonValue}>📅  {formatSelectedDate(toDate)}</Text>
+                </Pressable>
+              </View>
               {filterError ? <Text style={s.error}>{filterError}</Text> : null}
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={{ flex: 1 }}><Button onPress={applyDateFilter}>Filtrele</Button></View>
                 <View style={{ flex: 1 }}><Button secondary onPress={clearDateFilter}>Temizle</Button></View>
               </View>
               {appliedFrom && appliedTo ? (
-                <Text style={styles.appliedFilter}>{appliedFrom} – {appliedTo} aralığı gösteriliyor</Text>
+                <Text style={styles.appliedFilter}>{formatSelectedDate(appliedFrom)} – {formatSelectedDate(appliedTo)} aralığı gösteriliyor</Text>
               ) : null}
             </View>
             {loading ? <ActivityIndicator color={colors.orange} size="large" style={{ marginVertical: 18 }} /> : null}
@@ -305,6 +316,46 @@ export default function History() {
         maxToRenderPerBatch={12}
         windowSize={7}
       />
+
+      {Platform.OS === "ios" && datePickerTarget ? (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setDatePickerTarget(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={styles.datePickerSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={s.heading}>{datePickerTarget === "from" ? "Başlangıç tarihi" : "Bitiş tarihi"}</Text>
+                <Pressable onPress={() => setDatePickerTarget(null)}>
+                  <Text style={{ color: colors.muted, fontSize: 28 }}>×</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={draftDate}
+                mode="date"
+                display="inline"
+                locale="tr-TR"
+                minimumDate={datePickerTarget === "to" ? fromDate || undefined : undefined}
+                maximumDate={datePickerTarget === "from" ? toDate || new Date() : new Date()}
+                onValueChange={(_event, selectedDate) => {
+                  if (selectedDate) setDraftDate(selectedDate);
+                }}
+              />
+              <Button onPress={() => commitDateSelection(draftDate)}>Tarihi seç</Button>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+      {Platform.OS === "android" && datePickerTarget ? (
+        <DateTimePicker
+          value={draftDate}
+          mode="date"
+          presentation="dialog"
+          minimumDate={datePickerTarget === "to" ? fromDate || undefined : undefined}
+          maximumDate={datePickerTarget === "from" ? toDate || new Date() : new Date()}
+          onValueChange={(_event, selectedDate) => {
+            if (selectedDate) commitDateSelection(selectedDate);
+          }}
+          onDismiss={() => setDatePickerTarget(null)}
+        />
+      ) : null}
 
       <Modal
         visible={!!selectedRecovery || !!selectedRecipe}
@@ -386,8 +437,14 @@ const styles = {
     justifyContent: "center" as const, marginRight: 12 },
   rowTitle: { color: colors.ink, fontSize: 15, fontWeight: "800" as const },
   rowDate: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  dateInput: { backgroundColor: "#FBFCF9", borderColor: colors.line, borderWidth: 1, borderRadius: 13,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: colors.ink, marginTop: 10 },
+  dateRangeRow: { flexDirection: "row" as const, gap: 10, marginTop: 12, marginBottom: 12 },
+  dateButton: { flex: 1, backgroundColor: "#FBFCF9", borderColor: colors.line, borderWidth: 1,
+    borderRadius: 13, paddingHorizontal: 12, paddingVertical: 13 },
+  dateButtonLabel: { color: colors.muted, fontSize: 10, fontWeight: "800" as const, letterSpacing: 1 },
+  dateButtonValue: { color: colors.ink, fontSize: 13, fontWeight: "700" as const, marginTop: 7 },
+  datePickerSheet: { backgroundColor: colors.cream, borderTopLeftRadius: 26, borderTopRightRadius: 26,
+    padding: 20, paddingBottom: 34 },
+
   appliedFilter: { color: colors.green, fontSize: 12, fontWeight: "700" as const, marginTop: 10 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(16, 26, 20, 0.48)", justifyContent: "flex-end" as const },
   modalSheet: { maxHeight: "88%" as const, minHeight: 280, backgroundColor: colors.cream,
