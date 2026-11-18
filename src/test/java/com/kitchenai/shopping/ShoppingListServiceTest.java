@@ -11,6 +11,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.cookingjournal.CookingJournalEntry;
+import com.kitchenai.cookingjournal.CookingJournalRepository;
 import com.kitchenai.mealplan.MealPlanService;
 import com.kitchenai.pantry.PantryInventoryService;
 import com.kitchenai.recipe.RecipeCatalogService;
@@ -18,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +36,9 @@ class ShoppingListServiceTest {
   @Mock RecipeCatalogService catalog;
   @Mock MealPlanService mealPlans;
   @Mock PantryInventoryService pantry;
+  @Mock CookingJournalRepository journal;
+  @Mock PersonalizedShoppingAiSelector personalizedAi;
+  @org.mockito.Spy ObjectMapper json = new ObjectMapper();
   @InjectMocks ShoppingListService service;
 
   @Test
@@ -81,6 +88,70 @@ class ShoppingListServiceTest {
     assertEquals("COMPLETED", list.getStatus());
     verify(pantry).applyPurchase(eq(userId), any(String.class), anyList());
     verify(lists).save(list);
+  }
+
+
+  @Test
+  void createsAiPersonalizedListFromCookingHistoryAndPantryWithoutMealPlan() {
+    UUID userId = UUID.randomUUID();
+    var entry = new CookingJournalEntry(userId, UUID.randomUUID(), UUID.randomUUID(),
+        "Tavuklu makarna", "{}", 2, 5, "Tekrar yapmak isterim", Instant.now());
+    var recipe = new RecipeCatalogService.CatalogRecipe(1, "chicken-pasta", "Kremalı Tavuklu Makarna",
+        List.of(), "tr", "MAIN", List.of(), 2, 30,
+        List.of(new RecipeCatalogService.Ingredient("Tavuk", 300, "g", ""),
+            new RecipeCatalogService.Ingredient("Makarna", 200, "g", "")),
+        List.of(), "");
+    when(journal.findTop100ByUserIdOrderByCookedAtDesc(userId)).thenReturn(List.of(entry));
+    when(personalizedAi.available()).thenReturn(true);
+    when(personalizedAi.recommend(anyList(), anyList(), anyList())).thenReturn(List.of(
+        new PersonalizedShoppingAiSelector.Recommendation("chicken-pasta", "Geçmişte yüksek puan verdiğin makarna yemeklerine benziyor.")));
+    when(catalog.all()).thenReturn(List.of(recipe));
+    when(pantry.activeStock(userId)).thenReturn(List.of(
+        new PantryInventoryService.StockLine("Makarna", new BigDecimal("100"), "g", null)));
+    when(lists.save(any(ShoppingList.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(items.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var result = service.create(new ShoppingListContracts.CreateRequest("Sana özel", null, null, true), userId);
+
+    assertEquals("AI_PERSONALIZED", result.sourceType());
+    assertEquals(1, result.suggestions().size());
+    assertEquals("Kremalı Tavuklu Makarna", result.suggestions().get(0).title());
+    var pasta = result.items().stream().filter(item -> item.name().equals("Makarna")).findFirst().orElseThrow();
+    assertEquals(new BigDecimal("200.000"), pasta.requiredQuantity());
+    assertEquals(new BigDecimal("100.000"), pasta.pantryCoveredQuantity());
+    assertEquals(new BigDecimal("100.000"), pasta.toBuyQuantity());
+    verify(personalizedAi).recommend(anyList(), anyList(), anyList());
+    verify(mealPlans, never()).get(any(), any());
+  }
+
+  @Test
+  void rejectsPersonalizedListWhenCookingHistoryIsEmpty() {
+    UUID userId = UUID.randomUUID();
+    when(pantry.activeStock(userId)).thenReturn(List.of());
+    when(journal.findTop100ByUserIdOrderByCookedAtDesc(userId)).thenReturn(List.of());
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.create(new ShoppingListContracts.CreateRequest("Sana özel", null, null, true), userId));
+
+    verifyNoInteractions(personalizedAi, catalog, items);
+  }
+
+  @Test
+  void rejectsUnknownAiRecipeIdsWithoutPersistingAList() {
+    UUID userId = UUID.randomUUID();
+    var entry = new CookingJournalEntry(userId, UUID.randomUUID(), UUID.randomUUID(),
+        "Tavuklu makarna", "{}", 2, 5, null, Instant.now());
+    when(journal.findTop100ByUserIdOrderByCookedAtDesc(userId)).thenReturn(List.of(entry));
+    when(pantry.activeStock(userId)).thenReturn(List.of());
+    when(personalizedAi.available()).thenReturn(true);
+    when(personalizedAi.recommend(anyList(), anyList(), anyList())).thenReturn(List.of(
+        new PersonalizedShoppingAiSelector.Recommendation("made-up-id", "Uydurma tarif")));
+
+    assertThrows(com.kitchenai.common.ApiException.class,
+        () -> service.create(new ShoppingListContracts.CreateRequest("Sana özel", null, null, true), userId));
+
+    verify(lists, never()).save(any(ShoppingList.class));
+    verify(items, never()).saveAll(anyList());
   }
 
   @Test

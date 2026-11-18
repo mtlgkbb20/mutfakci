@@ -20,7 +20,11 @@ public final class ShoppingListContracts {
       @Min(1) @Max(30) int servings) {}
 
   public record CreateRequest(@Size(max = 160) String title, UUID mealPlanId,
-      List<@Valid RecipeSelection> recipes) {}
+      List<@Valid RecipeSelection> recipes, boolean personalized) {
+    public CreateRequest(String title, UUID mealPlanId, List<RecipeSelection> recipes) {
+      this(title, mealPlanId, recipes, false);
+    }
+  }
 
   public record AddItemRequest(@NotBlank @Size(max = 160) String name,
       @NotNull @DecimalMin("0.001") BigDecimal quantity, @NotBlank @Size(max = 20) String unit,
@@ -38,9 +42,12 @@ public final class ShoppingListContracts {
       BigDecimal pantryCoveredQuantity, BigDecimal toBuyQuantity, BigDecimal purchasedQuantity,
       String unit, boolean checked, long version) {}
 
+  public record RecipeSuggestionView(String title, String reason, int servings) {}
+
   public record ListView(UUID id, String title, String sourceType, UUID sourceMealPlanId,
-      String status, String currency, List<ItemView> items, boolean costEstimateAvailable,
-      BigDecimal estimatedTotal, List<String> warnings, Instant createdAt, Instant updatedAt) {}
+      String status, String currency, List<ItemView> items, List<RecipeSuggestionView> suggestions,
+      boolean costEstimateAvailable, BigDecimal estimatedTotal, List<String> warnings,
+      Instant createdAt, Instant updatedAt) {}
 
   public record CompletionView(String status, UUID shoppingListId, int pantryLinesAdded,
       String operationKey) {}

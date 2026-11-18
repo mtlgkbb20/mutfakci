@@ -16,6 +16,7 @@ public class ShoppingList {
   @Column(nullable = false, length = 160) private String title;
   @Column(name = "source_type", nullable = false, length = 20) private String sourceType;
   @Column(name = "source_meal_plan_id") private UUID sourceMealPlanId;
+  @Column(name = "recommendations_json", columnDefinition = "TEXT", nullable = false) private String recommendationsJson = "[]";
   @Column(nullable = false, length = 20) private String status;
   @Column(nullable = false, length = 3) private String currency;
   @Column(name = "completion_operation_key", length = 100) private String completionOperationKey;
@@ -38,6 +39,7 @@ public class ShoppingList {
     this.updatedAt = this.createdAt;
   }
 
+  public void setRecommendationsJson(String value) { this.recommendationsJson = value == null ? "[]" : value; this.updatedAt = Instant.now(); }
   public void rename(String title) { this.title = title; this.updatedAt = Instant.now(); }
   public void complete(String operationKey) {
     this.status = "COMPLETED";
@@ -50,6 +52,7 @@ public class ShoppingList {
   public String getTitle() { return title; }
   public String getSourceType() { return sourceType; }
   public UUID getSourceMealPlanId() { return sourceMealPlanId; }
+  public String getRecommendationsJson() { return recommendationsJson; }
   public String getStatus() { return status; }
   public String getCurrency() { return currency; }
   public String getCompletionOperationKey() { return completionOperationKey; }

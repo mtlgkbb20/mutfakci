@@ -1,20 +1,23 @@
 # Smart Grocery Assistant — Technical Specification
 
 **Task:** KAI-012 / Notion task ID 11  
-**Branch:** `feature/KAI-012-smart-grocery-assistant`  
+**Branch:** `feature/KAI-012-ai-personalized-shopping`  
 **Base:** `main`  
 **GitHub issue:** #23  
 **Status:** In progress
 
 ## 1. Goal
 
-Provide a persistent, editable shopping-list workflow from a single curated recipe, multiple recipes, or a saved weekly meal plan. Aggregate compatible ingredient requirements, subtract usable Smart Pantry stock, organize items by grocery category, and add purchased quantities to the existing pantry only after explicit confirmation.
+Provide a persistent, editable shopping-list workflow where AI analyzes the user's cooking journal and current Smart Pantry, recommends future catalog meals that fit demonstrated preferences, and builds one consolidated list of missing ingredients. Weekly meal plans are not an input to personalized shopping. Existing manual recipe/meal-plan creation remains backward-compatible.
 
 ## 2. Scope
 
 ### Included
 - Create a list from one or more curated recipe IDs with per-recipe servings.
-- Create a list from a saved MealPlan, preserving its source relationship.
+- Create a personalized list from cooking-journal history, ratings, notes, and current pantry stock using the configured Runware AI pipeline.
+- AI selects only existing catalog recipes and provides a short reason for each recommendation; backend resolves exact ingredients and default servings.
+- Persist the selected meal recommendations with the shopping list so they remain visible when reopened.
+- Keep weekly-plan and explicit-recipe list creation available as separate legacy entry points; personalized flow does not depend on a weekly plan.
 - Consolidate exact normalized ingredient names with dimension-safe unit conversion.
 - Scale catalog ingredient amounts using BigDecimal.
 - Subtract unexpired pantry quantities; never consume pantry stock during list generation.
@@ -93,7 +96,7 @@ All routes authenticated. Never accept owner UUID from clients.
 
 ## 8. Grocery categories
 
-Use deterministic category assignment based on curated ingredient/category mappings, with `OTHER` fallback. Categories are presentation/grouping metadata, not a claim about product taxonomy. User may override a category. Do not call an AI model for quantity/category correctness.
+Use deterministic category assignment based on curated ingredient/category mappings, with `OTHER` fallback. Categories are presentation/grouping metadata, not a claim about product taxonomy. User may override a category. AI may rank catalog meals and explain preference fit, but it cannot author ingredient quantities, invent catalog IDs, or override pantry calculations.
 
 ## 9. Price behavior
 
@@ -101,11 +104,7 @@ No trusted product-price feed is currently configured. Return `costEstimateAvail
 
 ## 10. Migration sequencing
 
-The current `main` head is `c29e41e` and contains migrations V13–V15. KAI-011 PR #22 contains V16 but is still open and not on main. This feature requires V17. Therefore:
-- Keep this branch based on main for isolated development.
-- V17 is the next schema version after the pending KAI-011 V16.
-- Merge ordering must be KAI-011 V16 first, then KAI-012 V17. Do not merge this PR ahead of #22.
-- Never edit historical migrations.
+Main already contains migrations through V19. This AI personalization extension adds V20 for persisted recommendation metadata. Never edit historical migrations.
 
 ## 11. Test strategy
 
@@ -117,8 +116,8 @@ The current `main` head is `c29e41e` and contains migrations V13–V15. KAI-011 
 
 ## 12. Delivery phases
 
-1. Document API/domain design and manual acceptance matrix.
-2. Implement V17 schema and backend domain/service/controller with automated tests.
-3. Add mobile list creation, editing, category grouping, purchased check-off, and confirmation UI.
-4. Run backend tests, frontend build/tests, mobile tests/typecheck, and CI.
-5. Open PR targeting main with explicit dependency note: merge KAI-011 #22 first.
+1. Extend the existing shopping-list endpoint with a personalized AI mode.
+2. Connect cooking-journal history and Smart Pantry stock to the Runware recommendation pipeline.
+3. Persist recommended meal names/reasons and derive quantities exclusively from the curated recipe catalog.
+4. Update the mobile flow to create a history-based list without selecting a weekly plan.
+5. Run backend tests, frontend build/tests, mobile typecheck, and CI.

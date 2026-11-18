@@ -15,6 +15,7 @@ public interface CookingJournalRepository extends JpaRepository<CookingJournalEn
   @Query("select entry.cookingSessionId from CookingJournalEntry entry where entry.userId = :userId")
   List<UUID> findCookingSessionIdByUserId(@Param("userId") UUID userId);
 
+  List<CookingJournalEntry> findTop100ByUserIdOrderByCookedAtDesc(UUID userId);
   List<CookingJournalEntry> findByUserIdAndRecipeIdOrderByCookedAtDesc(UUID userId, UUID recipeId);
   Optional<CookingJournalEntry> findByUserIdAndCookingSessionId(UUID userId, UUID cookingSessionId);
   Optional<CookingJournalEntry> findByIdAndUserId(UUID id, UUID userId);

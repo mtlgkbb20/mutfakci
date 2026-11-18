@@ -3,7 +3,6 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { api } from "../src/api";
 import { AppShell, Button, Field, Header, colors, s } from "../src/ui";
 
-type MealPlan = { id: string; weekStart: string; entries: { recipe: { title: string } }[] };
 type ShoppingItem = {
   id: string; name: string; category: string; requiredQuantity: number;
   pantryCoveredQuantity: number; toBuyQuantity: number; purchasedQuantity: number;
@@ -11,7 +10,8 @@ type ShoppingItem = {
 };
 type ShoppingList = {
   id: string; title: string; sourceType: string; status: string;
-  items: ShoppingItem[]; costEstimateAvailable: boolean; estimatedTotal: number | null;
+  items: ShoppingItem[]; suggestions: { title: string; reason: string; servings: number }[];
+  costEstimateAvailable: boolean; estimatedTotal: number | null;
   warnings: string[];
 };
 
@@ -25,21 +25,17 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default function ShoppingListScreen() {
-  const [plans, setPlans] = useState<MealPlan[]>([]);
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [active, setActive] = useState<ShoppingList | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [title, setTitle] = useState("Haftalık alışveriş");
+  const [title, setTitle] = useState("Alışveriş önerilerim");
   const [itemName, setItemName] = useState("");
   const [itemQuantity, setItemQuantity] = useState("1");
   const [itemUnit, setItemUnit] = useState("adet");
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [savedPlans, savedLists]: [MealPlan[], ShoppingList[]] = await Promise.all([
-      api("/meal-plans"), api("/shopping-lists"),
-    ]);
-    setPlans(savedPlans);
+    const savedLists: ShoppingList[] = await api("/shopping-lists");
     setLists(savedLists);
     if (activeId) {
       const latest = savedLists.find((item) => item.id === activeId);
@@ -54,12 +50,12 @@ export default function ShoppingListScreen() {
     refresh().catch((error) => Alert.alert("Alışveriş verileri yüklenemedi", error.message));
   }, [refresh]);
 
-  const createFromPlan = async (planId: string) => {
+  const createPersonalized = async () => {
     setLoading(true);
     try {
       const created: ShoppingList = await api("/shopping-lists", {
         method: "POST",
-        body: JSON.stringify({ title: title.trim() || "Alışveriş listem", mealPlanId: planId }),
+        body: JSON.stringify({ title: title.trim() || "Alışveriş önerilerim", personalized: true }),
       });
       setActive(created);
       setActiveId(created.id);
@@ -161,22 +157,18 @@ export default function ShoppingListScreen() {
   return (
     <AppShell>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        <Header title="Alışveriş Asistanı" subtitle="Eksiklerini listele, alışverişini kilerinle tamamla" />
+        <Header title="Alışveriş Asistanı" subtitle="Yemek tercihlerini öğrenir, kilerindeki eksikleri tamamlar" />
 
         <View style={s.card}>
           <Text style={s.eyebrow}>YENİ LİSTE</Text>
-          <Text style={s.heading}>Neye göre alışveriş yapalım?</Text>
+          <Text style={s.heading}>Geçmiş tercihlerine göre liste oluştur</Text>
+          <Text style={s.recipeMeta}>
+            AI daha önce yaptığın yemekleri, puanlarını ve Akıllı Kiler'deki ürünleri inceleyerek
+            yapabileceğin yeni yemekleri seçer; eksik malzemeleri tek listede toplar.
+          </Text>
           <Field value={title} onChangeText={setTitle} placeholder="Liste adı" />
-          {plans.length === 0 ? (
-            <Text style={s.recipeMeta}>Kayıtlı haftalık plan bulunamadı. Önce Haftalık Plan ekranından plan oluştur.</Text>
-          ) : plans.map((plan) => (
-            <Pressable key={plan.id} onPress={() => createFromPlan(plan.id)}
-              style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line }}>
-              <Text style={{ color: colors.ink, fontWeight: "800" }}>{plan.weekStart} haftası</Text>
-              <Text style={s.recipeMeta}>{plan.entries.length} öğün · liste oluştur</Text>
-            </Pressable>
-          ))}
-          {loading && <Text style={s.recipeMeta}>İşlem yapılıyor...</Text>}
+          <Button onPress={createPersonalized} loading={loading}>Bana özel alışveriş listesi oluştur</Button>
+          {loading && <Text style={s.recipeMeta}>Yemek geçmişin ve kilerin analiz ediliyor...</Text>}
         </View>
 
         {lists.length > 0 && (
@@ -197,6 +189,17 @@ export default function ShoppingListScreen() {
             <View style={s.card}>
               <Text style={s.eyebrow}>{active.status === "COMPLETED" ? "TAMAMLANDI" : "ALIŞVERİŞ LİSTESİ"}</Text>
               <Text style={s.heading}>{active.title}</Text>
+              {active.suggestions?.length > 0 && (
+                <View style={{ marginTop: 12, marginBottom: 8 }}>
+                  <Text style={s.eyebrow}>AI'NIN ÖNERDİĞİ YEMEKLER</Text>
+                  {active.suggestions.map((suggestion, index) => (
+                    <View key={index} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.line }}>
+                      <Text style={{ color: colors.ink, fontWeight: "800" }}>{suggestion.title}</Text>
+                      <Text style={s.recipeMeta}>{suggestion.reason} · {suggestion.servings} porsiyon</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
               {active.warnings?.map((warning, index) => (
                 <Text key={index} style={[s.recipeMeta, { color: colors.orange, marginBottom: 6 }]}>{warning}</Text>
               ))}

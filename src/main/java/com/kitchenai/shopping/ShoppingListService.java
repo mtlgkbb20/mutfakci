@@ -1,6 +1,10 @@
 package com.kitchenai.shopping;
 
 import com.kitchenai.common.ApiException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kitchenai.cookingjournal.CookingJournalEntry;
+import com.kitchenai.cookingjournal.CookingJournalRepository;
 import com.kitchenai.mealplan.MealPlanContracts.EntryView;
 import com.kitchenai.mealplan.MealPlanContracts.PlanView;
 import com.kitchenai.mealplan.MealPlanService;
@@ -30,22 +34,67 @@ public class ShoppingListService {
   private final RecipeCatalogService catalog;
   private final MealPlanService mealPlans;
   private final PantryInventoryService pantry;
+  private final CookingJournalRepository journal;
+  private final PersonalizedShoppingAiSelector personalizedAi;
+  private final ObjectMapper json;
 
   public ShoppingListService(ShoppingListRepository lists, ShoppingListItemRepository items,
-      RecipeCatalogService catalog, MealPlanService mealPlans, PantryInventoryService pantry) {
-    this.lists = lists; this.items = items; this.catalog = catalog; this.mealPlans = mealPlans; this.pantry = pantry;
+      RecipeCatalogService catalog, MealPlanService mealPlans, PantryInventoryService pantry,
+      CookingJournalRepository journal, PersonalizedShoppingAiSelector personalizedAi, ObjectMapper json) {
+    this.lists = lists; this.items = items; this.catalog = catalog; this.mealPlans = mealPlans;
+    this.pantry = pantry; this.journal = journal; this.personalizedAi = personalizedAi; this.json = json;
   }
 
   @Transactional
   public ListView create(CreateRequest request, UUID userId) {
     boolean fromPlan = request.mealPlanId() != null;
     boolean fromRecipes = request.recipes() != null && !request.recipes().isEmpty();
-    if (fromPlan == fromRecipes) throw bad("Bir yemek planı veya en az bir tarif seçmelisin.");
+    boolean personalized = request.personalized();
+    if ((fromPlan ? 1 : 0) + (fromRecipes ? 1 : 0) + (personalized ? 1 : 0) != 1) {
+      throw bad("Bir yemek planı, tarif seçimi veya kişiselleştirilmiş AI listesi seçmelisin.");
+    }
 
     List<ShoppingListCalculator.IngredientInput> ingredients = new ArrayList<>();
+    List<StockLine> pantryStock;
+    List<RecipeSuggestionView> suggestions = new ArrayList<>();
+    String recommendationsJson = "[]";
     String sourceType;
     UUID sourcePlanId = null;
-    if (fromPlan) {
+    if (personalized) {
+      pantryStock = pantry.activeStock(userId);
+      List<CookingJournalEntry> history = journal.findTop100ByUserIdOrderByCookedAtDesc(userId);
+      if (history.isEmpty()) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+          "Kişiselleştirilmiş alışveriş için önce en az bir yemeği Yemek Geçmişi'ne kaydetmelisin.");
+      if (!personalizedAi.available()) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+          "Kişiselleştirilmiş alışveriş AI servisi yapılandırılmamış.");
+      List<PersonalizedShoppingAiSelector.PastDish> pastDishes = history.stream()
+          .map(entry -> new PersonalizedShoppingAiSelector.PastDish(entry.getRecipeTitle(), entry.getRating(),
+              entry.getNotes(), entry.getCookedAt() == null ? null : entry.getCookedAt().toString())).toList();
+      List<PersonalizedShoppingAiSelector.Recommendation> selected;
+      try { selected = personalizedAi.recommend(pastDishes, pantryStock, catalog.all()); }
+      catch (RuntimeException exception) { throw new ApiException(HttpStatus.BAD_GATEWAY,
+          "AI kişiselleştirilmiş alışveriş listesi oluşturamadı."); }
+      if (selected == null || selected.isEmpty() || selected.size() > 5) throw new ApiException(HttpStatus.BAD_GATEWAY,
+          "AI geçerli bir yemek öneri listesi döndürmedi.");
+      java.util.Set<String> candidateIds = catalog.all().stream().map(CatalogRecipe::id)
+          .collect(java.util.stream.Collectors.toSet());
+      java.util.Set<String> selectedIds = new java.util.HashSet<>();
+      for (var recommendation : selected) {
+        if (recommendation == null || recommendation.recipeCatalogId() == null
+            || !candidateIds.contains(recommendation.recipeCatalogId())
+            || !selectedIds.add(recommendation.recipeCatalogId())
+            || recommendation.reason() == null || recommendation.reason().isBlank()
+            || recommendation.reason().length() > 300) throw new ApiException(HttpStatus.BAD_GATEWAY,
+                "AI geçersiz veya yinelenen bir tarif önerdi.");
+        CatalogRecipe recipe = findRecipe(recommendation.recipeCatalogId());
+        addRecipeIngredients(ingredients, recipe, recipe.defaultServings());
+        suggestions.add(new RecipeSuggestionView(recipe.title(), recommendation.reason(), recipe.defaultServings()));
+      }
+      sourceType = "AI_PERSONALIZED";
+      try { recommendationsJson = json.writeValueAsString(suggestions); }
+      catch (JsonProcessingException exception) { throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+          "AI önerileri kaydedilemedi."); }
+    } else if (fromPlan) {
       PlanView plan = mealPlans.get(request.mealPlanId(), userId);
       sourcePlanId = plan.id();
       sourceType = "MEAL_PLAN";
@@ -60,14 +109,17 @@ public class ShoppingListService {
       }
     }
 
-    List<ShoppingListCalculator.StockInput> stock = pantry.activeStock(userId).stream()
+    if (!personalized) pantryStock = pantry.activeStock(userId);
+    List<ShoppingListCalculator.StockInput> stock = pantryStock.stream()
         .map(line -> new ShoppingListCalculator.StockInput(line.name(), line.quantity(), line.unit(),
             line.expiryDate() != null && line.expiryDate().isBefore(LocalDate.now())))
         .toList();
     List<ShoppingListCalculator.CalculatedLine> calculated = ShoppingListCalculator.calculate(ingredients, stock);
     String title = request.title() == null || request.title().isBlank()
         ? "Alışveriş listem" : request.title().trim();
-    ShoppingList list = lists.save(new ShoppingList(userId, title, sourceType, sourcePlanId, "TRY"));
+    ShoppingList list = new ShoppingList(userId, title, sourceType, sourcePlanId, "TRY");
+    list.setRecommendationsJson(recommendationsJson);
+    lists.save(list);
     List<ShoppingListItem> rows = calculated.stream().map(line -> new ShoppingListItem(list.getId(),
         line.name(), line.normalizedName(), line.category(), line.requiredQuantity(),
         line.pantryCoveredQuantity(), line.toBuyQuantity(), line.unit())).toList();
@@ -200,6 +252,11 @@ public class ShoppingListService {
   }
   private static ApiException bad(String message) { return new ApiException(HttpStatus.BAD_REQUEST, message); }
 
+  private List<RecipeSuggestionView> readSuggestions(ShoppingList list) {
+    try { return json.readerForListOf(RecipeSuggestionView.class).readValue(list.getRecommendationsJson()); }
+    catch (Exception exception) { return List.of(); }
+  }
+
   private ListView view(ShoppingList list, List<ShoppingListItem> rows) {
     List<ItemView> itemViews = rows.stream().map(item -> new ItemView(item.getId(), item.getName(),
         item.getCategory(), item.getRequiredQuantity(), item.getPantryCoveredQuantity(),
@@ -212,7 +269,7 @@ public class ShoppingListService {
       warnings.add("UNIT_MISMATCH: Aynı malzemenin dönüştürülemeyen birimleri ayrı satırlarda tutuldu.");
     }
     return new ListView(list.getId(), list.getTitle(), list.getSourceType(), list.getSourceMealPlanId(),
-        list.getStatus(), list.getCurrency(), itemViews, false, null, warnings,
+        list.getStatus(), list.getCurrency(), itemViews, readSuggestions(list), false, null, warnings,
         list.getCreatedAt(), list.getUpdatedAt());
   }
 }
