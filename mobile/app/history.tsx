@@ -233,6 +233,12 @@ export default function History() {
     { key: "recipes", title: `TARİF GEÇMİŞİ · ${recipeTotal}`, data: recipes.slice(0, 5).map(item => ({ kind: "recipe", item } as HistoryRow)) },
   ], [recoveries, recipes, recoveryTotal, recipeTotal]);
 
+  const modalRows = useMemo<HistoryRow[]>(() => {
+    if (showAllList === "recovery") return recoveries.map(item => ({ kind: "recovery", item }));
+    if (showAllList === "recipe") return recipes.map(item => ({ kind: "recipe", item }));
+    return [];
+  }, [showAllList, recoveries, recipes]);
+
   const renderRow = ({ item, index }: { item: HistoryRow; index: number }) => {
     const isRecovery = item.kind === "recovery";
     const title = isRecovery
@@ -386,9 +392,7 @@ export default function History() {
               </Pressable>
             </View>
             <FlatList<HistoryRow>
-              data={showAllList === "recovery"
-                ? recoveries.map(item => ({ kind: "recovery", item } as HistoryRow))
-                : recipes.map(item => ({ kind: "recipe", item } as HistoryRow))}
+              data={modalRows}
               keyExtractor={item => `${item.kind}-${item.item.id}`}
               renderItem={({ item }) => renderRow({ item, index: 0 })}
               ListEmptyComponent={<Text style={s.body}>Bu aralıkta kayıt bulunamadı.</Text>}
