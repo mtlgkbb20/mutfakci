@@ -109,7 +109,7 @@ export default function History() {
     setRecipeError("");
     const range = dateRangeQuery(from, to);
     const [recoveryResult, recipeResult] = await Promise.allSettled([
-      api(`/recovery-history/page?page=0&size=20${range}`) as Promise<PageResponse<RecoveryItem>>,
+      api(`/recovery-history/page?page=0&size=5${range}`) as Promise<PageResponse<RecoveryItem>>,
       api(`/recipe-history?page=0&size=20${range}`) as Promise<PageResponse<RecipeItem>>,
     ]);
     if (recoveryResult.status === "fulfilled") {
@@ -182,13 +182,13 @@ export default function History() {
     const range = dateRangeQuery(appliedFrom, appliedTo);
     try {
       if (target === "recovery") {
-        const next = await api(`/recovery-history/page?page=${recoveryPage + 1}&size=20${range}`) as PageResponse<RecoveryItem>;
+        const next = await api(`/recovery-history/page?page=${recoveryPage + 1}&size=5${range}`) as PageResponse<RecoveryItem>;
         setRecoveries(current => [...current, ...next.content]);
         setRecoveryPage(next.page);
         setRecoveryHasMore(next.hasNext);
         setRecoveryTotal(next.totalElements ?? recoveryTotal);
       } else {
-        const next = await api(`/recipe-history?page=${recipePage + 1}&size=20${range}`) as PageResponse<RecipeItem>;
+        const next = await api(`/recipe-history?page=${recipePage + 1}&size=5${range}`) as PageResponse<RecipeItem>;
         setRecipes(current => [...current, ...next.content]);
         setRecipePage(next.page);
         setRecipeHasMore(next.hasNext);
@@ -203,6 +203,7 @@ export default function History() {
   };
 
   const openRecovery = async (item: RecoveryItem) => {
+    setShowAllList(null);
     setSelectedRecipe(null);
     setSelectedRecovery(item);
     setDetailLoading(true);
@@ -215,6 +216,7 @@ export default function History() {
   };
 
   const openRecipe = async (item: RecipeItem) => {
+    setShowAllList(null);
     setSelectedRecovery(null);
     setSelectedRecipe(item);
     setDetailLoading(true);
