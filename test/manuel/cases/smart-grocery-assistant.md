@@ -91,3 +91,22 @@ Status: all cases are **NOT RUN** until exercised on a running build.
   1. Open list summary.
 - Expected: cost estimate is explicitly unavailable; no fabricated total is shown.
 - Result: NOT RUN
+
+
+## SG-012 — AI-personalized shopping from cooking history
+- Preconditions: user has completed cooking-journal entries, ratings/notes, a configured Runware AI key, and pantry stock.
+- Steps:
+  1. Create a shopping list from the Alışveriş Asistanı screen without selecting a weekly plan.
+  2. Inspect the AI-selected future meals and their explanations.
+  3. Inspect combined ingredient requirements and pantry-covered / to-buy quantities.
+  4. Close and reopen the saved list.
+- Expected: AI recommendations reflect repeated/high-rated cooking history and pantry context; only existing catalog recipes are accepted; ingredient quantities come from catalog servings; expired stock is excluded; recommendations and reasons persist; no weekly-plan data is required.
+- Result: NOT RUN
+
+## SG-013 — AI history and provider failure
+- Preconditions: one account has no journal history; another has journal history but AI credentials are unavailable or provider returns invalid IDs.
+- Steps:
+  1. Request a personalized list for the account with no history.
+  2. Request a personalized list when AI is unavailable or returns an unknown/duplicate catalog ID.
+- Expected: no-history response explains that a cooking-journal entry is required; unavailable/invalid AI output fails clearly and never silently fabricates a list or quantities; no partial list is persisted.
+- Result: NOT RUN
