@@ -99,7 +99,7 @@ export default function History() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
-  const loadHistory = useCallback(async (from: string, to: string) => {
+  const loadHistory = useCallback(async (from: Date | null, to: Date | null) => {
     setLoading(true);
     setRecoveryError("");
     setRecipeError("");
@@ -129,7 +129,7 @@ export default function History() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadHistory("", ""); }, [loadHistory]);
+  useEffect(() => { loadHistory(null, null); }, [loadHistory]);
 
   const applyDateFilter = async () => {
     setFilterError("");
@@ -165,7 +165,7 @@ export default function History() {
     setAppliedFrom(null);
     setAppliedTo(null);
     setFilterError("");
-    await loadHistory("", "");
+    await loadHistory(null, null);
   };
 
   const loadMore = async () => {
