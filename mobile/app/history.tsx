@@ -385,15 +385,12 @@ export default function History() {
                 <Text style={{ color: colors.muted, fontSize: 28 }}>×</Text>
               </Pressable>
             </View>
-            <FlatList
-              data={showAllList === "recovery" ? recoveries : recipes}
-              keyExtractor={item => showAllList + "-" + item.id}
-              renderItem={({ item }) => renderRow({
-                item: showAllList === "recovery"
-                  ? { kind: "recovery", item: item as RecoveryItem }
-                  : { kind: "recipe", item: item as RecipeItem },
-                index: 0,
-              })}
+            <FlatList<HistoryRow>
+              data={showAllList === "recovery"
+                ? recoveries.map(item => ({ kind: "recovery", item } as HistoryRow))
+                : recipes.map(item => ({ kind: "recipe", item } as HistoryRow))}
+              keyExtractor={item => `${item.kind}-${item.item.id}`}
+              renderItem={({ item }) => renderRow({ item, index: 0 })}
               ListEmptyComponent={<Text style={s.body}>Bu aralıkta kayıt bulunamadı.</Text>}
               ListFooterComponent={
                 (showAllList === "recovery" ? recoveryHasMore : recipeHasMore) ? (

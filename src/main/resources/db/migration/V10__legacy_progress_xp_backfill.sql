@@ -1,5 +1,5 @@
 -- Preserve XP accumulated in the legacy user_progress aggregate before the ledger became authoritative.
--- The difference avoids double-counting XP already imported from xp_transaction in V7.
+-- The difference avoids double-counting XP already imported from xp_transaction in V8.
 INSERT INTO xp_ledger_entry(id,user_id,xp_delta,source_type,source_reference,idempotency_key,reason,created_at)
 SELECT gen_random_uuid(),
        p.user_id,
