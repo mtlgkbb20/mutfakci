@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -83,6 +84,9 @@ export default function History() {
   const [recipePage, setRecipePage] = useState(0);
   const [recoveryHasMore, setRecoveryHasMore] = useState(false);
   const [recipeHasMore, setRecipeHasMore] = useState(false);
+  const [recoveryTotal, setRecoveryTotal] = useState(0);
+  const [recipeTotal, setRecipeTotal] = useState(0);
+  const [showAllList, setShowAllList] = useState<"recovery" | "recipe" | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
@@ -112,18 +116,22 @@ export default function History() {
       setRecoveries(recoveryResult.value.content || []);
       setRecoveryPage(recoveryResult.value.page || 0);
       setRecoveryHasMore(!!recoveryResult.value.hasNext);
+      setRecoveryTotal(recoveryResult.value.totalElements ?? recoveryResult.value.content?.length ?? 0);
     } else {
       setRecoveries([]);
       setRecoveryHasMore(false);
+      setRecoveryTotal(0);
       setRecoveryError(recoveryResult.reason?.message || "Kurtarma geçmişi yüklenemedi.");
     }
     if (recipeResult.status === "fulfilled") {
       setRecipes(recipeResult.value.content || []);
       setRecipePage(recipeResult.value.page || 0);
       setRecipeHasMore(!!recipeResult.value.hasNext);
+      setRecipeTotal(recipeResult.value.totalElements ?? recipeResult.value.content?.length ?? 0);
     } else {
       setRecipes([]);
       setRecipeHasMore(false);
+      setRecipeTotal(0);
       setRecipeError(recipeResult.reason?.message || "Tarif geçmişi yüklenemedi.");
     }
     setLoading(false);
@@ -168,35 +176,30 @@ export default function History() {
     await loadHistory(null, null);
   };
 
-  const loadMore = async () => {
-    if (loadingMore || (!recoveryHasMore && !recipeHasMore)) return;
+  const loadMore = async (target: "recovery" | "recipe") => {
+    if (loadingMore || (target === "recovery" ? !recoveryHasMore : !recipeHasMore)) return;
     setLoadingMore(true);
     const range = dateRangeQuery(appliedFrom, appliedTo);
-    const requests: Promise<any>[] = [];
-    if (recoveryHasMore) {
-      requests.push(api(`/recovery-history/page?page=${recoveryPage + 1}&size=20${range}`));
-    } else requests.push(Promise.resolve(null));
-    if (recipeHasMore) {
-      requests.push(api(`/recipe-history?page=${recipePage + 1}&size=20${range}`));
-    } else requests.push(Promise.resolve(null));
-    const [recoveryResult, recipeResult] = await Promise.allSettled(requests);
-    if (recoveryResult.status === "fulfilled" && recoveryResult.value) {
-      const next = recoveryResult.value as PageResponse<RecoveryItem>;
-      setRecoveries(current => [...current, ...next.content]);
-      setRecoveryPage(next.page);
-      setRecoveryHasMore(next.hasNext);
-    } else if (recoveryResult.status === "rejected") {
-      setRecoveryError(recoveryResult.reason?.message || "Kurtarma kayıtları yüklenemedi.");
+    try {
+      if (target === "recovery") {
+        const next = await api(`/recovery-history/page?page=${recoveryPage + 1}&size=20${range}`) as PageResponse<RecoveryItem>;
+        setRecoveries(current => [...current, ...next.content]);
+        setRecoveryPage(next.page);
+        setRecoveryHasMore(next.hasNext);
+        setRecoveryTotal(next.totalElements ?? recoveryTotal);
+      } else {
+        const next = await api(`/recipe-history?page=${recipePage + 1}&size=20${range}`) as PageResponse<RecipeItem>;
+        setRecipes(current => [...current, ...next.content]);
+        setRecipePage(next.page);
+        setRecipeHasMore(next.hasNext);
+        setRecipeTotal(next.totalElements ?? recipeTotal);
+      }
+    } catch (error: any) {
+      if (target === "recovery") setRecoveryError(error.message || "Kurtarma kayıtları yüklenemedi.");
+      else setRecipeError(error.message || "Tarif kayıtları yüklenemedi.");
+    } finally {
+      setLoadingMore(false);
     }
-    if (recipeResult.status === "fulfilled" && recipeResult.value) {
-      const next = recipeResult.value as PageResponse<RecipeItem>;
-      setRecipes(current => [...current, ...next.content]);
-      setRecipePage(next.page);
-      setRecipeHasMore(next.hasNext);
-    } else if (recipeResult.status === "rejected") {
-      setRecipeError(recipeResult.reason?.message || "Tarif kayıtları yüklenemedi.");
-    }
-    setLoadingMore(false);
   };
 
   const openRecovery = async (item: RecoveryItem) => {
@@ -224,9 +227,9 @@ export default function History() {
   };
 
   const sections = useMemo(() => [
-    { key: "recovery", title: `TARİF KURTARMA · ${recoveries.length}`, data: recoveries.map(item => ({ kind: "recovery", item } as HistoryRow)) },
-    { key: "recipes", title: `TARİF GEÇMİŞİ · ${recipes.length}`, data: recipes.map(item => ({ kind: "recipe", item } as HistoryRow)) },
-  ], [recoveries, recipes]);
+    { key: "recovery", title: `TARİF KURTARMA · ${recoveryTotal}`, data: recoveries.slice(0, 5).map(item => ({ kind: "recovery", item } as HistoryRow)) },
+    { key: "recipes", title: `TARİF GEÇMİŞİ · ${recipeTotal}`, data: recipes.slice(0, 5).map(item => ({ kind: "recipe", item } as HistoryRow)) },
+  ], [recoveries, recipes, recoveryTotal, recipeTotal]);
 
   const renderRow = ({ item, index }: { item: HistoryRow; index: number }) => {
     const isRecovery = item.kind === "recovery";
@@ -262,6 +265,16 @@ export default function History() {
             <Text style={s.eyebrow}>{section.title}</Text>
           </View>
         )}
+        renderSectionFooter={({ section }) => {
+          const target = section.key === "recovery" ? "recovery" : "recipe";
+          const total = target === "recovery" ? recoveryTotal : recipeTotal;
+          const hasMore = target === "recovery" ? recoveryHasMore : recipeHasMore;
+          return total > 5 || hasMore ? (
+            <Pressable onPress={() => setShowAllList(target)} style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>Tümünü gör ({total})  ›</Text>
+            </Pressable>
+          ) : null;
+        }}
         ListHeaderComponent={
           <View>
             <Header title="Geçmişim" subtitle="Yemeklerini ve tariflerini tarihe göre bul" />
@@ -304,11 +317,7 @@ export default function History() {
             <Text style={[s.body, { marginTop: 6 }]}>Farklı bir tarih aralığı deneyebilirsin.</Text>
           </View>
         ) : undefined}
-        ListFooterComponent={
-          recoveryHasMore || recipeHasMore ? (
-            <Button onPress={loadMore} loading={loadingMore}>Daha fazla kayıt yükle</Button>
-          ) : <View style={{ height: 24 }} />
-        }
+        ListFooterComponent={<View style={{ height: 24 }} />}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scroll}
@@ -356,6 +365,44 @@ export default function History() {
           onDismiss={() => setDatePickerTarget(null)}
         />
       ) : null}
+
+      <Modal
+        visible={showAllList !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAllList(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.eyebrow}>{showAllList === "recovery" ? "TARİF KURTARMA" : "TARİF GEÇMİŞİ"}</Text>
+                <Text style={s.heading}>Tüm kayıtlar</Text>
+              </View>
+              <Pressable onPress={() => setShowAllList(null)}>
+                <Text style={{ color: colors.muted, fontSize: 28 }}>×</Text>
+              </Pressable>
+            </View>
+            <FlatList
+              data={showAllList === "recovery" ? recoveries : recipes}
+              keyExtractor={item => showAllList + "-" + item.id}
+              renderItem={({ item }) => renderRow({
+                item: showAllList === "recovery"
+                  ? { kind: "recovery", item: item as RecoveryItem }
+                  : { kind: "recipe", item: item as RecipeItem },
+                index: 0,
+              })}
+              ListEmptyComponent={<Text style={s.body}>Bu aralıkta kayıt bulunamadı.</Text>}
+              ListFooterComponent={
+                (showAllList === "recovery" ? recoveryHasMore : recipeHasMore) ? (
+                  <Button onPress={() => loadMore(showAllList!)} loading={loadingMore}>Daha fazla yükle</Button>
+                ) : <View style={{ height: 16 }} />
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={!!selectedRecovery || !!selectedRecipe}
@@ -446,6 +493,8 @@ const styles = {
     padding: 20, paddingBottom: 34 },
 
   appliedFilter: { color: colors.green, fontSize: 12, fontWeight: "700" as const, marginTop: 10 },
+  viewAllButton: { alignSelf: "flex-start" as const, paddingVertical: 10, paddingHorizontal: 4, marginBottom: 10 },
+  viewAllText: { color: colors.orange, fontSize: 14, fontWeight: "800" as const },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(16, 26, 20, 0.48)", justifyContent: "flex-end" as const },
   modalSheet: { maxHeight: "88%" as const, minHeight: 280, backgroundColor: colors.cream,
     borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 34 },
