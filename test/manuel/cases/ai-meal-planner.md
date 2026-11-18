@@ -6,7 +6,7 @@
 
 | ID | Scenario | Steps | Expected result | Status |
 |---|---|---|---|---|
-| MP-001 | Create weekly plan | Choose a Monday, 2 servings, lunch and dinner; create plan | Seven dates and 14 entries are saved | NOT RUN |
+| MP-001 | Create weekly plan | Add sufficient stock for all recipe ingredients; choose a Monday, 2 servings, lunch and dinner; create plan | Seven dates and 14 entries are saved, and every selected recipe is fully covered by active pantry stock | NOT RUN |
 | MP-002 | Reject non-Monday start | Submit a Tuesday as `weekStart` | HTTP 400; no plan is saved | NOT RUN |
 | MP-003 | Invalid servings | Submit 0 or 31 servings | Request validation fails | NOT RUN |
 | MP-004 | Empty meal slots | Submit an empty slot list | HTTP 400; no plan is saved | NOT RUN |
@@ -15,7 +15,7 @@
 | MP-007 | AI unavailable fallback | Remove Runware key and create a plan | Plan is created with deterministic catalog selection and fallback warning | NOT RUN |
 | MP-008 | Invalid AI recipe ID | Simulate model output containing an unknown recipe ID | Entire AI selection is rejected; deterministic fallback is used | NOT RUN |
 | MP-009 | Preparation time | Set maximum time below every catalog recipe time | HTTP 422; no plan is saved | NOT RUN |
-| MP-010 | Dietary restriction vs meal slot | Request a vegan breakfast plan | HTTP 422 when no breakfast-category recipe passes the supported restriction filter | NOT RUN |
+| MP-010 | Pantry coverage requirement | Leave one required ingredient missing or insufficient | Recipe is excluded; no plan is saved if no fully covered recipe can fill the requested slot | NOT RUN |
 | MP-011 | Duplicate weekly plan | Create a second plan for the same user and week | HTTP 409 | NOT RUN |
 | MP-012 | Plan ownership | Read another user's plan ID | HTTP 404 | NOT RUN |
 | MP-013 | Single entry replacement | Replace one meal in a saved plan | Only the selected entry changes; all other entry IDs and recipe IDs remain unchanged | NOT RUN |
@@ -27,7 +27,7 @@
 | MP-019 | Pantry coverage | Add a matching pantry item with partial quantity | Pantry-covered and to-buy quantities are both shown correctly | NOT RUN |
 | MP-020 | No automatic deduction | Generate a shopping list | Pantry quantity and movement history remain unchanged | NOT RUN |
 | MP-021 | Incompatible units | Use same ingredient with incompatible custom units | Lines remain separate; a warning explains skipped automatic subtraction | NOT RUN |
-| MP-022 | Budget transparency | Create a plan with a weekly budget | Response warns that budget cannot be verified because catalog cost data is unavailable | NOT RUN |
+| MP-022 | No budget input | Create a plan from the mobile screen | No budget field is shown or sent to the API | NOT RUN |
 | MP-023 | Nutrition transparency | Inspect plan output | No unverified calorie or macro values are displayed | NOT RUN |
 | MP-024 | Mobile create flow | Open Dashboard → Weekly Plan; fill form and submit | Saved plan is displayed grouped by day and meal slot | NOT RUN |
 | MP-025 | Mobile replace flow | Open a meal's alternatives and choose another recipe | Only that meal updates in the displayed plan | NOT RUN |
@@ -41,7 +41,7 @@
 - Do not mark a case as passed based only on source inspection. Record actual HTTP/UI results.
 
 | MP-027 | Regenerate saved plan | Regenerate an existing plan for the same week | Existing entries are replaced atomically and new entries are returned; no duplicate slots remain | NOT RUN |
-| MP-028 | Unsupported dietary restriction | Submit an unsupported allergy/restriction label | HTTP 400; no plan is saved; UI does not imply safety | NOT RUN |
+| MP-028 | No vegan/vegetarian filters | Inspect the mobile planner and API request | Vegan and vegetarian filters are absent | NOT RUN |
 
 | MP-029 | Pantry-aware recipe ranking | Add enough stock for one recipe's ingredients and create a plan | Recipes fully covered by unexpired pantry stock are prioritized | NOT RUN |
 | MP-030 | Expired pantry stock | Add an expired matching pantry item and generate shopping list | Expired quantity is not counted as pantry coverage | NOT RUN |
@@ -50,3 +50,6 @@
 | MP-032 | Lunch/dinner category validation | Create lunch and dinner plan; attempt to replace with breakfast recipe | Only MAIN/SOUP/SALAD recipes are offered; incompatible replacement returns HTTP 422 | NOT RUN |
 
 | MP-033 | AI repetition control | Stub AI output to select the same recipe for every day while alternatives exist | AI selection is rejected and deterministic balanced selection is used | NOT RUN |
+
+| MP-034 | Partial pantry match | Add only some ingredients or insufficient quantity | Recipe is not eligible for plan generation or meal replacement | NOT RUN |
+| MP-035 | Expired stock exclusion in planning | Add an expired item that would otherwise complete a recipe | Expired stock is ignored and the recipe is not eligible | NOT RUN |
