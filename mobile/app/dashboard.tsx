@@ -2,7 +2,9 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, ApiError, clearSession } from "../src/api";
+import { api, clearSession } from "../src/api";
+import { describeProgress } from "../src/progress";
+import { classifyBootstrapFailure } from "../src/session";
 import { AppShell, Button, Field, Header, s, colors } from "../src/ui";
 
 type Recipe = { id: string; title: string; description: string; servings: number; preparationTime: number; cookingTime: number; ingredients: string; stages: string; };
@@ -16,6 +18,8 @@ export default function Dashboard() {
   const [food, setFood] = useState("");
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<"recipe" | "recovery" | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -26,15 +30,21 @@ export default function Dashboard() {
       if (storedUser && active) { try { setUser(JSON.parse(storedUser)); } catch { await AsyncStorage.removeItem("user"); } }
       const [savedRecipes, currentProgress] = await Promise.all([api("/recipes"), api("/gamification/progress")]);
       if (!active) return;
-      setRecipes(savedRecipes); setProgress(currentProgress);
+      setRecipes(savedRecipes); setProgress(currentProgress); setLoadError(null);
     };
     bootstrap().catch(async (error) => {
       console.error("[KitchenAI Dashboard] bootstrap failed", error);
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) await clearSession();
-      if (active) router.replace("/auth");
+      const failure = classifyBootstrapFailure(error);
+      if (failure.kind === "logout") {
+        await clearSession();
+        if (active) router.replace("/auth");
+        return;
+      }
+      // Transient failure (5xx, timeout, network): keep the session and offer a retry.
+      if (active) setLoadError(failure.message);
     });
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
 
   const showGenericError = (error: unknown) => {
     console.error("[KitchenAI Dashboard] recipe generation failed", error);
@@ -50,13 +60,16 @@ export default function Dashboard() {
       router.push({ pathname: "/recipe", params: { data: JSON.stringify(recipe) } });
     } catch (error) { showGenericError(error); } finally { setLoading(false); }
   };
-  const xp = Number(progress.totalXp || 0);
-  const level = progress.level === "BEGINNER_CHEF" ? "Başlangıç Şefi" : progress.level === "HOME_COOK" ? "Ev Aşçısı" : progress.level === "SKILLED_COOK" ? "Usta Aşçı" : "Mutfak Ustası";
-  const xpProgress = Math.min(100, ((xp % 30) / 30) * 100);
+  const { xp, label: level, percent: xpProgress, caption: xpCaption } = describeProgress(progress);
 
   return <AppShell>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
       <Header title="Kitchen AI" subtitle={user?.displayName ? `Merhaba, ${user.displayName} 👋` : "Bugün mutfakta ne var?"} />
+      {loadError && <View style={s.card} accessibilityRole="alert">
+        <Text style={s.heading}>Bir sorun oluştu</Text>
+        <Text style={[s.body, { marginTop: 5 }]}>{loadError}</Text>
+        <Button secondary onPress={() => { setLoadError(null); setReloadKey(key => key + 1); }}>Tekrar dene</Button>
+      </View>}
       <View style={s.hero}>
         <View>
           <Text style={[s.eyebrow, { color: "#D9B77C" }]}>BUGÜNÜN MUTFAK NOTU</Text>
@@ -107,7 +120,7 @@ export default function Dashboard() {
           <View style={{ width: 52, height: 52, borderRadius: 18, backgroundColor: "#F7F0DF", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 27 }}>🏅</Text></View>
         </View>
         <View style={s.progressTrack}><View style={[s.progressFill, { width: `${xpProgress}%` }]} /></View>
-        <Text style={s.recipeMeta}>{xp < 30 ? `${30 - xp} XP sonra yeni seviye` : "Yeni mutfak hedeflerine devam et"}</Text>
+        <Text style={s.recipeMeta}>{xpCaption}</Text>
       </View>
       <View style={s.sectionRow}>
         <View><Text style={s.heading}>Son tariflerin</Text><Text style={s.recipeMeta}>Yeniden göz at veya pişirmeye devam et</Text></View>

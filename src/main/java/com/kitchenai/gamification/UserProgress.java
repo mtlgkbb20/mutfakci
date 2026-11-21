@@ -17,7 +17,7 @@ public class UserProgress {
   public UserProgress(UUID u) {
     id = UUID.randomUUID();
     userId = u;
-    currentLevel = "BEGINNER_CHEF";
+    currentLevel = LevelProgress.levelName(1);
     updatedAt = Instant.now();
   }
 
@@ -35,10 +35,7 @@ public class UserProgress {
 
   public void add(int xp) {
     totalXp += xp;
-    currentLevel =
-        totalXp >= 100
-            ? "KITCHEN_MASTER"
-            : totalXp >= 60 ? "SKILLED_COOK" : totalXp >= 30 ? "HOME_COOK" : "BEGINNER_CHEF";
+    currentLevel = LevelProgress.levelName(LevelProgress.levelFor(Math.max(0, totalXp)));
     updatedAt = Instant.now();
   }
 }
