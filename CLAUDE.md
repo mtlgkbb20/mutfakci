@@ -89,7 +89,7 @@ npm test
 npm run build
 ```
 
-The current repository has a Vitest test script. Add actual test files for changed behavior; a successful build alone is not a substitute for frontend unit tests.
+The frontend uses Vitest (`frontend/src/*.test.ts`). Add actual test files for changed behavior; a successful build alone is not a substitute for frontend unit tests.
 
 ### Native mobile (Expo / React Native)
 
@@ -97,13 +97,14 @@ The current repository has a Vitest test script. Add actual test files for chang
 - Keep business logic testable outside screen components where practical.
 - Mock network, storage, permissions, and device APIs at the boundary.
 - Verify loading, empty, success, error, and offline/failure states where relevant.
-- The current mobile CI check is TypeScript type-checking; type-checking is not a unit test. If a task changes mobile behavior, add/extend a suitable automated test setup and wire its test command into CI rather than treating `tsc` as test coverage.
+- Mobile unit tests use Vitest (`mobile/src/__tests__`). Keep logic in plain TS modules under `mobile/src` so it can be tested without a React Native renderer; type-checking is not a substitute for tests.
 
 **Current commands:**
 
 ```bash
 cd mobile
 npm ci
+npm test
 npx tsc --noEmit
 ```
 
@@ -151,10 +152,10 @@ It runs for pull requests targeting `main` and pushes to `main`. Current jobs:
 | Job | Current checks |
 |---|---|
 | Backend | Java 21 setup, Maven dependency cache, `mvn --batch-mode test` |
-| Frontend | Node 22, `npm ci`, `npm run build` |
-| Mobile | Node 22, `npm ci`, `npx tsc --noEmit` |
+| Frontend | Node 22, `npm ci`, `npm test` (Vitest), `npm run build` |
+| Mobile | Node 22, `npm ci`, `npm test` (Vitest, pure TS modules under `mobile/src`), `npx tsc --noEmit` |
 
-Important distinction: the current workflow runs backend tests, but the frontend job currently builds without executing the available Vitest test script; the mobile job type-checks but does not run unit tests.
+Important distinction: frontend and mobile unit tests run in CI, but the mobile suite covers pure TypeScript modules only (API client, session handling, progress formatting); screen components are not rendered in tests yet.
 
 **Pipeline maintenance rule:** When adding or enabling a test suite for a module, update `.github/workflows/ci.yml` in the same task so CI executes that suite. Do not silently leave new tests running only on a developer machine. Ensure the workflow fails when an actual test fails. Do not use pass-with-no-tests flags to disguise missing test coverage.
 

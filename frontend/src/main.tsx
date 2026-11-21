@@ -4,18 +4,13 @@ import { BrowserRouter } from "react-router-dom";
 import axios from "axios";
 import { ChefHat, LogIn, Plus, Crown, Sparkles } from "lucide-react";
 import "./styles.css";
+import { apiErrorMessage, prettyJson, withAuthHeader } from "./lib";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080/api/v1",
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+api.interceptors.request.use((config) => withAuthHeader(config, localStorage));
 
 type Membership = { tier: string; billingInterval: string; remaining: number; limit: number; usage: number; period: string; paidAccess: boolean; plans: Array<{ code: string; available: boolean; comingSoon?: boolean }> };
 
@@ -166,11 +161,7 @@ function RecoveryHistory({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const pretty = (value: string | null | undefined) => {
-    if (!value) return "";
-    try { return JSON.stringify(JSON.parse(value), null, 2); }
-    catch { return value; }
-  };
+  const pretty = prettyJson;
 
   return (
     <section className="card recipe">
@@ -282,7 +273,7 @@ function App() {
       setEventTitle(""); setEventTheme(""); setEventDescription("");
       const { data } = await api.get("/events"); setEvents(data);
     } catch (error: any) {
-      window.alert(error?.response?.data?.error || "Etkinlik oluşturulamadı.");
+      window.alert(apiErrorMessage(error, "Etkinlik oluşturulamadı."));
     }
   };
 
@@ -307,7 +298,7 @@ function App() {
       if (action === "finalize") window.alert("Etkinlik sonuçları kesinleştirildi.");
       const { data } = await api.get("/events"); setEvents(data);
     } catch (error: any) {
-      window.alert(error?.response?.data?.error || "Etkinlik işlemi başarısız.");
+      window.alert(apiErrorMessage(error, "Etkinlik işlemi başarısız."));
     }
   };
 
@@ -318,7 +309,7 @@ function App() {
       });
       await loadAdminSubmissions(eventId);
     } catch (error: any) {
-      window.alert(error?.response?.data?.error || "Moderasyon işlemi başarısız.");
+      window.alert(apiErrorMessage(error, "Moderasyon işlemi başarısız."));
     }
   };
 
@@ -338,7 +329,7 @@ function App() {
       await refreshMembership();
     } catch (error) {
       console.error("[KitchenAI Web] recipe generation failed", error);
-      window.alert((error as any)?.response?.data?.error || GENERIC_ERROR);
+      window.alert(apiErrorMessage(error, GENERIC_ERROR));
     } finally {
       setBusy(false);
     }
