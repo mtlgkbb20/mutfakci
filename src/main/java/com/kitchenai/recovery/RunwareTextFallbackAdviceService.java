@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 @Profile("runware")
 public class RunwareTextFallbackAdviceService implements TextFallbackAdviceService {
   private static final Logger log=LoggerFactory.getLogger(RunwareTextFallbackAdviceService.class);
-  private static final String URL="https://api.runware.ai/v1";
+  static final String DEFAULT_BASE_URL = "https://api.runware.ai/v1";
+  private final String endpoint;
   private final ObjectMapper json;
   private final HttpClient http;
   private final String apiKey;
@@ -27,6 +28,7 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
   public RunwareTextFallbackAdviceService(ObjectMapper json,Environment env,AiOutputNormalizer outputNormalizer){
     this.json=json;
     this.http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    this.endpoint = env.getProperty("app.ai.runware.base-url", DEFAULT_BASE_URL);
     this.apiKey=env.getProperty("app.ai.runware.api-key","");
     this.model=env.getProperty("app.ai.runware.text-fallback-model","google:gemini@3.1-flash-lite");
     this.outputNormalizer=outputNormalizer;
@@ -54,7 +56,7 @@ public class RunwareTextFallbackAdviceService implements TextFallbackAdviceServi
       task.put("model",model);
       task.putArray("messages").addObject().put("role","user").put("content",prompt);
       task.putObject("settings").put("maxTokens",350).put("temperature",0.2);
-      HttpRequest request=HttpRequest.newBuilder(URI.create(URL)).timeout(Duration.ofSeconds(45))
+      HttpRequest request=HttpRequest.newBuilder(URI.create(endpoint)).timeout(Duration.ofSeconds(45))
           .header("Authorization","Bearer "+apiKey).header("Content-Type","application/json")
           .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(json.createArrayNode().add(task))))
           .build();

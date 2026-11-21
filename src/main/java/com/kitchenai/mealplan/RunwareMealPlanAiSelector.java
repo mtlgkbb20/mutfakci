@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
   private static final Logger log = LoggerFactory.getLogger(RunwareMealPlanAiSelector.class);
-  private static final String API_URL = "https://api.runware.ai/v1/chat/completions";
+  static final String DEFAULT_BASE_URL = "https://api.runware.ai/v1";
+  private final String endpoint;
   private final ObjectMapper mapper;
   private final HttpClient http;
   private final String apiKey;
@@ -26,6 +27,7 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
   public RunwareMealPlanAiSelector(ObjectMapper mapper, Environment environment) {
     this.mapper = mapper;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    this.endpoint = environment.getProperty("app.ai.runware.base-url", DEFAULT_BASE_URL) + "/chat/completions";
     this.apiKey = environment.getProperty("app.ai.runware.api-key", "");
     this.model = environment.getProperty("app.ai.runware.model", "deepseek:v4.1@flash");
   }
@@ -72,7 +74,7 @@ public class RunwareMealPlanAiSelector implements MealPlanAiSelector {
           Map.of("role", "user", "content", prompt)));
       body.put("response_format", Map.of("type", "json_object"));
 
-      HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(API_URL))
+      HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(endpoint))
           .timeout(Duration.ofSeconds(45))
           .header("Authorization", "Bearer " + apiKey)
           .header("Content-Type", "application/json")

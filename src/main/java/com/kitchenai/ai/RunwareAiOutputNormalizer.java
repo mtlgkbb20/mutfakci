@@ -22,7 +22,8 @@ import org.springframework.stereotype.Service;
 @Profile("runware")
 public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
   private static final Logger log = LoggerFactory.getLogger(RunwareAiOutputNormalizer.class);
-  private static final String URL = "https://api.runware.ai/v1";
+  static final String DEFAULT_BASE_URL = "https://api.runware.ai/v1";
+  private final String endpoint;
   private static final int MAX_RAW_CHARS = 20_000;
 
   private final ObjectMapper json;
@@ -33,6 +34,7 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
   public RunwareAiOutputNormalizer(ObjectMapper json, Environment env) {
     this.json = json;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    this.endpoint = env.getProperty("app.ai.runware.base-url", DEFAULT_BASE_URL);
     this.apiKey = env.getProperty("app.ai.runware.api-key", "");
     this.model = env.getProperty("app.ai.runware.normalizer-model", "google:gemini@3.1-flash-lite");
   }
@@ -87,7 +89,7 @@ public class RunwareAiOutputNormalizer implements AiOutputNormalizer {
       task.putArray("messages").addObject().put("role", "user").put("content", prompt);
       task.putObject("settings").put("maxTokens", 4096).put("temperature", 0.0).put("thinkingLevel", "low");
 
-      HttpRequest request = HttpRequest.newBuilder(URI.create(URL))
+      HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
           .timeout(Duration.ofSeconds(45))
           .header("Authorization", "Bearer " + apiKey)
           .header("Content-Type", "application/json")
