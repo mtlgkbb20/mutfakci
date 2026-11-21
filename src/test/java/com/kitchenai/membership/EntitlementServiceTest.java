@@ -178,4 +178,44 @@ class EntitlementServiceTest {
     assertEquals(3, granted.get());
     assertEquals(3, jdbc.queryForObject("SELECT used_count FROM recipe_quota_usage WHERE user_id=?", Integer.class, userId));
   }
+
+  @Test
+  void freeSummaryShowsLifetimeQuotaPlusPromotionalCredits() {
+    jdbc.execute("ALTER TABLE user_membership ADD COLUMN provider VARCHAR(20)");
+    UUID userId = member("FREE", "ACTIVE", null);
+    service.reserve(userId);
+    reward(userId, "AVAILABLE", Instant.now().plus(Duration.ofDays(1)));
+
+    Map<String, Object> summary = service.summary(userId);
+
+    assertEquals("FREE", summary.get("tier"));
+    assertEquals(false, summary.get("paidAccess"));
+    assertEquals(1, summary.get("usage"));
+    assertEquals(3, summary.get("limit"));
+    assertEquals(1, summary.get("promotionalCredits"));
+    assertEquals(3, summary.get("remaining"));
+    assertEquals("LIFETIME", summary.get("period"));
+    assertNull(summary.get("resetAt"));
+  }
+
+  @Test
+  void activeCookerSummaryIsDailyWithAResetTime() {
+    jdbc.execute("ALTER TABLE user_membership ADD COLUMN provider VARCHAR(20)");
+    UUID userId = member("COOKER", "ACTIVE", Instant.now().plus(Duration.ofDays(3)));
+    Map<String, Object> summary = service.summary(userId);
+    assertEquals(true, summary.get("paidAccess"));
+    assertEquals(10, summary.get("limit"));
+    assertEquals("DAILY", summary.get("period"));
+    assertTrue(((Instant) summary.get("resetAt")).isAfter(Instant.now()));
+  }
+
+  @Test
+  void lapsedCookerSummaryDowngradesTheMembership() {
+    jdbc.execute("ALTER TABLE user_membership ADD COLUMN provider VARCHAR(20)");
+    UUID userId = member("COOKER", "ACTIVE", Instant.now().minus(Duration.ofDays(1)));
+    Map<String, Object> summary = service.summary(userId);
+    assertEquals("FREE", summary.get("tier"));
+    assertEquals("EXPIRED", summary.get("subscriptionStatus"));
+    assertEquals(3, summary.get("limit"));
+  }
 }
