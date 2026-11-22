@@ -1,8 +1,8 @@
 package com.kitchenai.pantry;
 
+import com.kitchenai.common.IngredientNames;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -45,9 +45,9 @@ public class PantryInventoryService {
       if (line.quantity() == null || line.quantity().signum() <= 0) {
         throw new IllegalArgumentException("Purchased quantities must be positive.");
       }
-      String normalized = normalize(line.name());
+      String normalized = IngredientNames.normalize(line.name());
       String unit = normalizeUnit(line.unit());
-      PantryItem existing = items.findFirstByUserIdAndArchivedFalseAndNormalizedName(userId, normalized)
+      PantryItem existing = items.findFirstByUserIdAndArchivedFalseAndNormalizedNameOrderByCreatedAtAsc(userId, normalized)
           .filter(item -> compatible(item.getUnit(), unit)).orElse(null);
       if (existing == null) {
         PantryItem created = items.save(new PantryItem(userId, line.name().trim(), normalized,
@@ -65,11 +65,6 @@ public class PantryInventoryService {
     return true;
   }
 
-  private static String normalize(String value) {
-    String lowered = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('ı', 'i');
-    return Normalizer.normalize(lowered, Normalizer.Form.NFD)
-        .replaceAll("\\p{M}", "").replaceAll("[^a-z0-9 ]", "").replaceAll("\\s+", " ");
-  }
   private static String category(String value) {
     return value == null || value.isBlank() ? "OTHER" : value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "_");
   }

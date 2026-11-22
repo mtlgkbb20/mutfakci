@@ -74,8 +74,9 @@ public class CookingEventController {
   }
 
   private void requireAdmin(UUID user) {
-    Boolean admin=jdbc.queryForObject("SELECT is_admin FROM app_user WHERE id=?",Boolean.class,user);
-    if(!Boolean.TRUE.equals(admin)) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
+    // Fail closed: an anonymous principal or a token for a deleted user is not an admin.
+    List<Boolean> admin=user==null ? List.of() : jdbc.queryForList("SELECT is_admin FROM app_user WHERE id=?",Boolean.class,user);
+    if(admin.isEmpty() || !Boolean.TRUE.equals(admin.get(0))) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN);
   }
   private boolean validImage(byte[] b,String type) {
     if(b.length<12) return false;

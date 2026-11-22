@@ -89,7 +89,7 @@ npm test
 npm run build
 ```
 
-The frontend uses Vitest (`frontend/src/*.test.ts`). Add actual test files for changed behavior; a successful build alone is not a substitute for frontend unit tests.
+The frontend uses Vitest with React Testing Library (`frontend/src/**/*.test.ts(x)`, setup in `frontend/src/test/setup.ts`). Add actual test files for changed behavior; a successful build alone is not a substitute for frontend unit tests.
 
 ### Native mobile (Expo / React Native)
 
@@ -147,15 +147,16 @@ Do not pre-mark unexecuted manual cases as passing. Include happy paths, validat
 
 Workflow: `.github/workflows/ci.yml`
 
-It runs for pull requests targeting `main` and pushes to `main`. Current jobs:
+It runs for pull requests targeting, and pushes to, `main`, `feature/**` and `fix/**` (stacked PRs use feature/fix branches as their base). Current jobs:
 
 | Job | Current checks |
 |---|---|
-| Backend | Java 21 setup, Maven dependency cache, `mvn --batch-mode test` |
-| Frontend | Node 22, `npm ci`, `npm test` (Vitest), `npm run build` |
+| Backend | Java 21 setup, Maven dependency cache, `mvn --batch-mode test` (H2; `*PostgresTest` classes are skipped here) |
+| Postgres migrations | PostgreSQL 16 service, all Flyway migrations, `mvn -Dtest='*PostgresTest' test` with `RUN_POSTGRES_INTEGRATION=true` |
+| Frontend | Node 22, `npm ci`, `npm test` (Vitest + React Testing Library, jsdom), `npm run build` |
 | Mobile | Node 22, `npm ci`, `npm test` (Vitest, pure TS modules under `mobile/src`), `npx tsc --noEmit` |
 
-Important distinction: frontend and mobile unit tests run in CI, but the mobile suite covers pure TypeScript modules only (API client, session handling, progress formatting); screen components are not rendered in tests yet.
+Important distinction: frontend component tests render `App`, `Auth` and `RecoveryHistory` in jsdom with the API mocked. The mobile suite covers pure TypeScript modules only (API client, session handling, progress formatting); mobile screen components are not rendered in tests yet. Name PostgreSQL-only tests `*PostgresTest` and gate them on `RUN_POSTGRES_INTEGRATION` so the Postgres job picks them up.
 
 **Pipeline maintenance rule:** When adding or enabling a test suite for a module, update `.github/workflows/ci.yml` in the same task so CI executes that suite. Do not silently leave new tests running only on a developer machine. Ensure the workflow fails when an actual test fails. Do not use pass-with-no-tests flags to disguise missing test coverage.
 

@@ -21,7 +21,8 @@ import org.springframework.stereotype.Service;
 @Profile("runware")
 public class RunwareRecoveryVisionService implements RecoveryVisionService {
   private static final Logger log = LoggerFactory.getLogger(RunwareRecoveryVisionService.class);
-  private static final String URL = "https://api.runware.ai/v1";
+  static final String DEFAULT_BASE_URL = "https://api.runware.ai/v1";
+  private final String endpoint;
   private final ObjectMapper json;
   private final HttpClient http;
   private final String apiKey;
@@ -31,6 +32,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
   public RunwareRecoveryVisionService(ObjectMapper json, Environment env, AiOutputNormalizer outputNormalizer) {
     this.json = json;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    this.endpoint = env.getProperty("app.ai.runware.base-url", DEFAULT_BASE_URL);
     this.apiKey = env.getProperty("app.ai.runware.api-key", "");
     this.model = env.getProperty("app.ai.runware.vision-model", "google:gemini@3.1-pro");
     this.outputNormalizer = outputNormalizer;
@@ -70,7 +72,7 @@ public class RunwareRecoveryVisionService implements RecoveryVisionService {
       task.putObject("settings").put("maxTokens", 4096).put("temperature", 0.1).put("thinkingLevel", "low");
       task.put("includeUsage", true);
       var body = json.createArrayNode().add(task);
-      HttpRequest request = HttpRequest.newBuilder(URI.create(URL)).timeout(Duration.ofSeconds(60))
+      HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint)).timeout(Duration.ofSeconds(60))
           .header("Authorization", "Bearer " + apiKey).header("Content-Type", "application/json")
           .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build();
       HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());

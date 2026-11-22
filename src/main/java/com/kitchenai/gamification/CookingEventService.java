@@ -17,11 +17,11 @@ public class CookingEventService {
 
   @Transactional
   public UUID create(UUID admin, Map<String,Object> body) {
-    Instant startsAt=Instant.parse(required(body,"startsAt"));
-    Instant submissionOpensAt=Instant.parse(required(body,"submissionOpensAt"));
-    Instant submissionClosesAt=Instant.parse(required(body,"submissionClosesAt"));
-    Instant votingOpensAt=Instant.parse(required(body,"votingOpensAt"));
-    Instant votingClosesAt=Instant.parse(required(body,"votingClosesAt"));
+    Instant startsAt=timestamp(body,"startsAt");
+    Instant submissionOpensAt=timestamp(body,"submissionOpensAt");
+    Instant submissionClosesAt=timestamp(body,"submissionClosesAt");
+    Instant votingOpensAt=timestamp(body,"votingOpensAt");
+    Instant votingClosesAt=timestamp(body,"votingClosesAt");
     if(startsAt.isAfter(submissionOpensAt) || submissionOpensAt.isAfter(submissionClosesAt)
         || submissionClosesAt.isAfter(votingOpensAt) || votingOpensAt.isAfter(votingClosesAt))
       throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Event timeline must be start ≤ submission open ≤ submission close ≤ voting open ≤ voting close");
@@ -109,8 +109,10 @@ public class CookingEventService {
     if(!"VOTING".equals(event.get("status")) || now.isBefore(instant(event.get("voting_opens_at"))) || !now.isBefore(instant(event.get("voting_closes_at"))))
       throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Voting is closed");
     Boolean eligible=jdbc.queryForObject("SELECT COUNT(*)>0 FROM event_voter_snapshot WHERE event_id=? AND user_id=?",Boolean.class,eventId,voter);
-    UUID owner=jdbc.queryForObject("SELECT user_id FROM event_submission WHERE id=? AND event_id=? AND status='APPROVED'",UUID.class,submission,eventId);
     if(!Boolean.TRUE.equals(eligible)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,"You are not an event voter");
+    List<UUID> owners=jdbc.queryForList("SELECT user_id FROM event_submission WHERE id=? AND event_id=? AND status='APPROVED'",UUID.class,submission,eventId);
+    if(owners.isEmpty()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Submission not found");
+    UUID owner=owners.get(0);
     if(owner.equals(voter)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Self-voting is not allowed");
     jdbc.update("INSERT INTO event_vote(id,event_id,submission_id,voter_user_id,score) VALUES (?,?,?,?,?) ON CONFLICT(submission_id,voter_user_id) DO UPDATE SET score=EXCLUDED.score,updated_at=now()",
       UUID.randomUUID(),eventId,submission,voter,score);
@@ -147,7 +149,9 @@ public class CookingEventService {
   public void moderate(UUID eventId, UUID submissionId, String status, String reason) {
     if (!List.of("APPROVED","REJECTED","HIDDEN").contains(status) || reason == null || reason.isBlank())
       throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"A valid moderation status and reason are required");
-    UUID userId=jdbc.queryForObject("SELECT user_id FROM event_submission WHERE id=? AND event_id=?",UUID.class,submissionId,eventId);
+    List<UUID> owners=jdbc.queryForList("SELECT user_id FROM event_submission WHERE id=? AND event_id=?",UUID.class,submissionId,eventId);
+    if(owners.isEmpty()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,"Submission not found");
+    UUID userId=owners.get(0);
     int changed=jdbc.update("UPDATE event_submission SET status=?,moderated_at=now(),moderation_reason=? WHERE id=? AND event_id=? AND status='PENDING'",
         status,reason,submissionId,eventId);
     if(changed==1 && "APPROVED".equals(status)) {
@@ -199,8 +203,22 @@ public class CookingEventService {
     return rows.get(0);
   }
   private static String required(Map<String,Object> b,String key) {
-    Object value=b.get(key); if(value==null || value.toString().isBlank()) throw new IllegalArgumentException(key+" is required"); return value.toString();
+    Object value=b.get(key);
+    if(value==null || value.toString().isBlank())
+      throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,key+" is required");
+    return value.toString();
   }
-  private static int number(Object value) { return Integer.parseInt(value.toString()); }
+  private static Instant timestamp(Map<String,Object> b,String key) {
+    try { return Instant.parse(required(b,key)); }
+    catch (java.time.format.DateTimeParseException e) {
+      throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,key+" must be an ISO-8601 instant");
+    }
+  }
+  private static int number(Object value) {
+    try { return Integer.parseInt(value.toString()); }
+    catch (NumberFormatException e) {
+      throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"maxImages must be a number");
+    }
+  }
   private record BigDecimalValue(java.math.BigDecimal value) {}
 }

@@ -15,7 +15,13 @@ public class PayTrCallbackController {
 
   @PostMapping("/callback")
   public ResponseEntity<String> callback(@RequestParam Map<String, String> payload) {
-    provider.verifyCallback(payload);
+    try {
+      provider.verifyCallback(payload);
+    } catch (IllegalArgumentException invalidCallback) {
+      // Forged, tampered or incomplete callbacks are client errors, not server failures.
+      // Misconfiguration (IllegalStateException) still surfaces as a 500.
+      return ResponseEntity.badRequest().body("INVALID");
+    }
     // No membership activation is performed here until a recurring product contract,
     // persisted checkout/order mapping, and amount reconciliation are configured.
     return ResponseEntity.ok("OK");

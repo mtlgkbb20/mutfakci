@@ -69,7 +69,12 @@ public class AuthController {
   @GetMapping("/me")
   public Map<String, Object> me(
       @org.springframework.security.core.annotation.AuthenticationPrincipal UUID id) {
-    return userResponse(users.findById(id).orElseThrow());
+    // A valid token for a deleted account must end the client session (401), not look like a crash.
+    User u = users.findById(id).orElseThrow(() -> {
+      log.warn("Session lookup rejected unknown userId={}", id);
+      return new ApiException(HttpStatus.UNAUTHORIZED, "Session is no longer valid");
+    });
+    return userResponse(u);
   }
 
   private Map<String, Object> response(User u) {

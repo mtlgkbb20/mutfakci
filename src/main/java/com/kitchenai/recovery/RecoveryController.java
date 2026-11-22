@@ -303,6 +303,11 @@ public class RecoveryController {
     if(analysis.imageTrustScore()==null||analysis.analysisConfidence()==null
         ||analysis.targetProximityScore()==null||analysis.action()==null
         ||analysis.action().type()==null)return false;
+    // Out-of-range model scores are untrusted output, not a server error.
+    if(analysis.targetProximityScore()<0||analysis.targetProximityScore()>100
+        ||analysis.imageTrustScore()<0||analysis.imageTrustScore()>100
+        ||analysis.analysisConfidence().signum()<0
+        ||analysis.analysisConfidence().compareTo(java.math.BigDecimal.ONE)>0)return false;
     if(analysis.problemCategory()==null||analysis.problemSummary()==null
         ||analysis.observedState()==null||analysis.targetState()==null
         ||analysis.gapSummary()==null||analysis.reason()==null)return false;

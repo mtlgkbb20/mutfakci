@@ -30,7 +30,8 @@ import org.springframework.stereotype.Service;
 @Profile("runware")
 public class RunwareRecipeGenerationService
     implements RecipeGenerationService, RecipeReviewService {
-  private static final String API_URL = "https://api.runware.ai/v1/chat/completions";
+  static final String DEFAULT_BASE_URL = "https://api.runware.ai/v1";
+  private final String endpoint;
   private static final Logger log = LoggerFactory.getLogger(RunwareRecipeGenerationService.class);
   private final ObjectMapper mapper;
   private final HttpClient http;
@@ -43,6 +44,7 @@ public class RunwareRecipeGenerationService
       AiOutputNormalizer outputNormalizer) {
     this.mapper = mapper;
     this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    this.endpoint = environment.getProperty("app.ai.runware.base-url", DEFAULT_BASE_URL) + "/chat/completions";
     this.apiKey = environment.getProperty("app.ai.runware.api-key", "");
     this.model = environment.getProperty("app.ai.runware.model", "openai:gpt@5.4-mini");
     this.outputNormalizer = outputNormalizer;
@@ -355,7 +357,7 @@ public class RunwareRecipeGenerationService
       responseFormat.put("type", "json_object");
 
       HttpRequest httpRequest =
-          HttpRequest.newBuilder(URI.create(API_URL))
+          HttpRequest.newBuilder(URI.create(endpoint))
               .timeout(Duration.ofSeconds(45))
               .header("Authorization", "Bearer " + apiKey)
               .header("Content-Type", "application/json")

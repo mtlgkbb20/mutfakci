@@ -34,6 +34,13 @@ class PantryControllerTest {
     verify(items).save(argThat(item->item.getName().equals("Iğdır")&&item.getNormalizedName().equals("igdir")&&item.getCategory().isEmpty()&&item.getUnit().equals("adet")));
   }
 
+  @Test void createUsesTheSameKeyAsZeroWasteRemaindersForPunctuatedNames(){
+    controller.create(new PantryController.ItemRequest("Domates-Salçası",BigDecimal.ONE,"adet",null,null),userId);
+    String zeroWasteKey=com.kitchenai.zerowaste.ZeroWasteQuantityRules.normalize("domates salçası");
+    assertEquals("domates salcasi",zeroWasteKey);
+    verify(items).save(argThat(item->item.getNormalizedName().equals(zeroWasteKey)));
+  }
+
   @Test void createAddsInitialMovementAndReturnsOwnedItem(){
     var result=controller.create(new PantryController.ItemRequest("Yumurta",new BigDecimal("6"),"adet","DAIRY", LocalDate.now().plusDays(10)),userId);
     assertEquals("Yumurta",result.name());
