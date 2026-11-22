@@ -1,10 +1,11 @@
 name: Build and test
 
 on:
+  # Stacked PRs target feature/fix branches, so those bases must trigger CI too.
   pull_request:
-    branches: [main, 'feature/**']
+    branches: [main, 'feature/**', 'fix/**']
   push:
-    branches: [main, 'feature/**']
+    branches: [main, 'feature/**', 'fix/**']
 
 jobs:
   backend:
@@ -80,13 +81,15 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Run Flyway and PostgreSQL recipe discovery integration test
+      - name: Run Flyway migrations and PostgreSQL integration tests
         env:
           RUN_POSTGRES_INTEGRATION: "true"
           DATABASE_URL: jdbc:postgresql://localhost:5432/kitchenai
           DATABASE_USERNAME: kitchenai
           DATABASE_PASSWORD: kitchenai
-        run: mvn --batch-mode -Dtest=PantryRecipeMatchPostgresTest test
+        # Every *PostgresTest: recipe discovery query and the V21 pantry-key data migration.
+        # failIfNoSpecifiedTests keeps the job red if the pattern ever matches nothing.
+        run: mvn --batch-mode -Dtest='*PostgresTest' -Dsurefire.failIfNoSpecifiedTests=true test
 
   ui-screenshots:
     if: github.event_name == 'push' && github.ref == 'refs/heads/feature/mobile-ui-refresh'
