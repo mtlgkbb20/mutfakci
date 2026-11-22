@@ -37,9 +37,7 @@ public class GamificationService {
         Integer.class, userId, week.start().atStartOfDay(ZONE).toInstant(), week.end().atStartOfDay(ZONE).toInstant());
     int total = Math.max(0, lifetime == null ? 0 : lifetime);
     int weekXp = Math.max(0, weekly == null ? 0 : weekly);
-    int level = levelFor(total);
-    int currentFloor = xpForLevel(level);
-    int nextFloor = xpForLevel(level + 1);
+    LevelProgress progress = LevelProgress.of(total);
     Integer rank = jdbc.queryForObject(
         "WITH weekly AS (SELECT user_id,SUM(xp_delta)::int AS xp FROM xp_ledger_entry WHERE created_at >= ? AND created_at < ? GROUP BY user_id), me AS (SELECT id,created_at FROM app_user WHERE id=?) SELECT COUNT(*)::int + 1 FROM weekly w JOIN app_user u ON u.id=w.user_id CROSS JOIN me WHERE w.xp > ? OR (w.xp = ? AND (u.created_at < me.created_at OR (u.created_at = me.created_at AND u.id < me.id)))",
         Integer.class, week.start().atStartOfDay(ZONE).toInstant(), week.end().atStartOfDay(ZONE).toInstant(), userId, weekXp, weekXp);
@@ -53,15 +51,9 @@ public class GamificationService {
     result.put("lifetimeXp", total);
     result.put("weeklyXp", weekXp);
     result.put("rank", rank);
-    result.put("level", level);
-    result.put("currentLevelMinXp", currentFloor);
-    result.put("nextLevelMinXp", nextFloor);
-    result.put("xpIntoLevel", total - currentFloor);
-    result.put("xpToNextLevel", Math.max(0, nextFloor - total));
-    result.put("progressRatio", nextFloor <= currentFloor ? 1.0
-        : Math.min(1.0, Math.max(0.0, (double) (total - currentFloor) / (nextFloor - currentFloor))));
-    result.put("levelProgressXp", total - currentFloor);
-    result.put("nextLevelXp", nextFloor - currentFloor);
+    result.put("level", progress.level());
+    result.put("tier", progress.tier());
+    result.putAll(progress.toFields());
     result.put("weekStart", week.start());
     result.put("weekEnd", week.end());
     result.put("recentBadges", recent);
@@ -161,11 +153,6 @@ public class GamificationService {
     return Map.of("weekStart",weekStart,"status","SETTLED","entries",entries.size());
   }
 
-  public static int levelFor(int xp) {
-    int level=1;
-    while (xp >= xpForLevel(level+1) && level < 100) level++;
-    return level;
-  }
-  private static int xpForLevel(int level) { return (level-1)*level*25; }
-  private static String levelName(int level) { return "LEVEL_"+level; }
+  public static int levelFor(int xp) { return LevelProgress.levelFor(xp); }
+  private static String levelName(int level) { return LevelProgress.levelName(level); }
 }

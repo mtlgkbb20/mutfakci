@@ -2,7 +2,9 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api, ApiError, clearSession } from "../src/api";
+import { api, clearSession } from "../src/api";
+import { levelLabel } from "../src/progress";
+import { classifyBootstrapFailure } from "../src/session";
 import { AppShell, Button, Header, s } from "../src/ui";
 export default function Profile() {
   const router = useRouter();
@@ -13,6 +15,8 @@ export default function Profile() {
     totalXp: 0,
     level: "BEGINNER_CHEF",
   });
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let active = true;
 
@@ -36,6 +40,7 @@ export default function Profile() {
         }
       }
       setProgress(currentProgress);
+      setLoadError(null);
       const [membershipResult, badgesResult] = await Promise.allSettled([
         api("/membership"),
         api("/gamification/badges/me"),
@@ -45,24 +50,22 @@ export default function Profile() {
     };
 
     loadProfile().catch(async (error) => {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      console.error("[KitchenAI Profile] load failed", error);
+      const failure = classifyBootstrapFailure(error);
+      if (failure.kind === "logout") {
         await clearSession();
+        if (active) router.replace("/auth");
+        return;
       }
-      if (active) router.replace("/auth");
+      // Transient failure: keep the session and let the user retry.
+      if (active) setLoadError(failure.message);
     });
 
     return () => {
       active = false;
     };
-  }, []);
-  const level =
-    progress.level === "BEGINNER_CHEF"
-      ? "Başlangıç Şefi"
-      : progress.level === "HOME_COOK"
-        ? "Ev Aşçısı"
-        : progress.level === "SKILLED_COOK"
-          ? "Usta Aşçı"
-          : "Mutfak Ustası";
+  }, [reloadKey]);
+  const level = levelLabel(progress.level);
   const logout = async () => {
     await clearSession();
     router.replace("/auth");
@@ -74,6 +77,15 @@ export default function Profile() {
         contentContainerStyle={s.scroll}
       >
         <Header title="Profil" subtitle="Mutfak yolculuğun" />
+        {loadError && (
+          <View style={s.card} accessibilityRole="alert">
+            <Text style={s.heading}>Bir sorun oluştu</Text>
+            <Text style={[s.body, { marginTop: 5 }]}>{loadError}</Text>
+            <Button secondary onPress={() => { setLoadError(null); setReloadKey((key) => key + 1); }}>
+              Tekrar dene
+            </Button>
+          </View>
+        )}
         <View style={[s.card, { alignItems: "center", paddingVertical: 30 }]}>
           <View
             style={[

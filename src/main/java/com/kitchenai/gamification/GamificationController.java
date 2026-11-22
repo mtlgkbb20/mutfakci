@@ -26,8 +26,12 @@ public class GamificationController {
   public Map<String,Object> progress(@AuthenticationPrincipal UUID user) {
     Map<String,Object> data = new LinkedHashMap<>(service.me(user));
     int xp = ((Number)data.getOrDefault("lifetimeXp",0)).intValue();
-    data.put("totalXp", xp);
-    data.put("level", xp >= 100 ? "KITCHEN_MASTER" : xp >= 60 ? "SKILLED_COOK" : xp >= 30 ? "HOME_COOK" : "BEGINNER_CHEF");
+    // Level, tier and progress fields all come from LevelProgress so they never disagree.
+    LevelProgress progress = LevelProgress.of(xp);
+    data.put("totalXp", progress.totalXp());
+    data.put("levelNumber", progress.level());
+    data.put("level", progress.tier());
+    data.putAll(progress.toFields());
     return data;
   }
 
