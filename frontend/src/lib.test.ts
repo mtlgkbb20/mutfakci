@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { apiErrorMessage, prettyJson, withAuthHeader } from "./lib";
+import { apiErrorMessage, membershipTierLabel, prettyJson, quotaUsagePercent, withAuthHeader } from "./lib";
 
 describe("prettyJson", () => {
   it("formats valid JSON with two-space indentation", () => {
@@ -39,5 +39,29 @@ describe("withAuthHeader", () => {
   it("does not add an Authorization header without a token", () => {
     const config = withAuthHeader({ headers: {} as Record<string, unknown> }, storage(null));
     expect(config.headers).not.toHaveProperty("Authorization");
+  });
+});
+
+describe("membershipTierLabel", () => {
+  it.each([
+    ["FREE", "Free üyelik"],
+    ["COOKER", "Cooker üyeliği"],
+    ["CHEF", "Chef"],
+  ])("labels %s as %s", (tier, label) => {
+    expect(membershipTierLabel(tier)).toBe(label);
+  });
+});
+
+describe("quotaUsagePercent", () => {
+  it.each([
+    [0, 3, 0],
+    [1, 4, 25],
+    [3, 3, 100],
+    [5, 3, 100],
+    [2, 0, 100],
+    [-1, 3, 0],
+    [Number.NaN, 3, 0],
+  ])("usage %d of %d is %d%%", (usage, limit, expected) => {
+    expect(quotaUsagePercent(usage, limit)).toBe(expected);
   });
 });

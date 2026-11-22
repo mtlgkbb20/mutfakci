@@ -5,6 +5,7 @@ target/
 # Node / Expo
 node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
 mobile/.expo/
 mobile/.env
 mobile/.env.*

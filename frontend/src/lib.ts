@@ -24,3 +24,18 @@ export function withAuthHeader<T extends { headers: HeaderBag }>(config: T, stor
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 }
+
+export const GENERIC_ERROR = "Beklenmedik bir hata oluştu. Lütfen support ile iletişime geçin.";
+
+/** Display name for a membership tier; unknown tiers fall back to the top tier label. */
+export function membershipTierLabel(tier: string): string {
+  if (tier === "FREE") return "Free üyelik";
+  if (tier === "COOKER") return "Cooker üyeliği";
+  return "Chef";
+}
+
+/** Width of the quota bar in percent, clamped to 0–100 and safe for a zero/negative limit. */
+export function quotaUsagePercent(usage: number, limit: number): number {
+  if (!Number.isFinite(usage) || usage <= 0) return 0;
+  return Math.min(100, (usage / Math.max(1, limit)) * 100);
+}
