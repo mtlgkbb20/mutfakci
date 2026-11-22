@@ -11,12 +11,20 @@ interface PantryItemRepository extends JpaRepository<PantryItem, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select p from PantryItem p where p.id=:id and p.userId=:userId and p.archived=false")
   Optional<PantryItem> lockOwned(@Param("id") UUID id,@Param("userId") UUID userId);
+  /**
+   * Locks every active item with this normalized name. Several can exist (manual creation does not
+   * merge, and V21 re-normalized legacy names), so callers must not assume a single row.
+   */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("select p from PantryItem p where p.userId=:userId and p.normalizedName=:normalizedName and p.archived=false")
-  Optional<PantryItem> lockFirstByUserAndNormalizedName(@Param("userId") UUID userId,@Param("normalizedName") String normalizedName);
+  @Query("select p from PantryItem p where p.userId=:userId and p.normalizedName=:normalizedName and p.archived=false order by p.createdAt asc, p.id asc")
+  List<PantryItem> lockAllByUserAndNormalizedName(@Param("userId") UUID userId,@Param("normalizedName") String normalizedName);
+  /** Oldest active item with this normalized name, locked for update. */
+  default Optional<PantryItem> lockFirstByUserAndNormalizedName(UUID userId, String normalizedName) {
+    return lockAllByUserAndNormalizedName(userId, normalizedName).stream().findFirst();
+  }
   List<PantryItem> findByUserIdAndArchivedFalseAndExpiryDateIsNotNullAndExpiryDateLessThanEqualOrderByExpiryDateAsc(UUID userId, java.time.LocalDate date);
   List<PantryItem> findByUserIdAndArchivedFalseAndExpiryDateIsNotNullAndExpiryDateBetweenOrderByExpiryDateAsc(UUID userId, java.time.LocalDate start, java.time.LocalDate end);
-  Optional<PantryItem> findFirstByUserIdAndArchivedFalseAndNormalizedName(UUID userId,String normalizedName);
+  Optional<PantryItem> findFirstByUserIdAndArchivedFalseAndNormalizedNameOrderByCreatedAtAsc(UUID userId,String normalizedName);
 }
 interface PantryMovementRepository extends JpaRepository<PantryMovement,UUID> {
   List<PantryMovement> findTop100ByUserIdAndPantryItemIdOrderByCreatedAtDesc(UUID userId,UUID itemId);

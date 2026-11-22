@@ -127,4 +127,15 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.passwordHash").doesNotExist());
     verify(users).findById(ada.getId());
   }
+
+  @Test
+  void meReturns401WhenTheTokenBelongsToADeletedUser() throws Exception {
+    java.util.UUID ghost = java.util.UUID.randomUUID();
+    when(users.findById(ghost)).thenReturn(Optional.empty());
+    WebTestSupport.authenticate(ghost);
+
+    mvc.perform(get("/api/v1/auth/me"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Session is no longer valid"));
+  }
 }

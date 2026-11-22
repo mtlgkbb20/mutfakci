@@ -23,12 +23,12 @@ class PantryInventoryServiceTest {
   @BeforeEach
   void setUp() {
     when(items.save(any(PantryItem.class))).thenAnswer(inv -> inv.getArgument(0));
-    when(items.findFirstByUserIdAndArchivedFalseAndNormalizedName(any(), any())).thenReturn(Optional.empty());
+    when(items.findFirstByUserIdAndArchivedFalseAndNormalizedNameOrderByCreatedAtAsc(any(), any())).thenReturn(Optional.empty());
   }
 
   private PantryItem existing(String name, String normalized, String quantity, String unit) {
     PantryItem item = new PantryItem(user, name, normalized, "VEGETABLE", new BigDecimal(quantity), unit, null);
-    when(items.findFirstByUserIdAndArchivedFalseAndNormalizedName(user, normalized)).thenReturn(Optional.of(item));
+    when(items.findFirstByUserIdAndArchivedFalseAndNormalizedNameOrderByCreatedAtAsc(user, normalized)).thenReturn(Optional.of(item));
     return item;
   }
 

@@ -3,11 +3,11 @@ package com.kitchenai.pantry;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kitchenai.common.ApiException;
+import com.kitchenai.common.IngredientNames;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.*;
 import java.time.*;
-import java.text.Normalizer;
 import java.util.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,14 +44,14 @@ public class PantryController {
 
   @GetMapping("/items") public List<ItemView> list(@AuthenticationPrincipal UUID userId){return items.findByUserIdAndArchivedFalseOrderByCategoryAscNameAsc(userId).stream().map(this::view).toList();}
   @PostMapping("/items") @Transactional public ItemView create(@Valid @RequestBody ItemRequest r,@AuthenticationPrincipal UUID userId){
-    String unit=unit(r.unit()); PantryItem item=items.save(new PantryItem(userId,r.name().trim(),normalize(r.name()),category(r.category()),r.quantity(),unit,r.expiryDate()));
+    String unit=unit(r.unit()); PantryItem item=items.save(new PantryItem(userId,r.name().trim(),IngredientNames.normalize(r.name()),category(r.category()),r.quantity(),unit,r.expiryDate()));
     movements.save(new PantryMovement(userId,item.getId(),"ADD",r.quantity(),unit,"Initial stock",null)); return view(item);
   }
   @PatchMapping("/items/{id}") @Transactional public ItemView update(@PathVariable UUID id,@Valid @RequestBody ItemRequest r,@AuthenticationPrincipal UUID userId){
     PantryItem item=owned(id,userId); String newUnit=unit(r.unit());
     if(!newUnit.equals(item.getUnit()) && item.getQuantity().signum()>0) throw bad("Birim değişikliği için önce mevcut stoğu tüketin veya ayrı ürün oluşturun.");
     BigDecimal delta=r.quantity().subtract(item.getQuantity());
-    item.update(r.name().trim(),normalize(r.name()),category(r.category()),r.quantity(),newUnit,r.expiryDate());
+    item.update(r.name().trim(),IngredientNames.normalize(r.name()),category(r.category()),r.quantity(),newUnit,r.expiryDate());
     if(delta.signum()!=0) movements.save(new PantryMovement(userId,id,"ADJUST",delta,newUnit,"Manual stock adjustment",null));
     return view(items.save(item));
   }
@@ -124,7 +124,6 @@ public class PantryController {
   }
   private PantryItem owned(UUID id,UUID user){return items.findByIdAndUserIdAndArchivedFalse(id,user).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Pantry item not found"));}
   private ItemView view(PantryItem p){LocalDate today=LocalDate.now();boolean expired=p.getExpiryDate()!=null&&p.getExpiryDate().isBefore(today);boolean soon=p.getExpiryDate()!=null&&!expired&&!p.getExpiryDate().isAfter(today.plusDays(7));return new ItemView(p.getId(),p.getName(),p.getCategory(),p.getQuantity(),p.getUnit(),p.getExpiryDate(),expired,soon,p.getVersion());}
-  private static String normalize(String v){String lowered=v.trim().toLowerCase(Locale.ROOT).replace('ı','i');return Normalizer.normalize(lowered,Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("[^a-z0-9 ]","").replaceAll("\\s+"," ");}
   private static String category(String c){return c==null?"":c.trim();}
   private static String unit(String u){String x=u.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+"," ");if(x.isBlank()||x.length()>20)throw bad("Geçersiz birim.");return x;}
   private static boolean compatible(String a,String b){return dimension(a).equals(dimension(b));}

@@ -1,9 +1,9 @@
 package com.kitchenai.zerowaste;
 
 import com.kitchenai.common.ApiException;
+import com.kitchenai.common.IngredientNames;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.Normalizer;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
 
@@ -23,10 +23,7 @@ public final class ZeroWasteQuantityRules {
   }
 
   public static String normalize(String value) {
-    if (value == null) return "";
-    String lower = value.trim().toLowerCase(Locale.forLanguageTag("tr-TR")).replace('ı', 'i');
-    return Normalizer.normalize(lower, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
-        .replaceAll("[^a-z0-9]+", " ").trim().replaceAll("\\s+", " ");
+    return IngredientNames.normalize(value);
   }
 
   public static String validateUnit(String value) {
